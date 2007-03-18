@@ -106,9 +106,9 @@ int main(int argc, char ** argv)
     printf("INFO: Reading from %s\n",
 	   firewire_device ? firewire_device : "/dev/raw1394");
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);
-    int sock = connected_socket(mixer_host, mixer_port);
-    assert(sock >= 0); /* connected_socket() should handle errors */
-    if (dup2(sock, 1) < 0)
+    int sock = create_connected_socket(mixer_host, mixer_port);
+    assert(sock >= 0); /* create_connected_socket() should handle errors */
+    if (dup2(sock, STDOUT_FILENO) < 0)
     {
 	perror("ERROR: dup2");
 	return 1;

@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-int connected_socket(const char * host, const char * port)
+int create_connected_socket(const char * host, const char * port)
 {
     struct addrinfo mixer_addr_hints = {
 	.ai_family =   AF_UNSPEC,

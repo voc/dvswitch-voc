@@ -137,8 +137,8 @@ int main(int argc, char ** argv)
 	return 1;
     }
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);
-    int sock = connected_socket(mixer_host, mixer_port);
-    assert(sock >= 0); /* connected_socket() should handle errors */
+    int sock = create_connected_socket(mixer_host, mixer_port);
+    assert(sock >= 0); /* create_connected_socket() should handle errors */
 
     /* TODO: Main loop. */
     close(sock);
