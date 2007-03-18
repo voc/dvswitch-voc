@@ -1,3 +1,7 @@
+/* Copyright 2007 Ben Hutchings and Tore Sinding Bekkedal.
+ * See the file "COPYING" for licence details.
+ */
+
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200112
 

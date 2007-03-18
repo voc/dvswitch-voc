@@ -1,3 +1,7 @@
+/* Copyright 2007 Ben Hutchings and Tore Sinding Bekkedal.
+ * See the file "COPYING" for licence details.
+ */
+
 #ifndef DVSWITCH_SOCKET_H
 #define DVSWITCH_SOCKET_H
 
