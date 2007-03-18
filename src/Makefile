@@ -1,5 +1,9 @@
 CFLAGS := -std=c99 -Wall -Wextra -O2
+CPPFLAGS := -D_FILE_OFFSET_BITS=64
 LDFLAGS := -lrt
+
+dvsource-file.o : CFLAGS += $(shell pkg-config --cflags libdv)
+dvsource-file : LDFLAGS += $(shell pkg-config --libs libdv)
 
 all : dvsource-file dvsource-firewire
 

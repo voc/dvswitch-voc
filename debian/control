@@ -2,7 +2,7 @@ Source: dvswitch
 Maintainer: Ben Hutchings <ben@decadent.org.uk>
 Section: graphics
 Priority: extra
-Build-Depends: debhelper (>= 5), libdv-dev
+Build-Depends: debhelper (>= 5), libdv-dev, pkg-config
 Standards-Version: 3.7.2
 
 Package: dvsource
