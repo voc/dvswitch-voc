@@ -119,9 +119,9 @@ int main(int argc, char ** argv)
     }
     close(sock);
     if (firewire_device)
-	execlp("dvgrab", "--dv1394", firewire_device, "--noavc", "-");
+	execlp("dvgrab", "--dv1394", firewire_device, "--noavc", "-", NULL);
     else
-	execlp("dvgrab", "--noavc", "-");
+	execlp("dvgrab", "--noavc", "-", NULL);
     perror("ERROR: execvp");
     return 1;
 }
