@@ -2,7 +2,7 @@ CFLAGS := -std=c99 -Wall -Wextra -O2
 CXXFLAGS := -std=c++98 -Wall -Wextra -O2
 CPPFLAGS := -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_POSIX_C_SOURCE
 
-csources := dvsource-file.c dvsource-firewire.c config.c socket.c
+csources := dvsource-file.c dvsource-firewire.c config.c socket.c frame_timer.c
 cxxsources := dvswitch.cpp mixer.cpp
 common_objects := .objs/config.o .objs/socket.o
 
@@ -20,7 +20,7 @@ clean :
 .objs/dvsource-file .objs/dvswitch : \
 	LDFLAGS += $(shell pkg-config --libs libdv)
 
-.objs/dvsource-file .objs/dvswitch : -lrt
+.objs/dvsource-file .objs/dvswitch : LDFLAGS += -lpthread -lrt
 
 .objs/dvswitch.% .objs/dv_view_widget.% .objs/dv_selector.% : \
 	CXXFLAGS += $(shell pkg-config --cflags gtkmm-2.0)
@@ -28,11 +28,13 @@ clean :
 
 .objs/dvswitch : LDFLAGS += -lboost_thread
 
-.objs/dvsource-file : .objs/dvsource-file.o $(common_objects)
+.objs/dvsource-file : \
+	.objs/dvsource-file.o .objs/frame_timer.o $(common_objects)
 
 .objs/dvsource-firewire : .objs/dvsource-firewire.o $(common_objects)
 
-.objs/dvswitch : .objs/dvswitch.o .objs/mixer.o $(common_objects)
+.objs/dvswitch : \
+	.objs/dvswitch.o .objs/mixer.o .objs/frame_timer.o $(common_objects)
 
 .PHONY : all install clean
 

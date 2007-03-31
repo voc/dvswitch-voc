@@ -3,12 +3,10 @@
  */
 
 #include <assert.h>
-#include <signal.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -19,6 +17,7 @@
 
 #include "config.h"
 #include "dif.h"
+#include "frame_timer.h"
 #include "socket.h"
 
 static struct option options[] = {
@@ -54,58 +53,13 @@ Usage: %s [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT] FILE\n",
 }
 
 struct transfer_params {
-    timer_t        timer;
     dv_decoder_t * decoder;
     int            file;
     int            sock;
 };
 
-static timer_t create_frame_timer(void)
-{
-    /*
-     * On Linux, CLOCK_MONOTONIC matches the kernel interval timer
-     * (resolution is controlled by HZ) and there is no
-     * CLOCK_MONOTONIC_HR.
-     */
-    struct timespec res;
-    if (clock_getres(CLOCK_MONOTONIC, &res) == -1)
-    {
-	perror("ERROR: clock_get_res");
-	exit(1);
-    }
-    if (res.tv_sec != 0 || res.tv_nsec > frame_time_ns_525_60)
-	fprintf(stderr, 
-		"WARNING: CLOCK_MONOTONIC resolution is too low"
-		" (%lu.%09lus)\n",
-		(unsigned long)res.tv_sec, (unsigned long)res.tv_nsec);
-
-    struct sigevent event = {
-	.sigev_notify = SIGEV_SIGNAL,
-	.sigev_signo =  SIGALRM
-    };
-    timer_t timer;
-    if (timer_create(CLOCK_MONOTONIC, &event, &timer) != 0)
-    {
-	perror("ERROR: timer_create");
-	exit(1);
-    }
-    return timer;
-}
-
 static void transfer_frames(struct transfer_params * params)
 {
-    /* Assume the timer will signal SIGALRM; block it so we can handle
-     * it synchronously.
-     */
-    sigset_t sigset_alarm;
-    sigemptyset(&sigset_alarm);
-    sigaddset(&sigset_alarm, SIGALRM);
-    if (sigprocmask(SIG_BLOCK, &sigset_alarm, NULL) != 0)
-    {
-	perror("ERROR: sigprocmask");
-	exit(1);
-    }
-
     dv_system_t last_frame_system = e_dv_system_none;
     static uint8_t buf[dif_block_size * frame_blocks_max];
     ssize_t size;
@@ -123,18 +77,9 @@ static void transfer_frames(struct transfer_params * params)
 	if (params->decoder->system != last_frame_system)
 	{
 	    last_frame_system = params->decoder->system;
-	    struct itimerspec interval;
-	    interval.it_interval.tv_sec = 0;
-	    if (params->decoder->system == e_dv_system_525_60)
-		interval.it_interval.tv_nsec = frame_time_ns_525_60;
-	    else
-		interval.it_interval.tv_nsec = frame_time_ns_625_50;
-	    interval.it_value = interval.it_interval;
-	    if (timer_settime(params->timer, 0, &interval, NULL) != 0)
-	    {
-		perror("ERROR: timer_settime");
-		exit(1);
-	    }
+	    set_frame_timer((params->decoder->system == e_dv_system_525_60)
+			    ? frame_time_ns_525_60
+			    : frame_time_ns_625_50);
 	}
 
 	if (read(params->file, buf + dif_pack_size,
@@ -151,9 +96,7 @@ static void transfer_frames(struct transfer_params * params)
 	    exit(1);
 	}
 
-	/* Wait for next frame time. */
-	int dummy;
-	sigwait(&sigset_alarm, &dummy);
+	wait_frame_timer();
     }
 
     if (size != 0)
@@ -220,7 +163,6 @@ int main(int argc, char ** argv)
     /* Prepare to read the file and connect a socket to the mixer. */
 
     struct transfer_params params;
-    params.timer = create_frame_timer();
     dv_init(TRUE, TRUE);
     params.decoder = dv_decoder_new(0, TRUE, TRUE);
     if (!params.decoder)
