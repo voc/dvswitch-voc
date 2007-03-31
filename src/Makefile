@@ -1,9 +1,9 @@
 CFLAGS := -std=c99 -Wall -Wextra -O2
-CPPFLAGS := -D_FILE_OFFSET_BITS=64
-LDFLAGS := -lrt
+CXXFLAGS := -std=c++98 -Wall -Wextra -O2
+CPPFLAGS := -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_POSIX_C_SOURCE
 
 dvsource-file.o : CFLAGS += $(shell pkg-config --cflags libdv)
-dvsource-file : LDFLAGS += $(shell pkg-config --libs libdv)
+dvsource-file : LDFLAGS += $(shell pkg-config --libs libdv) -lrt
 
 all : dvsource-file dvsource-firewire
 
