@@ -11,7 +11,9 @@
 struct frame
 {
     struct timeval time_received;
-    char buffer[dif_block_size * frame_blocks_max];
+    dv_system_t system;
+    size_t size;
+    uint8_t buffer[dif_block_size * frame_blocks_max];
 };
 
 #endif // !defined(DVSWITCH_FRAME_H)

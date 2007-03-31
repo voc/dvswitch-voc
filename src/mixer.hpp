@@ -74,7 +74,7 @@ private:
     boost::thread * clock_thread_;
 };
 
-class sink
+struct sink
 {
     virtual void put_frame(const mixer::frame_ptr &) = 0;
     virtual void cut() = 0;
