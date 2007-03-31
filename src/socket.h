@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 int create_connected_socket(const char * host, const char * port);
+int create_listening_socket(const char * host, const char * port);
 
 #ifdef __cplusplus
 }

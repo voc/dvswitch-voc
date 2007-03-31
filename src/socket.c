@@ -15,34 +15,75 @@
 
 int create_connected_socket(const char * host, const char * port)
 {
-    struct addrinfo mixer_addr_hints = {
+    struct addrinfo addr_hints = {
 	.ai_family =   AF_UNSPEC,
 	.ai_socktype = SOCK_STREAM,
 	.ai_flags =    AI_ADDRCONFIG
     };
-    struct addrinfo * mixer_addr;
+    struct addrinfo * addr;
     int error;
-    if ((error = getaddrinfo(host, port, &mixer_addr_hints, &mixer_addr)))
+    if ((error = getaddrinfo(host, port, &addr_hints, &addr)))
     {
 	fprintf(stderr, "ERROR: getaddrinfo: %s\n", gai_strerror(error));
 	exit(1);
     }
 
     /* XXX Should we walk the list rather than only trying the first? */
-    int sock = socket(mixer_addr->ai_family,
-		      mixer_addr->ai_socktype,
-		      mixer_addr->ai_protocol);
+    int sock = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
     if (sock < 0)
     {
 	perror("ERROR: socket");
 	exit(1);
     }
-    if (connect(sock, mixer_addr->ai_addr, mixer_addr->ai_addrlen) != 0)
+    if (connect(sock, addr->ai_addr, addr->ai_addrlen) != 0)
     {
 	perror("ERROR: connect");
 	exit(1);
     }
 
-    freeaddrinfo(mixer_addr);
+    freeaddrinfo(addr);
+    return sock;
+}
+
+int create_listening_socket(const char * host, const char * port)
+{
+    struct addrinfo addr_hints = {
+	.ai_family =   AF_UNSPEC,
+	.ai_socktype = SOCK_STREAM,
+	.ai_flags =    AI_ADDRCONFIG
+    };
+    struct addrinfo * addr;
+    int error;
+    if ((error = getaddrinfo(host, port, &addr_hints, &addr)))
+    {
+	fprintf(stderr, "ERROR: getaddrinfo: %s\n", gai_strerror(error));
+	exit(1);
+    }
+
+    /* XXX Should we walk the list rather than only trying the first? */
+    int sock = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+    if (sock < 0)
+    {
+	perror("ERROR: socket");
+	exit(1);
+    }
+    static const int one = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) != 0)
+    {
+	perror("ERROR: setsockopt");
+	exit(1);
+    }
+    if (bind(sock, addr->ai_addr, addr->ai_addrlen) != 0)
+    {
+	perror("ERROR: connect");
+	exit(1);
+    }
+    if (listen(sock, 10) != 0)
+    {
+	perror("ERROR: listen");
+	exit(1);
+    }
+
+    freeaddrinfo(addr);
     return sock;
 }
