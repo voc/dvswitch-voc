@@ -21,14 +21,8 @@
 #include <libdv/dv.h>
 
 #include "config.h"
+#include "dif.h"
 #include "socket.h"
-
-static const size_t dif_block_size = 80;
-static const size_t dif_pack_size = 6 * 80;
-static const size_t frame_blocks_max = 1800;
-
-static const int frame_time_ns_625_50 = 1000000000 / 25;
-static const int frame_time_ns_525_60 = 1001000000 / 30;
 
 static struct option options[] = {
     {"host",   1, NULL, 'h'},
