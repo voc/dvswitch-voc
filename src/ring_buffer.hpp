@@ -1,3 +1,6 @@
+// Copyright 2007 Ben Hutchings and Tore Sinding Bekkedal.
+// See the file "COPYING" for licence details.
+
 #ifndef DVSWITCH_RING_BUFFER_HPP
 #define DVSWITCH_RING_BUFFER_HPP
 
@@ -13,8 +16,9 @@ public:
     ring_buffer()
 	: front_(0), back_(0)
     {}
-    ~ring_buffer()
-    {}
+    ring_buffer(const ring_buffer &);
+    ~ring_buffer();
+    ring_buffer & operator=(const ring_buffer &);
 
     std::size_t capacity() const { return N; }
     std::size_t size() const { return back_ - front_; }
@@ -35,6 +39,31 @@ private:
 			      std::tr1::alignment_of<T>::value>
     buffer_;
 };
+
+template<typename T, std::size_t N>
+ring_buffer<T, N>::ring_buffer(const ring_buffer & other)
+    : front_(0), back_(0)
+{
+    for (std::size_t i = other.front_; i != other.back_; ++i)
+	push(reinterpret_cast<const T *>(&other.buffer_)[i % N]);
+}
+
+template<typename T, std::size_t N>
+ring_buffer<T, N>::~ring_buffer()
+{
+    while (!empty())
+	pop();
+}
+
+template<typename T, std::size_t N>
+ring_buffer<T, N> & ring_buffer<T, N>::operator=(const ring_buffer & other)
+{
+    while (!empty())
+	pop();
+
+    for (std::size_t i = other.front_; i != other.back_; ++i)
+	push(reinterpret_cast<const T *>(&other.buffer_)[i % N]);
+}
 
 template<typename T, std::size_t N>
 void ring_buffer<T, N>::pop()
