@@ -35,8 +35,8 @@ public:
 
 private:
     std::size_t front_, back_;
-    std::tr1::aligned_storage<sizeof(T) * N,
-			      std::tr1::alignment_of<T>::value>
+    typename std::tr1::aligned_storage<sizeof(T) * N,
+				       std::tr1::alignment_of<T>::value>::type
     buffer_;
 };
 
@@ -63,6 +63,8 @@ ring_buffer<T, N> & ring_buffer<T, N>::operator=(const ring_buffer & other)
 
     for (std::size_t i = other.front_; i != other.back_; ++i)
 	push(reinterpret_cast<const T *>(&other.buffer_)[i % N]);
+
+    return *this;
 }
 
 template<typename T, std::size_t N>
