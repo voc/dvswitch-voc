@@ -9,6 +9,8 @@ install-stamp : build
 	mkdir -p debian/dvsource/usr/bin
 	mv debian/tmp/usr/bin/dvsource-file debian/dvsource/usr/bin
 	mv debian/tmp/usr/bin/dvsource-firewire debian/dvsource/usr/bin
+	mkdir -p debian/dvswitch/usr/bin
+	mv debian/tmp/usr/bin/dvswitch debian/dvswitch/usr/bin
 	touch install-stamp
 
 binary : binary-arch binary-indep
