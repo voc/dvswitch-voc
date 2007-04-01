@@ -6,6 +6,8 @@
 
 #include <sys/types.h>
 
+#include <libdv/dv.h>
+
 #include "dif.h"
 
 struct frame

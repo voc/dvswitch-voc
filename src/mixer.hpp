@@ -12,22 +12,26 @@
 #include <boost/pool/object_pool.hpp>
 #include <boost/thread/mutex.hpp>
 
+#include "ring_buffer.hpp"
+
 namespace boost
 {
     class thread;
 }
 
-template<typename T, std::size_t N>
-class ring_buffer;
-
 class frame;
-class sink;
 
 class mixer
 {
 public:
     typedef unsigned source_id, sink_id;
     typedef std::tr1::shared_ptr<frame> frame_ptr;
+
+    struct sink
+    {
+	virtual void put_frame(const frame_ptr &) = 0;
+	virtual void cut() = 0;
+    };
 
     mixer();
     ~mixer();
@@ -72,12 +76,6 @@ private:
     std::vector<frame_queue> source_queues_;
     std::vector<sink *> sinks_;
     boost::thread * clock_thread_;
-};
-
-struct sink
-{
-    virtual void put_frame(const mixer::frame_ptr &) = 0;
-    virtual void cut() = 0;
 };
 
 #endif // !defined(DVSWITCH_MIXER_HPP)
