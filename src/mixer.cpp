@@ -47,7 +47,7 @@ mixer::frame_ptr mixer::allocate_frame()
 
 mixer::source_id mixer::add_source()
 {
-    boost::mutex::scoped_lock lock(mixer_mutex_);
+    boost::mutex::scoped_lock lock(source_mutex_);
     source_queues_.push_back(frame_queue());
     return source_queues_.size() - 1;
 }
@@ -62,7 +62,7 @@ void mixer::put_frame(source_id id, const frame_ptr & frame)
     bool was_full;
 
     {
-	boost::mutex::scoped_lock lock(mixer_mutex_);
+	boost::mutex::scoped_lock lock(source_mutex_);
 
 	frame_queue & queue = source_queues_.at(id);
 	was_full = queue.full();
@@ -88,7 +88,7 @@ void mixer::put_frame(source_id id, const frame_ptr & frame)
 
 mixer::sink_id mixer::add_sink(sink * sink)
 {
-    boost::mutex::scoped_lock lock(mixer_mutex_);
+    boost::mutex::scoped_lock lock(sink_mutex_);
     // XXX We may want to be able to reuse sink slots.
     sinks_.push_back(sink);
     return sinks_.size() - 1;
@@ -96,19 +96,19 @@ mixer::sink_id mixer::add_sink(sink * sink)
 
 void mixer::remove_sink(sink_id id)
 {
-    boost::mutex::scoped_lock lock(mixer_mutex_);
+    boost::mutex::scoped_lock lock(sink_mutex_);
     sinks_.at(id) = 0;
 }
 
 void mixer::set_video_source(source_id id)
 {
-    boost::mutex::scoped_lock lock(mixer_mutex_);
+    boost::mutex::scoped_lock lock(source_mutex_);
     settings_.video_source_id = id;
 }
 
 void mixer::cut()
 {
-    boost::mutex::scoped_lock lock(mixer_mutex_);
+    boost::mutex::scoped_lock lock(source_mutex_);
     settings_.cut_before = true;
 }
 
@@ -123,7 +123,7 @@ void mixer::stop_clock()
     assert(clock_thread_);
 
     {
-	boost::mutex::scoped_lock lock(mixer_mutex_);
+	boost::mutex::scoped_lock lock(source_mutex_);
 	source_queues_.clear();
     }
 
@@ -151,7 +151,7 @@ void mixer::run_clock()
 	bool cut_before;
 
 	{
-	    boost::mutex::scoped_lock lock(mixer_mutex_);
+	    boost::mutex::scoped_lock lock(source_mutex_);
 	    cut_before = settings_.cut_before;
 	    settings_.cut_before = false;
 	    for (source_id id = 0; id != source_queues_.size(); ++id)
@@ -169,7 +169,7 @@ void mixer::run_clock()
 	assert(frame);
 
 	{
-	    boost::mutex::scoped_lock lock(mixer_mutex_);
+	    boost::mutex::scoped_lock lock(sink_mutex_);
 	    for (sink_id id = 0; id != sinks_.size(); ++id)
 		if (sinks_[id])
 		{

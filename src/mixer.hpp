@@ -71,10 +71,13 @@ private:
     void stop_clock();
     void run_clock();
 
-    boost::mutex mixer_mutex_;
+    boost::mutex source_mutex_;
     mix_settings settings_;
     std::vector<frame_queue> source_queues_;
+
+    boost::mutex sink_mutex_;
     std::vector<sink *> sinks_;
+
     boost::thread * clock_thread_;
 };
 
