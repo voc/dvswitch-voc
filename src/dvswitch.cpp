@@ -11,11 +11,12 @@
 #include <getopt.h>
 
 #include <gtkmm/main.h>
-#include <gtkmm/window.h>
+
+#include <libdv/dv.h>
 
 #include "config.h"
-#include "dv_view_widget.hpp"
-#include "dv_selector_widget.hpp"
+#include "mixer.hpp"
+#include "mixer_window.hpp"
 
 namespace
 {
@@ -89,8 +90,15 @@ int main(int argc, char **argv)
 	    return 2;
 	}
 
-	// TODO: Listen on port, create window, set up frame processing
-	// thread... in fact the whole program.
+	dv_init(true, true);
+
+	mixer the_mixer;
+	// TODO: Listen on port and accept source connections.
+	mixer_window the_window(the_mixer);
+	the_window.show();
+	the_window.signal_hide().connect(SigC::slot(&Gtk::Main::quit));
+	Gtk::Main::run();
+	return EXIT_SUCCESS;
     }
     catch (std::exception & e)
     {
