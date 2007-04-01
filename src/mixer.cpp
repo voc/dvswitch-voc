@@ -145,10 +145,12 @@ void mixer::run_clock()
 {
     dv_system_t last_frame_system = e_dv_system_none;
     frame_ptr frame;
+    unsigned serial_num = 0;
 
     for (;;)
     {
 	bool cut_before;
+	bool have_new_frame = false;
 
 	{
 	    boost::mutex::scoped_lock lock(source_mutex_);
@@ -159,14 +161,22 @@ void mixer::run_clock()
 		if (!source_queues_[id].empty())
 		{
 		    if (id == settings_.video_source_id)
-			// TODO: Mix in audio if audio source is different.
+		    {
 			frame = source_queues_[id].front();
+			have_new_frame = true;
+		    }
 		    source_queues_[id].pop();
 		}
 	    }
 	}
 
 	assert(frame);
+
+	if (have_new_frame)
+	{
+	    // TODO: Mix in audio if audio source is different.
+	    frame->serial_num = serial_num++;
+	}
 
 	{
 	    boost::mutex::scoped_lock lock(sink_mutex_);

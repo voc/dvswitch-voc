@@ -12,9 +12,10 @@
 
 struct frame
 {
-    struct timeval time_received;
-    dv_system_t system;
-    size_t size;
+    struct timeval time_received; // set by source
+    unsigned serial_num;          // set by mixer
+    dv_system_t system;           // set by source
+    size_t size;                  // set by source
     uint8_t buffer[dif_block_size * frame_blocks_max];
 };
 
