@@ -1,3 +1,10 @@
+prefix := /usr/local
+
+bindir := $(prefix)/bin
+sharedir := $(prefix)/share
+docdir := $(sharedir)/doc
+mandir := $(sharedir)/man
+
 CFLAGS := -std=c99 -Wall -Wextra -O2 -g
 CXXFLAGS := -std=c++98 -Wall -Wextra -O2 -g
 CPPFLAGS := -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_POSIX_C_SOURCE
@@ -10,9 +17,9 @@ common_objects := .objs/config.o .objs/socket.o
 all : .objs/dvsource-file .objs/dvsource-firewire .objs/dvswitch
 
 install :
-	mkdir -p -m755 $(DESTDIR)/usr/bin
+	mkdir -p -m755 $(DESTDIR)$(bindir)
 	install .objs/dvsource-file .objs/dvsource-firewire .objs/dvswitch \
-		$(DESTDIR)/usr/bin
+		$(DESTDIR)$(bindir)
 
 clean :
 	rm -rf .objs

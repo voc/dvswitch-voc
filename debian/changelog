@@ -1,5 +1,5 @@
-dvswitch (0.0.1-1) unstable; urgency=low
+dvswitch (0.1-1) testing; urgency=low
 
-  * Nothing to see here.
+  * Initial release
 
- --
+ -- Ben Hutchings <ben@decadent.org.uk>  Mon,  2 Apr 2007 03:18:16 +0100

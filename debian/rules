@@ -1,16 +1,20 @@
 #!/usr/bin/make -f
 
 build :
-	cd src && make
+	make prefix=/usr
 
 install-stamp : build
 	dh_testroot
-	cd src && make DESTDIR=../debian/tmp install
-	mkdir -p debian/dvsource/usr/bin
+	make DESTDIR=$$(pwd)/debian/tmp prefix=/usr install
+	mkdir -p debian/dvsource/usr/bin debian/dvsource/usr/share/doc
 	mv debian/tmp/usr/bin/dvsource-file debian/dvsource/usr/bin
 	mv debian/tmp/usr/bin/dvsource-firewire debian/dvsource/usr/bin
-	mkdir -p debian/dvswitch/usr/bin
+	cp -R debian/tmp/usr/share/doc/dvswitch \
+		debian/dvsource/usr/share/doc/dvsource
+	mkdir -p debian/dvswitch/usr/bin debian/dvswitch/usr/share/doc
 	mv debian/tmp/usr/bin/dvswitch debian/dvswitch/usr/bin
+	mv debian/tmp/usr/share/doc/dvswitch \
+		debian/dvswitch/usr/share/doc/dvswitch
 	touch install-stamp
 
 binary : binary-arch binary-indep
@@ -19,7 +23,7 @@ binary-arch : install-stamp
 	dh_strip
 	dh_shlibdeps
 	dh_installchangelogs -a
-	#dh_installdocs -a
+	dh_installdocs -a
 	dh_compress -a
 	dh_fixperms -a
 	dh_installdeb -a
@@ -28,7 +32,7 @@ binary-arch : install-stamp
 
 binary-indep : install-stamp
 	dh_installchangelogs -i
-	#dh_installdocs -i
+	dh_installdocs -i
 	dh_compress -i
 	dh_fixperms -i
 	dh_installdeb -i
@@ -36,7 +40,7 @@ binary-indep : install-stamp
 	dh_builddeb -i	
 
 clean :
-	cd src && make clean
+	make clean
 	dh_clean install-stamp
 
 .PHONY : build binary binary-arch binary-indep clean
