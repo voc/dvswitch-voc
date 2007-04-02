@@ -64,6 +64,8 @@ static void transfer_frames(struct transfer_params * params)
     static uint8_t buf[dif_block_size * frame_blocks_max];
     ssize_t size;
 
+    init_frame_timer();
+
     while ((size = read(params->file, buf, dif_pack_size))
 	   == (ssize_t)dif_pack_size)
     {
