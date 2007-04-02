@@ -11,6 +11,7 @@ dv_display_widget::dv_display_widget()
 			 720, 576)), // XXX These should be named constants
       decoder_(dv_decoder_new(0, true, true))
 {
+    dv_set_quality(decoder_, DV_QUALITY_BEST);
 }
 
 dv_display_widget::~dv_display_widget()
@@ -36,6 +37,7 @@ bool dv_display_widget::try_update()
 	Glib::RefPtr<Gdk::Pixbuf> decoded_frame(get_pixbuf());
 	uint8_t * pixels[1] = { decoded_frame->get_pixels() };
 	int pitches[1] = { decoded_frame->get_rowstride() };
+	dv_parse_header(decoder_, dv_frame->buffer);
 	dv_decode_full_frame(decoder_, dv_frame->buffer,
 			     e_dv_color_rgb, pixels, pitches);
 	decoded_serial_num_ = dv_frame->serial_num;
