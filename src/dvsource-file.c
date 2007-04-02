@@ -61,13 +61,13 @@ struct transfer_params {
 static void transfer_frames(struct transfer_params * params)
 {
     dv_system_t last_frame_system = e_dv_system_none;
-    static uint8_t buf[dif_block_size * frame_blocks_max];
+    static uint8_t buf[DIF_MAX_BLOCKS_PER_FRAME * DIF_BLOCK_SIZE];
     ssize_t size;
 
     init_frame_timer();
 
-    while ((size = read(params->file, buf, dif_pack_size))
-	   == (ssize_t)dif_pack_size)
+    while ((size = read(params->file, buf, DIF_PACK_SIZE))
+	   == (ssize_t)DIF_PACK_SIZE)
     {
 	if (dv_parse_header(params->decoder, buf) < 0)
 	{
@@ -84,9 +84,9 @@ static void transfer_frames(struct transfer_params * params)
 			    : frame_time_ns_625_50);
 	}
 
-	if (read(params->file, buf + dif_pack_size,
-		 params->decoder->frame_size - dif_pack_size)
-	    != (ssize_t)(params->decoder->frame_size - dif_pack_size))
+	if (read(params->file, buf + DIF_PACK_SIZE,
+		 params->decoder->frame_size - DIF_PACK_SIZE)
+	    != (ssize_t)(params->decoder->frame_size - DIF_PACK_SIZE))
 	{
 	    perror("ERROR: read");
 	    exit(1);

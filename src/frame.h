@@ -16,7 +16,7 @@ struct frame
     unsigned serial_num;          // set by mixer
     dv_system_t system;           // set by source
     size_t size;                  // set by source
-    uint8_t buffer[dif_block_size * frame_blocks_max];
+    uint8_t buffer[DIF_MAX_BLOCKS_PER_FRAME * DIF_BLOCK_SIZE];
 };
 
 #endif // !defined(DVSWITCH_FRAME_H)
