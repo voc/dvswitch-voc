@@ -17,6 +17,7 @@
 #include "config.h"
 #include "mixer.hpp"
 #include "mixer_window.hpp"
+#include "server.hpp"
 
 namespace
 {
@@ -93,7 +94,7 @@ int main(int argc, char **argv)
 	dv_init(true, true);
 
 	mixer the_mixer;
-	// TODO: Listen on port and accept source connections.
+	server the_server(mixer_host, mixer_port, the_mixer);
 	mixer_window the_window(the_mixer);
 	the_window.show();
 	the_window.signal_hide().connect(SigC::slot(&Gtk::Main::quit));
