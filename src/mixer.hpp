@@ -36,7 +36,7 @@ public:
     mixer();
     ~mixer();
 
-    frame_ptr allocate_frame();
+    static frame_ptr allocate_frame();
 
     // Source interface
     source_id add_source();
