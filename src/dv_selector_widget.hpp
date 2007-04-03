@@ -8,6 +8,8 @@
 
 class dv_selector_widget : public Gtk::Table
 {
+public:
+    void set_xv_port(uint32_t);
 };
 
 #endif // !defined(DVSWITCH_DV_SELECTOR_WIDGET_HPP)

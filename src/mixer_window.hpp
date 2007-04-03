@@ -4,6 +4,8 @@
 #ifndef DVSWITCH_MIXER_WINDOW_HPP
 #define DVSWITCH_MIXER_WINDOW_HPP
 
+#include <sys/types.h>
+
 #include <glibmm/refptr.h>
 #include <gtkmm/box.h>
 #include <gtkmm/window.h>
@@ -26,8 +28,12 @@ public:
 
 private:
     bool on_key_press(GdkEventKey *);
+    void grab_xv_port();
+    void ungrab_xv_port();
 
     mixer & mixer_;
+
+    uint32_t xv_port_;
 
     Gtk::HBox box_;
     dv_display_widget display_;

@@ -37,6 +37,8 @@ clean :
 
 .objs/dvswitch : LDFLAGS += -lboost_thread
 
+.objs/dvswitch : LDFLAGS += -lXv
+
 .objs/dvsource-file : \
 	.objs/dvsource-file.o .objs/frame_timer.o $(common_objects)
 
