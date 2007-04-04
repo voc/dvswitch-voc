@@ -88,6 +88,7 @@ bool dv_display_widget::try_update()
     {
 	boost::mutex::scoped_lock lock(dv_frame_mutex_);
 	dv_frame = dv_frame_;
+	dv_frame_.reset();
     }
 
     if (xv_image && dv_frame && dv_frame->serial_num != decoded_serial_num_)
