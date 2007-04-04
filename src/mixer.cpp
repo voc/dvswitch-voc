@@ -161,13 +161,14 @@ namespace
 void mixer::run_clock()
 {
     dv_system_t last_frame_system = e_dv_system_none;
-    frame_ptr frame;
+    std::vector<frame_ptr> source_frames;
+    source_frames.reserve(5);
+    frame_ptr mixed_frame;
     unsigned serial_num = 0;
 
     for (;;)
     {
 	bool cut_before;
-	bool have_new_frame = false;
 
 	// Select the mixer settings and source frame(s)
 	// TODO: select frames from all sources for monitor
@@ -175,29 +176,24 @@ void mixer::run_clock()
 	    boost::mutex::scoped_lock lock(source_mutex_);
 	    if (source_queues_.size() == 0) // signal to exit
 		break;
+	    source_frames.resize(source_queues_.size());
 	    cut_before = settings_.cut_before;
 	    settings_.cut_before = false;
 	    for (source_id id = 0; id != source_queues_.size(); ++id)
 	    {
 		if (!source_queues_[id].empty())
 		{
+		    source_frames[id] = source_queues_[id].front();
+		    source_frames[id]->serial_num = serial_num;
 		    if (id == settings_.video_source_id)
-		    {
-			frame = source_queues_[id].front();
-			have_new_frame = true;
-		    }
+			mixed_frame = source_frames[id];
 		    source_queues_[id].pop();
 		}
 	    }
 	}
 
-	assert(frame);
-
-	if (have_new_frame)
-	{
-	    // TODO: Mix in audio if audio source is different.
-	    frame->serial_num = serial_num++;
-	}
+	assert(mixed_frame);
+	++serial_num;
 
 	// Sink the frame
 	{
@@ -207,19 +203,20 @@ void mixer::run_clock()
 		{
 		    if (cut_before)
 			sinks_[id]->cut();
-		    sinks_[id]->put_frame(frame);
+		    sinks_[id]->put_frame(mixed_frame);
 		}
 	}
 	if (monitor_)
-	    monitor_->put_frames(0, &frame, frame);
+	    monitor_->put_frames(source_frames.size(), &source_frames[0],
+				 mixed_frame);
 
 	// (Re)set the timer according to this frame's video system.
 	// TODO: Adjust timer interval dynamically to maintain synch with
 	// audio source.
-	if (frame->system != last_frame_system)
+	if (mixed_frame->system != last_frame_system)
 	{
-	    last_frame_system = frame->system;
-	    set_frame_timer((frame->system == e_dv_system_525_60)
+	    last_frame_system = mixed_frame->system;
+	    set_frame_timer((mixed_frame->system == e_dv_system_525_60)
 			    ? frame_time_ns_525_60
 			    : frame_time_ns_625_50);
 	}
