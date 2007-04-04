@@ -9,7 +9,6 @@
 
 #include <tr1/memory>
 
-#include <boost/pool/object_pool.hpp>
 #include <boost/thread/mutex.hpp>
 
 #include "ring_buffer.hpp"
@@ -24,31 +23,52 @@ class frame;
 class mixer
 {
 public:
+    // Identifiers to distinguish mixer's sources and sinks
     typedef unsigned source_id, sink_id;
+    // Reference-counting pointer to a frame
     typedef std::tr1::shared_ptr<frame> frame_ptr;
 
+    // Interface to sinks
     struct sink
     {
+	// Put a frame out.
+	// The frame is shared with other sinks and must not be
+	// modified.  It should be released as soon as possible.
+	// This will be called at the appropriate frame rate even
+	// if there are no new frames available.  The serial_num
+	// member of the frame can be used to check whether the
+	// frame is new.
 	virtual void put_frame(const frame_ptr &) = 0;
+	// Make a cut in the output, if appropriate
 	virtual void cut() = 0;
     };
 
     mixer();
     ~mixer();
 
-    static frame_ptr allocate_frame();
-
-    // Source interface
+    // Interface for sources
+    // Register and unregister sources
     source_id add_source();
     void remove_source(source_id);
+    // Allocate a frame buffer.  This uses a memory pool and should be
+    // fast.
+    static frame_ptr allocate_frame();
+    // Add a new frame from the given source.  This should be called at
+    // appropriate intervals to avoid the need to drop or duplicate
+    // frames.
     void put_frame(source_id, const frame_ptr &);
 
-    // Sink interface
+    // Interface for sinks
+    // Register and unregister sinks
     sink_id add_sink(sink *);
     void remove_sink(sink_id);
+    // TODO: interface for sinking all sources, for use by thumbnails
 
     // Mixer interface
+    // Select the video source for output
     void set_video_source(source_id);
+    // Make a cut in the output as soon as possible, where appropriate
+    // for the sink
     void cut();
 
 private:
@@ -67,15 +87,15 @@ private:
 	bool cut_before;
     };
 
-    void start_clock();
-    void stop_clock();
-    void run_clock();
+    void start_clock(); // start the clock thread
+    void stop_clock();  // stop the clock thread
+    void run_clock();   // clock thread function
 
-    boost::mutex source_mutex_;
+    boost::mutex source_mutex_; // controls access to the following
     mix_settings settings_;
     std::vector<frame_queue> source_queues_;
 
-    boost::mutex sink_mutex_;
+    boost::mutex sink_mutex_; // controls access to the following
     std::vector<sink *> sinks_;
 
     boost::thread * clock_thread_;

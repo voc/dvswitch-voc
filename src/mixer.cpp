@@ -5,6 +5,7 @@
 #include <ostream>
 
 #include <boost/bind.hpp>
+#include <boost/pool/object_pool.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <libdv/dv.h>
@@ -27,9 +28,12 @@ mixer::~mixer()
 	stop_clock();
 }
 
+// Memory pool for frame buffers.  This should make frame
+// (de)allocation relatively cheap.
+
 namespace
 {
-    boost::mutex frame_pool_mutex;
+    boost::mutex frame_pool_mutex; // controls access to the following
     boost::object_pool<frame> frame_pool(100);
 
     void free_frame(frame * frame)
@@ -114,6 +118,9 @@ void mixer::cut()
 
 void mixer::start_clock()
 {
+    // XXX This could take some time (e.g. it may allocate the thread
+    // stack before returning). We should start the thread earlier and
+    // only set a condition here.
     assert(!clock_thread_);
     clock_thread_ = new boost::thread(boost::bind(&mixer::run_clock, this));
 }
@@ -123,15 +130,18 @@ void mixer::stop_clock()
     assert(clock_thread_);
 
     {
+	// This is supposed to signal the clock thread to exit
 	boost::mutex::scoped_lock lock(source_mutex_);
 	source_queues_.clear();
     }
 
+    // Wait for it to do so
     clock_thread_->join();
     delete clock_thread_;
     clock_thread_ = 0;
 }
 
+// Ensure the frame timer is initialised at startup
 namespace
 {
     struct timer_initialiser { timer_initialiser(); } timer_dummy;
@@ -152,8 +162,10 @@ void mixer::run_clock()
 	bool cut_before;
 	bool have_new_frame = false;
 
+	// Select the mixer settings and source frame(s)
 	{
 	    boost::mutex::scoped_lock lock(source_mutex_);
+	    // XXX We should exit if there are no sources
 	    cut_before = settings_.cut_before;
 	    settings_.cut_before = false;
 	    for (source_id id = 0; id != source_queues_.size(); ++id)
@@ -178,6 +190,7 @@ void mixer::run_clock()
 	    frame->serial_num = serial_num++;
 	}
 
+	// Sink the frame
 	{
 	    boost::mutex::scoped_lock lock(sink_mutex_);
 	    for (sink_id id = 0; id != sinks_.size(); ++id)
