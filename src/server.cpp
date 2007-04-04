@@ -32,7 +32,6 @@ private:
     server & server_;
     int socket_;
     mixer::source_id source_id_;
-    Glib::RefPtr<Glib::IOSource> io_source_;
     dv_decoder_t * decoder_;
     mixer::frame_ptr partial_frame_;
 };
@@ -40,16 +39,16 @@ private:
 server::server(const std::string & host, const std::string & port,
 	       mixer & mixer)
     : mixer_(mixer),
-      listen_socket_(create_listening_socket(host.c_str(), port.c_str())),
-      io_source_(Glib::IOSource::create(listen_socket_, Glib::IO_IN))
+      listen_socket_(create_listening_socket(host.c_str(), port.c_str()))
 {
-    io_source_->connect(SigC::slot(*this, &server::do_accept));
-    io_source_->attach();
+    Glib::RefPtr<Glib::IOSource> io_source(
+	Glib::IOSource::create(listen_socket_, Glib::IO_IN));
+    io_source->connect(SigC::slot(*this, &server::do_accept));
+    io_source->attach();
 }
 
 server::~server()
 {
-    io_source_->destroy();
     close(listen_socket_);
     std::list<connection *>::iterator
 	it = connections_.begin(), end = connections_.end();
@@ -75,19 +74,19 @@ server::connection::connection(server & server, int socket)
     : server_(server),
       socket_(socket),
       source_id_(server_.mixer_.add_source()),
-      io_source_(Glib::IOSource::create(
-		     socket_, Glib::IO_IN | Glib::IO_ERR | Glib::IO_HUP)),
       decoder_(dv_decoder_new(0, true, true))
 {
     fcntl(socket_, F_SETFL, O_NONBLOCK);
-    io_source_->connect(SigC::slot(*this, &server::connection::do_receive));
-    io_source_->attach();
+    Glib::RefPtr<Glib::IOSource> io_source(
+	Glib::IOSource::create(socket_,
+			       Glib::IO_IN | Glib::IO_ERR | Glib::IO_HUP));
+    io_source->connect(SigC::slot(*this, &server::connection::do_receive));
+    io_source->attach();
 }
 
 server::connection::~connection()
 {
     dv_decoder_free(decoder_);
-    io_source_->destroy();
     close(socket_);
 }
 

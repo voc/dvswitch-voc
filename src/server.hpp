@@ -27,7 +27,6 @@ private:
 
     mixer & mixer_;
     int listen_socket_;
-    Glib::RefPtr<Glib::IOSource> io_source_;
     std::list<connection *> connections_;
 };
 
