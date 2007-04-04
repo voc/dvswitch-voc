@@ -16,6 +16,7 @@
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
       xv_port_(XvPortID(-1)),
+      display_(dv_display_widget::display_type_full),
       timeout_event_source_(Glib::TimeoutSource::create(20))
 {
     mixer_.set_monitor(this);

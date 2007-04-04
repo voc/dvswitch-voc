@@ -18,21 +18,32 @@ namespace
     const int frame_max_height = 576;
 
     // Assume 4:3 frame ratio for now.
-    const int display_width = 768;
-    const int display_height = 576;
+    const int display_width_full = 768;
+    const int display_height_full = 576;
+    const int display_width_thumb = display_width_full / 4;
+    const int display_height_thumb = display_height_full / 4;
 }
 
-dv_display_widget::dv_display_widget()
-    : decoder_(dv_decoder_new(0, true, true)),
+dv_display_widget::dv_display_widget(display_type display_type)
+    : display_type_(display_type),
+      decoder_(dv_decoder_new(0, true, true)),
       xv_port_(XvPortID(-1)),
       xv_image_(0),
       xv_shm_info_(0)
 {
     set_app_paintable(true);
     set_double_buffered(false);
-    set_size_request(display_width, display_height);
 
-    dv_set_quality(decoder_, DV_QUALITY_BEST);
+    if (display_type_ == display_type_thumb)
+    {
+	set_size_request(display_width_thumb, display_height_thumb);
+	dv_set_quality(decoder_, DV_QUALITY_FASTEST);
+    }
+    else
+    {
+	set_size_request(display_width_full, display_height_full);
+	dv_set_quality(decoder_, DV_QUALITY_BEST);
+    }
 }
 
 dv_display_widget::~dv_display_widget()
@@ -100,11 +111,16 @@ void dv_display_widget::put_frame(const mixer::frame_ptr & dv_frame)
 	Display * display = get_x_display(*this);
 	if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(get_window()))
 	{
+	    int width, height;
+	    if (display_type_ == display_type_thumb)
+		width = display_width_thumb, height = display_height_thumb;
+	    else
+		width = display_width_full, height = display_height_full;
 	    XvShmPutImage(display, xv_port_,
 			  get_x_window(*this), gdk_x11_gc_get_xgc(gc->gobj()),
 			  xv_image,
 			  0, 0, decoder_->width, decoder_->height,
-			  0, 0, display_width, display_height,
+			  0, 0, width, height,
 			  False);
 	    XFlush(display);
 	}

@@ -13,7 +13,9 @@
 class dv_display_widget : public Gtk::DrawingArea
 {
 public:
-    dv_display_widget();
+    enum display_type { display_type_full, display_type_thumb };
+
+    explicit dv_display_widget(display_type);
     ~dv_display_widget();
 
     void set_xv_port(uint32_t);
@@ -22,6 +24,8 @@ public:
     static const int pixel_format_id = 0x32595559; // 'YUY2'
 
 private:
+    display_type display_type_;
+
     dv_decoder_t * decoder_;
     unsigned decoded_serial_num_;
 
