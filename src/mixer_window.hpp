@@ -41,8 +41,8 @@ private:
 
     uint32_t xv_port_;
 
-    Gtk::HBox box_;
-    dv_display_widget display_;
+    Gtk::VBox box_;
+    dv_full_display_widget display_;
     dv_selector_widget selector_;
 
     // XXX This is a hack to refresh the display at intervals.  We

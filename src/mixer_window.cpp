@@ -16,7 +16,6 @@
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
       xv_port_(XvPortID(-1)),
-      display_(dv_display_widget::display_type_full),
       timeout_event_source_(Glib::TimeoutSource::create(20))
 {
     mixer_.set_monitor(this);
@@ -26,7 +25,7 @@ mixer_window::mixer_window(mixer & mixer)
     timeout_event_source_->attach();
 
     signal_key_press_event().connect(
-	SigC::slot(*this, &mixer_window::on_key_press));
+       SigC::slot(*this, &mixer_window::on_key_press));
     signal_show().connect(SigC::slot(*this, &mixer_window::grab_xv_port));
     signal_hide().connect(SigC::slot(*this, &mixer_window::ungrab_xv_port));
 
@@ -94,7 +93,6 @@ end_adaptor_loop:
 	    {
 		xv_port_ = port;
 		display_.set_xv_port(port);
-		selector_.set_xv_port(port);
 		break;
 	    }
 	}
@@ -110,7 +108,6 @@ void mixer_window::ungrab_xv_port()
     if (xv_port_ != XvPortID(-1))
     {
 	display_.set_xv_port(-1);
-	selector_.set_xv_port(-1);
 	XvUngrabPort(get_x_display(*this), xv_port_, CurrentTime);
 	xv_port_ = -1;
     }
@@ -149,15 +146,23 @@ void mixer_window::put_frames(unsigned source_count,
 bool mixer_window::try_update()
 {
     mixer::frame_ptr mixed_frame;
+    std::vector<mixer::frame_ptr> source_frames;
     {
 	boost::mutex::scoped_lock lock(frame_mutex_);
-	source_frames_.clear();
 	mixed_frame = mixed_frame_;
 	mixed_frame_.reset();
+	source_frames = source_frames_;
+	source_frames_.clear();
     }
 
     if (mixed_frame)
 	display_.put_frame(mixed_frame);
+    for (mixer::source_id i = 0; i != source_frames.size(); ++i)
+	if (source_frames[i])
+	    selector_.put_frame(i, source_frames[i]);
+    // TODO: Update one thumbnail at a time and restart if new frames have
+    // arrived.  Not sure how this will work with the interval timer; it
+    // may be dependent on switching to use of a pipe.
 
     return true; // call again
 }
