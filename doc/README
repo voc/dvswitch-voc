@@ -19,7 +19,4 @@ Currently dvswitch only shows the selected source; previews of other
 sources are not generated.  Sources are numbered in order of
 connection starting from 0 (which should probably change to 1).
 
-Known bug: dvsource will hang on shutdown or if a source disconnects.
-You will then have to kill it.  This will be fixed shortly!
-
 That's all for now.

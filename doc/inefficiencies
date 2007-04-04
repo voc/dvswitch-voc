@@ -5,8 +5,6 @@ available (must be some kind of file).
 
 Clamping luma and chroma values may be a waste of time.
 
-We should avoid converting video frames to RGB by using Xv for display.
-
 We should decode in multiple threads if there are multiple processors
 available.  dv_decode_full_frame currently prevents this with a mutex,
 though there's no obvious shared state that would make it unsafe
