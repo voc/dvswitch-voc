@@ -43,6 +43,14 @@ public:
 	virtual void cut() = 0;
     };
 
+    // Interface to monitor
+    struct monitor
+    {
+	virtual void put_frames(unsigned source_count,
+				const frame_ptr * source_frames,
+				const frame_ptr & mixed_frame) = 0;
+    };
+
     mixer();
     ~mixer();
 
@@ -62,7 +70,9 @@ public:
     // Register and unregister sinks
     sink_id add_sink(sink *);
     void remove_sink(sink_id);
-    // TODO: interface for sinking all sources, for use by thumbnails
+
+    // Interface for monitors
+    void set_monitor(monitor *);
 
     // Mixer interface
     // Select the video source for output
@@ -97,6 +107,8 @@ private:
 
     boost::mutex sink_mutex_; // controls access to the following
     std::vector<sink *> sinks_;
+
+    monitor * monitor_;
 
     boost::thread * clock_thread_;
 };

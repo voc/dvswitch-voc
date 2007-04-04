@@ -18,10 +18,10 @@ mixer_window::mixer_window(mixer & mixer)
       xv_port_(XvPortID(-1)),
       timeout_event_source_(Glib::TimeoutSource::create(20))
 {
-    mixer.add_sink(&display_);
+    mixer_.set_monitor(this);
 
     timeout_event_source_->connect(
-	SigC::slot(display_, &dv_display_widget::try_update));
+	SigC::slot(*this, &mixer_window::try_update));
     timeout_event_source_->attach();
 
     signal_key_press_event().connect(
@@ -134,4 +134,29 @@ bool mixer_window::on_key_press(GdkEventKey * event)
 	    }
 	    return false;
     }
+}
+
+void mixer_window::put_frames(unsigned source_count,
+			      const mixer::frame_ptr * source_frames,
+			      const mixer::frame_ptr & mixed_frame)
+{
+    boost::mutex::scoped_lock lock(frame_mutex_);
+    source_frames_.assign(source_frames, source_frames + source_count);
+    mixed_frame_ = mixed_frame;
+}
+
+bool mixer_window::try_update()
+{
+    mixer::frame_ptr mixed_frame;
+    {
+	boost::mutex::scoped_lock lock(frame_mutex_);
+	source_frames_.clear();
+	mixed_frame = mixed_frame_;
+	mixed_frame_.reset();
+    }
+
+    if (mixed_frame)
+	display_.put_frame(mixed_frame);
+
+    return true; // call again
 }

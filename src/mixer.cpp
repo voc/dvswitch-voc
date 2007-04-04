@@ -16,7 +16,8 @@
 #include "mixer.hpp"
 
 mixer::mixer()
-    : clock_thread_(0)
+    : monitor_(0),
+      clock_thread_(0)
 {
     source_queues_.reserve(5);
     sinks_.reserve(5);
@@ -110,6 +111,12 @@ void mixer::set_video_source(source_id id)
     settings_.video_source_id = id;
 }
 
+void mixer::set_monitor(monitor * monitor)
+{
+    assert(!monitor ^ !monitor_);
+    monitor_ = monitor;
+}
+
 void mixer::cut()
 {
     boost::mutex::scoped_lock lock(source_mutex_);
@@ -163,6 +170,7 @@ void mixer::run_clock()
 	bool have_new_frame = false;
 
 	// Select the mixer settings and source frame(s)
+	// TODO: select frames from all sources for monitor
 	{
 	    boost::mutex::scoped_lock lock(source_mutex_);
 	    if (source_queues_.size() == 0) // signal to exit
@@ -202,6 +210,8 @@ void mixer::run_clock()
 		    sinks_[id]->put_frame(frame);
 		}
 	}
+	if (monitor_)
+	    monitor_->put_frames(0, &frame, frame);
 
 	// (Re)set the timer according to this frame's video system.
 	// TODO: Adjust timer interval dynamically to maintain synch with

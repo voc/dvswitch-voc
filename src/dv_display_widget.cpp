@@ -81,17 +81,11 @@ void dv_display_widget::set_xv_port(uint32_t port)
     xv_port_ = port;
 }
 
-bool dv_display_widget::try_update()
+void dv_display_widget::put_frame(const mixer::frame_ptr & dv_frame)
 {
     XvImage * xv_image = static_cast<XvImage *>(xv_image_);
-    mixer::frame_ptr dv_frame;
-    {
-	boost::mutex::scoped_lock lock(dv_frame_mutex_);
-	dv_frame = dv_frame_;
-	dv_frame_.reset();
-    }
 
-    if (xv_image && dv_frame && dv_frame->serial_num != decoded_serial_num_)
+    if (xv_image && dv_frame->serial_num != decoded_serial_num_)
     {
 	dv_parse_header(decoder_, dv_frame->buffer);
 	assert(xv_image->num_planes == 1);
@@ -115,17 +109,4 @@ bool dv_display_widget::try_update()
 	    XFlush(display);
 	}
     }
-
-    return true; // call me again
-}
-
-void dv_display_widget::put_frame(const mixer::frame_ptr & frame)
-{
-    boost::mutex::scoped_lock lock(dv_frame_mutex_);
-    dv_frame_ = frame;
-}
-
-void dv_display_widget::cut()
-{
-    // Ignore
 }
