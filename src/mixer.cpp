@@ -165,7 +165,8 @@ void mixer::run_clock()
 	// Select the mixer settings and source frame(s)
 	{
 	    boost::mutex::scoped_lock lock(source_mutex_);
-	    // XXX We should exit if there are no sources
+	    if (source_queues_.size() == 0) // signal to exit
+		break;
 	    cut_before = settings_.cut_before;
 	    settings_.cut_before = false;
 	    for (source_id id = 0; id != source_queues_.size(); ++id)
