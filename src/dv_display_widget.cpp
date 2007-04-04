@@ -29,6 +29,7 @@ dv_display_widget::dv_display_widget()
       xv_shm_info_(0)
 {
     set_app_paintable(true);
+    set_double_buffered(false);
     set_size_request(display_width, display_height);
 
     dv_set_quality(decoder_, DV_QUALITY_BEST);
@@ -99,17 +100,19 @@ bool dv_display_widget::try_update()
 	dv_decode_full_frame(decoder_, dv_frame->buffer,
 			     e_dv_color_yuv, pixels, xv_image->pitches);
 	decoded_serial_num_ = dv_frame->serial_num;
-	    
+
 	// XXX should use get_window()->get_internal_paint_info()
 	Display * display = get_x_display(*this);
-	Glib::RefPtr<Gdk::GC> gc(Gdk::GC::create(get_window()));
-	XvShmPutImage(display, xv_port_,
-		      get_x_window(*this), gdk_x11_gc_get_xgc(gc->gobj()),
-		      xv_image,
-		      0, 0, decoder_->width, decoder_->height,
-		      0, 0, display_width, display_height,
-		      False);
-	XFlush(display);
+	if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(get_window()))
+	{
+	    XvShmPutImage(display, xv_port_,
+			  get_x_window(*this), gdk_x11_gc_get_xgc(gc->gobj()),
+			  xv_image,
+			  0, 0, decoder_->width, decoder_->height,
+			  0, 0, display_width, display_height,
+			  False);
+	    XFlush(display);
+	}
     }
 
     return true; // call me again
