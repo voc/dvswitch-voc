@@ -28,10 +28,10 @@ public:
     ~mixer_window();
 
 private:
-    bool on_key_press(GdkEventKey *);
+    virtual bool on_key_press_event(GdkEventKey *);
     bool try_update();
-    void grab_xv_port();
-    void ungrab_xv_port();
+    virtual void on_show();
+    virtual void on_hide();
 
     virtual void put_frames(unsigned source_count,
 			    const mixer::frame_ptr * source_frames,

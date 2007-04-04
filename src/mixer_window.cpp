@@ -24,11 +24,6 @@ mixer_window::mixer_window(mixer & mixer)
 	SigC::slot(*this, &mixer_window::try_update));
     timeout_event_source_->attach();
 
-    signal_key_press_event().connect(
-       SigC::slot(*this, &mixer_window::on_key_press));
-    signal_show().connect(SigC::slot(*this, &mixer_window::grab_xv_port));
-    signal_hide().connect(SigC::slot(*this, &mixer_window::ungrab_xv_port));
-
     add(box_);
     box_.add(display_);
     display_.show();
@@ -38,12 +33,12 @@ mixer_window::mixer_window(mixer & mixer)
 }
 
 mixer_window::~mixer_window()
-{
-    ungrab_xv_port();
-}
+{}
 
-void mixer_window::grab_xv_port()
+void mixer_window::on_show()
 {
+    Gtk::Window::on_show();
+
     Display * display = get_x_display(*this);
     unsigned adaptor_count;
     XvAdaptorInfo * adaptor_info;
@@ -103,7 +98,7 @@ end_adaptor_loop:
     XvFreeAdaptorInfo(adaptor_info);
 }
 
-void mixer_window::ungrab_xv_port()
+void mixer_window::on_hide()
 {
     if (xv_port_ != XvPortID(-1))
     {
@@ -111,9 +106,11 @@ void mixer_window::ungrab_xv_port()
 	XvUngrabPort(get_x_display(*this), xv_port_, CurrentTime);
 	xv_port_ = -1;
     }
+
+    Gtk::Window::on_hide();
 }
 
-bool mixer_window::on_key_press(GdkEventKey * event)
+bool mixer_window::on_key_press_event(GdkEventKey * event)
 {
     switch (event->keyval)
     {
