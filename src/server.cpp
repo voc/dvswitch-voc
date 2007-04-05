@@ -100,6 +100,8 @@ bool server::connection::do_receive(Glib::IOCondition condition)
     }
     else
     {
+	bool first_try = true;
+
 	for (;;)
 	{
 	    if (!partial_frame_)
@@ -149,15 +151,22 @@ bool server::connection::do_receive(Glib::IOCondition condition)
 	    }
 	    else
 	    {
-		if (received_size < 0 && errno != EWOULDBLOCK)
+		if (first_try
+		    || (received_size < 0 && errno != EWOULDBLOCK))
 		    successful = false;
 		break;
 	    }
+
+	    first_try = false;
 	}
     }
 
     if (!successful)
+    {
+	std::cout << "WARN: Lost connection from source " << source_id_
+		  << "\n";
 	server_.disconnect(this);
+    }
 
     return successful;
 }
