@@ -18,7 +18,7 @@
 
 namespace Glib
 {
-    class TimeoutSource;
+    class IOSource;
 }
 
 class mixer_window : public Gtk::Window, private mixer::monitor
@@ -29,7 +29,7 @@ public:
 
 private:
     virtual bool on_key_press_event(GdkEventKey *);
-    bool try_update();
+    bool update(Glib::IOCondition);
 
     virtual void put_frames(unsigned source_count,
 			    const mixer::frame_ptr * source_frames,
@@ -41,13 +41,12 @@ private:
     dv_full_display_widget display_;
     dv_selector_widget selector_;
 
-    // XXX This is a hack to refresh the display at intervals.  We
-    // should probably use a pipe for signalling new frames to avoid
-    // waking up the main thread unnecessarily.
-    Glib::RefPtr<Glib::TimeoutSource> timeout_event_source_;
+    int pipe_ends_[2];
+    Glib::RefPtr<Glib::IOSource> pipe_io_source_;
 
     boost::mutex frame_mutex_; // controls access to the following
     std::vector<mixer::frame_ptr> source_frames_;
+    mixer::source_id next_source_id_;
     mixer::frame_ptr mixed_frame_;
 };
 
