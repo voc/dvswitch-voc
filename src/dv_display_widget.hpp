@@ -44,6 +44,9 @@ private:
     virtual pixels_pitch get_frame_buffer();
     virtual void draw_frame(unsigned width, unsigned height);
 
+    virtual void on_realize();
+    virtual void on_unrealize();
+
     uint32_t xv_port_;
     void * xv_image_;
     void * xv_shm_info_;

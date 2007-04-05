@@ -1,7 +1,9 @@
 // Copyright 2007 Ben Hutchings and Tore Sinding Bekkedal.
 // See the file "COPYING" for licence details.
 
+#include <iostream>
 #include <memory>
+#include <ostream>
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -24,6 +26,8 @@ namespace
     const int display_height_full = 576;
     const int display_width_thumb = display_width_full / 4;
     const int display_height_thumb = display_height_full / 4;
+
+    const uint32_t invalid_xv_port = uint32_t(-1);
 
     char * allocate_x_shm(Display * display, XShmSegmentInfo * info,
 			  std::size_t size)
@@ -62,7 +66,7 @@ dv_display_widget::~dv_display_widget()
 
 dv_full_display_widget::dv_full_display_widget()
     : dv_display_widget(DV_QUALITY_BEST),
-      xv_port_(XvPortID(-1)),
+      xv_port_(invalid_xv_port),
       xv_image_(0),
       xv_shm_info_(0)
 {
@@ -77,56 +81,120 @@ dv_thumb_display_widget::dv_thumb_display_widget()
     set_size_request(display_width_thumb, display_height_thumb);
 }
 
-void dv_full_display_widget::set_xv_port(uint32_t port)
+void dv_full_display_widget::on_realize()
 {
-    Display * display = get_x_display(*this);
-    XvImage * xv_image = static_cast<XvImage *>(xv_image_);
-    XShmSegmentInfo * xv_shm_info =
-	static_cast<XShmSegmentInfo *>(xv_shm_info_);
+    dv_display_widget::on_realize();
 
-    if (port == XvPortID(-1))
+    assert(xv_port_ == invalid_xv_port && xv_image_ == 0);
+
+    Display * display = get_x_display(*this);
+
+    unsigned adaptor_count;
+    XvAdaptorInfo * adaptor_info;
+
+    if (XvQueryAdaptors(display, get_x_window(*this),
+			&adaptor_count, &adaptor_info) != Success)
     {
-	assert(xv_port_ != XvPortID(-1));
-	XvStopVideo(display, xv_port_, get_x_window(*this));
-	if (xv_image)
-	{
-	    free_x_shm(xv_shm_info);
-	    delete xv_shm_info;
-	    xv_shm_info = 0;
-	    free(xv_image);
-	    xv_image = 0;
-	}
+	std::cerr << "ERROR: XvQueryAdaptors() failed\n";
+	return;
+    }
+
+    // Search for a suitable adaptor.
+    unsigned i;
+    for (i = 0; i != adaptor_count; ++i)
+    {
+	if (!(adaptor_info[i].type & XvImageMask))
+	    continue;
+	int format_count;
+	XvImageFormatValues * format_info =
+	    XvListImageFormats(display, adaptor_info[i].base_id,
+			       &format_count);
+	if (!format_info)
+	    continue;
+	for (int j = 0; j != format_count; ++j)
+	    if (format_info[j].id == pixel_format_id)
+		goto end_adaptor_loop;
+    }
+end_adaptor_loop:
+    if (i == adaptor_count)
+    {
+	std::cerr << "ERROR: No Xv adaptor for this display supports "
+		  << char(pixel_format_id >> 24)
+		  << char((pixel_format_id >> 16) & 0xFF)
+		  << char((pixel_format_id >> 8) & 0xFF)
+		  << char(pixel_format_id & 0xFF)
+		  << " format\n";
     }
     else
     {
-	assert(xv_port_ == XvPortID(-1));
-
-	if ((xv_shm_info = new (std::nothrow) XShmSegmentInfo))
+	// Try to allocate a port.
+	unsigned j;
+	for (j = 0; j != adaptor_info[i].num_ports; ++j)
 	{
-	    if ((xv_image = XvShmCreateImage(display, port, pixel_format_id, 0,
-					     frame_max_width, frame_max_height,
-					     xv_shm_info)))
+	    XvPortID port = adaptor_info[i].base_id + i;
+	    if (XvGrabPort(display, port, CurrentTime) == Success)
 	    {
-		xv_image->data = allocate_x_shm(display, xv_shm_info,
-						xv_image->data_size);
-		if (!xv_image->data)
-		{
-		    free(xv_image);
-		    xv_image = 0;
-		}
-	    }
-
-	    if (!xv_image)
-	    {
-		delete xv_shm_info;
-		xv_shm_info = 0;
+		xv_port_ = port;
+		break;
 	    }
 	}
-   }
+	if (j == adaptor_info[i].num_ports)
+	    std::cerr << "ERROR: Could not grab an Xv port\n";
+    }
 
-    xv_image_ = xv_image;
-    xv_shm_info_ = xv_shm_info;
-    xv_port_ = port;
+    XvFreeAdaptorInfo(adaptor_info);
+
+    if (xv_port_ == invalid_xv_port)
+	return;
+
+    if (XShmSegmentInfo * xv_shm_info = new (std::nothrow) XShmSegmentInfo)
+    {
+	if (XvImage * xv_image =
+	    XvShmCreateImage(display, xv_port_, pixel_format_id, 0,
+			     frame_max_width, frame_max_height,
+			     xv_shm_info))
+	{
+	    if ((xv_image->data = allocate_x_shm(display, xv_shm_info,
+						 xv_image->data_size)))
+	    {
+		xv_image_ = xv_image;
+		xv_shm_info_ = xv_shm_info;
+	    }
+	    else
+	    {
+		free(xv_image);
+		delete xv_shm_info;
+	    }
+	}
+	else
+	{
+	    delete xv_shm_info;
+	}
+    }
+}
+
+void dv_full_display_widget::on_unrealize()
+{
+    if (xv_port_ != invalid_xv_port)
+    {
+	Display * display = get_x_display(*this);
+
+	XvStopVideo(display, xv_port_, get_x_window(*this));
+
+	if (XvImage * xv_image = static_cast<XvImage *>(xv_image_))
+	{
+	    xv_image_ = 0;
+	    free(xv_image);
+	    XShmSegmentInfo * xv_shm_info =
+		static_cast<XShmSegmentInfo *>(xv_shm_info_);
+	    xv_shm_info_ = 0;
+	    free_x_shm(xv_shm_info);
+	    delete xv_shm_info;
+	}
+
+	XvUngrabPort(display, xv_port_, CurrentTime);
+	xv_port_ = invalid_xv_port;
+    }
 }
 
 void dv_display_widget::put_frame(const mixer::frame_ptr & dv_frame)
@@ -179,7 +247,7 @@ void dv_full_display_widget::draw_frame(unsigned width, unsigned height)
 
 void dv_thumb_display_widget::on_realize()
 {
-    Gtk::DrawingArea::on_realize();
+    dv_display_widget::on_realize();
 
     Display * display = get_x_display(*this);
     int screen = 0; // XXX should use gdk_x11_screen_get_screen_number
@@ -226,7 +294,7 @@ void dv_thumb_display_widget::on_unrealize()
 	x_image = 0;
     }
 
-    Gtk::DrawingArea::on_unrealize();
+    dv_display_widget::on_unrealize();
 }
 
 dv_display_widget::pixels_pitch dv_thumb_display_widget::get_frame_buffer()

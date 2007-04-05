@@ -30,16 +30,12 @@ public:
 private:
     virtual bool on_key_press_event(GdkEventKey *);
     bool try_update();
-    virtual void on_show();
-    virtual void on_hide();
 
     virtual void put_frames(unsigned source_count,
 			    const mixer::frame_ptr * source_frames,
 			    const mixer::frame_ptr & mixed_frame);
 
     mixer & mixer_;
-
-    uint32_t xv_port_;
 
     Gtk::VBox box_;
     dv_full_display_widget display_;
