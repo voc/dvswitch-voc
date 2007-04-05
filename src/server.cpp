@@ -163,7 +163,7 @@ bool server::connection::do_receive(Glib::IOCondition condition)
 
     if (!successful)
     {
-	std::cout << "WARN: Lost connection from source " << source_id_
+	std::cerr << "WARN: Lost connection from source " << 1 + source_id_
 		  << "\n";
 	server_.disconnect(this);
     }

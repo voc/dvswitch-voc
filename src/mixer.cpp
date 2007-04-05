@@ -87,7 +87,7 @@ void mixer::put_frame(source_id id, const frame_ptr & frame)
     }
 
     if (was_full)
-	std::cerr << "ERROR: dropped frame from source " << id
+	std::cerr << "WARN: Dropped frame from source " << 1 + id
 		  << " due to full queue\n";
 }
 
@@ -171,7 +171,6 @@ void mixer::run_clock()
 	bool cut_before;
 
 	// Select the mixer settings and source frame(s)
-	// TODO: select frames from all sources for monitor
 	{
 	    boost::mutex::scoped_lock lock(source_mutex_);
 	    if (source_queues_.size() == 0) // signal to exit
