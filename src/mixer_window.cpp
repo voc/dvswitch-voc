@@ -44,23 +44,26 @@ mixer_window::~mixer_window()
 
 bool mixer_window::on_key_press_event(GdkEventKey * event)
 {
-    switch (event->keyval)
+    if (event->keyval == 'c')
     {
-	case 'c': // = cut
-	    mixer_.cut();
-	    return true;
-	case 'q': // = quit
-	    Gtk::Main::quit();
-	    return true;
-	default:
-	    if (event->keyval >= '1' && event->keyval <= '9')
-	    {
-		// XXX We need to range-check this.
-		mixer_.set_video_source(event->keyval - '1');
-		return true;
-	    }
-	    return false;
+	mixer_.cut();
+	return true;
     }
+
+    if (event->keyval == 'q' && event->state & Gdk::CONTROL_MASK)
+    {
+	Gtk::Main::quit();
+	return true;
+    }
+
+    if (event->keyval >= '1' && event->keyval <= '9')
+    {
+	// XXX We need to range-check this.
+	mixer_.set_video_source(event->keyval - '1');
+	return true;
+    }
+
+    return false;
 }
 
 void mixer_window::put_frames(unsigned source_count,
