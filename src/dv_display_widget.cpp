@@ -18,16 +18,19 @@
 
 namespace
 {
-    const int frame_max_width = 720;
-    const int frame_max_height = 576;
+    const unsigned frame_max_width = 720;
+    const unsigned frame_max_height = 576;
 
     // Assume 4:3 frame ratio for now.
-    const int display_width_full = 768;
-    const int display_height_full = 576;
-    const int display_width_thumb = display_width_full / 4;
-    const int display_height_thumb = display_height_full / 4;
+    const unsigned display_width_full = 768;
+    const unsigned display_height_full = 576;
+    const unsigned display_width_thumb = display_width_full / 4;
+    const unsigned display_height_thumb = display_height_full / 4;
 
     const uint32_t invalid_xv_port = uint32_t(-1);
+
+    const int pixel_format_id = 0x32595559; // 'YUY2'
+    const unsigned bytes_per_pixel = 2; // Y and alternately U or V
 
     Display * get_x_display(Gtk::Widget & widget)
     {
@@ -240,6 +243,8 @@ void dv_full_display_widget::on_unrealize()
 	XvUngrabPort(x_display, xv_port_, CurrentTime);
 	xv_port_ = invalid_xv_port;
     }
+
+    dv_display_widget::on_unrealize();
 }
 
 dv_display_widget::pixels_pitch dv_full_display_widget::get_frame_buffer()
@@ -272,10 +277,17 @@ void dv_full_display_widget::draw_frame(const drawing_context & context,
 
 dv_thumb_display_widget::dv_thumb_display_widget()
     : dv_display_widget(DV_QUALITY_FASTEST),
+      frame_buffer_(new uint8_t[bytes_per_pixel * frame_max_width
+				* frame_max_height]),
       x_image_(0),
       x_shm_info_(0)
 {
     set_size_request(display_width_thumb, display_height_thumb);
+}
+
+dv_thumb_display_widget::~dv_thumb_display_widget()
+{
+    delete[] frame_buffer_;
 }
 
 void dv_thumb_display_widget::on_realize()
@@ -289,12 +301,9 @@ void dv_thumb_display_widget::on_realize()
     {
 	if (XShmSegmentInfo * x_shm_info = new (std::nothrow) XShmSegmentInfo)
 	{
-	    // TODO: We actually need to create an RGB buffer at the
-	    // display size and a YUY2 buffer at the video frame
-	    // size.  But this will do for a rough demo.
 	    if (XImage * x_image = XShmCreateImage(
 		    x_display, visual_info.visual, 24, ZPixmap,
-		    0, x_shm_info, frame_max_width, frame_max_height))
+		    0, x_shm_info, display_width_thumb, display_height_thumb))
 	    {
 		if ((x_image->data = allocate_x_shm(
 			 x_display, x_shm_info,
@@ -332,23 +341,65 @@ void dv_thumb_display_widget::on_unrealize()
 
 dv_display_widget::pixels_pitch dv_thumb_display_widget::get_frame_buffer()
 {
-    if (XImage * x_image = static_cast<XImage *>(x_image_))
-    {
-	// XXX This needs to return the YUY2 buffer.
-	return pixels_pitch(reinterpret_cast<uint8_t *>(x_image->data),
-			    x_image->bytes_per_line);
-    }
-    else
-    {
-	return pixels_pitch(0, 0);
-    }
+    return pixels_pitch(frame_buffer_, bytes_per_pixel * frame_max_width);
 }
 
 void dv_thumb_display_widget::draw_frame(const drawing_context & context,
 					 unsigned width, unsigned height)
 {
-    // XXX This needs to convert and scale between the two buffers.
     XImage * x_image = static_cast<XImage *>(x_image_);
+
+    // Scale the image down.  Actually this is scaling up because the
+    // decoded frame is really blocks of 8x8 pixels anyway, so we can
+    // use Bresenham's algorithm.
+
+    assert(x_image->bits_per_pixel == 24 || x_image->bits_per_pixel == 32);
+
+    const unsigned block_size = 8;
+    unsigned width_blocks = width / block_size;
+    unsigned height_blocks = height / block_size;
+    assert(width_blocks <= display_width_thumb);
+    assert(height_blocks <= display_height_thumb);
+    unsigned y_in = 0, y_out = 0, y_error = height_blocks / 2;
+    do
+    {
+	const uint8_t * in =
+	    frame_buffer_ + bytes_per_pixel * frame_max_width * y_in;
+	uint8_t * out = reinterpret_cast<uint8_t *>(
+	    x_image->data + x_image->bytes_per_line * y_out);
+	uint8_t * out_row_end =
+	    out + x_image->bits_per_pixel / 8 * display_width_thumb;
+	unsigned x_error = width_blocks / 2;
+	uint8_t in_value = *in; // read first Y component
+	do
+	{
+	    // Write Y component to each byte of the pixel
+	    *out++ = in_value;
+	    *out++ = in_value;
+	    *out++ = in_value;
+	    if (x_image->bits_per_pixel == 32)
+		*out++ = in_value;
+
+	    x_error += width_blocks;
+	    if (x_error >= display_width_thumb)
+	    {
+		in += bytes_per_pixel * block_size; // next block
+		in_value = *in; // read first Y component
+		x_error -= display_width_thumb;
+	    }
+	}
+	while (out != out_row_end);
+	
+	y_error += height_blocks;
+	if (y_error >= display_height_thumb)
+	{
+	    y_in += block_size;
+	    y_error -= display_height_thumb;
+	}
+	++y_out;
+    }
+    while (y_out != display_height_thumb);
+
     // XXX should use get_window()->get_internal_paint_info()
     XShmPutImage(context.x_display, context.x_window, context.x_gc,
 		 x_image,

@@ -20,8 +20,6 @@ public:
 
     void put_frame(const mixer::frame_ptr &);
 
-    static const int pixel_format_id = 0x32595559; // 'YUY2'
-
 protected:
     typedef std::pair<uint8_t *, int> pixels_pitch;
     struct drawing_context;
@@ -59,6 +57,7 @@ class dv_thumb_display_widget : public dv_display_widget
 {
 public:
     dv_thumb_display_widget();
+    ~dv_thumb_display_widget();
 
 private:
     virtual pixels_pitch get_frame_buffer();
@@ -68,6 +67,7 @@ private:
     virtual void on_realize();
     virtual void on_unrealize();
 
+    uint8_t * frame_buffer_;
     void * x_image_;
     void * x_shm_info_;
 };
