@@ -23,6 +23,7 @@ mixer_window::mixer_window(mixer & mixer)
     fcntl(pipe_ends_[0], F_SETFL, O_NONBLOCK);
     fcntl(pipe_ends_[1], F_SETFL, O_NONBLOCK);
     pipe_io_source_ = Glib::IOSource::create(pipe_ends_[0], Glib::IO_IN);
+    pipe_io_source_->set_priority(-1);
     pipe_io_source_->connect(SigC::slot(*this, &mixer_window::update));
     pipe_io_source_->attach();
 
