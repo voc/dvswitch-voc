@@ -24,10 +24,12 @@ public:
 
 protected:
     typedef std::pair<uint8_t *, int> pixels_pitch;
+    struct drawing_context;
 
 private:
     virtual pixels_pitch get_frame_buffer() = 0;
-    virtual void draw_frame(unsigned width, unsigned height) = 0;
+    virtual void draw_frame(const drawing_context &,
+			    unsigned width, unsigned height) = 0;
 
     dv_decoder_t * decoder_;
     unsigned decoded_serial_num_;
@@ -42,7 +44,8 @@ public:
 
 private:
     virtual pixels_pitch get_frame_buffer();
-    virtual void draw_frame(unsigned width, unsigned height);
+    virtual void draw_frame(const drawing_context &,
+			    unsigned width, unsigned height);
 
     virtual void on_realize();
     virtual void on_unrealize();
@@ -59,7 +62,8 @@ public:
 
 private:
     virtual pixels_pitch get_frame_buffer();
-    virtual void draw_frame(unsigned width, unsigned height);
+    virtual void draw_frame(const drawing_context &,
+			    unsigned width, unsigned height);
 
     virtual void on_realize();
     virtual void on_unrealize();

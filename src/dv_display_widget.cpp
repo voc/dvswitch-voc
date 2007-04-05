@@ -12,7 +12,7 @@
 #include "frame.h"
 
 // X headers come last due to egregious macro pollution.
-#include "gtk_x_utils.hpp"
+#include <gdk/gdkx.h>
 #include <X11/extensions/XShm.h>
 #include <X11/extensions/Xvlib.h>
 
@@ -29,7 +29,21 @@ namespace
 
     const uint32_t invalid_xv_port = uint32_t(-1);
 
-    char * allocate_x_shm(Display * display, XShmSegmentInfo * info,
+    Display * get_x_display(Gtk::Widget & widget)
+    {
+	Glib::RefPtr<Gdk::Window> window(widget.get_window());
+	assert(window);
+	return gdk_x11_drawable_get_xdisplay(window->gobj());
+    }
+
+    Window get_x_window(Gtk::Widget & widget)
+    {
+	Glib::RefPtr<Gdk::Window> window(widget.get_window());
+	assert(window);
+	return gdk_x11_drawable_get_xid(window->gobj());
+    }
+
+    char * allocate_x_shm(Display * x_display, XShmSegmentInfo * info,
 			  std::size_t size)
     {
 	char * result = 0;
@@ -37,7 +51,7 @@ namespace
 	{
 	    info->shmaddr = static_cast<char *>(shmat(info->shmid, 0, 0));
 	    if (info->shmaddr != reinterpret_cast<char *>(-1)
-		&& XShmAttach(display, info))
+		&& XShmAttach(x_display, info))
 		result = info->shmaddr;
 	    shmctl(info->shmid, IPC_RMID, 0);
 	}
@@ -49,6 +63,15 @@ namespace
 	shmdt(info->shmaddr);
     }
 }
+
+// dv_display_widget
+
+struct dv_display_widget::drawing_context
+{
+    Display * x_display;
+    Window x_window;
+    GC x_gc;
+};
 
 dv_display_widget::dv_display_widget(int quality)
     : decoder_(dv_decoder_new(0, true, true)),
@@ -64,6 +87,36 @@ dv_display_widget::~dv_display_widget()
     dv_decoder_free(decoder_);
 }
 
+void dv_display_widget::put_frame(const mixer::frame_ptr & dv_frame)
+{
+    if (!is_realized())
+	return;
+
+    if (dv_frame->serial_num != decoded_serial_num_)
+    {
+	pixels_pitch buffer = get_frame_buffer();
+	if (!buffer.first)
+	    return;
+
+	dv_parse_header(decoder_, dv_frame->buffer);
+	dv_decode_full_frame(decoder_, dv_frame->buffer,
+			     e_dv_color_yuv, &buffer.first, &buffer.second);
+	decoded_serial_num_ = dv_frame->serial_num;
+
+	if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(get_window()))
+	{
+	    drawing_context context = {
+		get_x_display(*this),
+		get_x_window(*this),
+		gdk_x11_gc_get_xgc(gc->gobj())
+	    };
+	    draw_frame(context, decoder_->width, decoder_->height);
+	}
+    }
+}
+
+// dv_full_display_widget
+
 dv_full_display_widget::dv_full_display_widget()
     : dv_display_widget(DV_QUALITY_BEST),
       xv_port_(invalid_xv_port),
@@ -73,26 +126,18 @@ dv_full_display_widget::dv_full_display_widget()
     set_size_request(display_width_full, display_height_full);
 }
 
-dv_thumb_display_widget::dv_thumb_display_widget()
-    : dv_display_widget(DV_QUALITY_FASTEST),
-      x_image_(0),
-      x_shm_info_(0)
-{
-    set_size_request(display_width_thumb, display_height_thumb);
-}
-
 void dv_full_display_widget::on_realize()
 {
     dv_display_widget::on_realize();
 
     assert(xv_port_ == invalid_xv_port && xv_image_ == 0);
 
-    Display * display = get_x_display(*this);
+    Display * x_display = get_x_display(*this);
 
     unsigned adaptor_count;
     XvAdaptorInfo * adaptor_info;
 
-    if (XvQueryAdaptors(display, get_x_window(*this),
+    if (XvQueryAdaptors(x_display, get_x_window(*this),
 			&adaptor_count, &adaptor_info) != Success)
     {
 	std::cerr << "ERROR: XvQueryAdaptors() failed\n";
@@ -107,7 +152,7 @@ void dv_full_display_widget::on_realize()
 	    continue;
 	int format_count;
 	XvImageFormatValues * format_info =
-	    XvListImageFormats(display, adaptor_info[i].base_id,
+	    XvListImageFormats(x_display, adaptor_info[i].base_id,
 			       &format_count);
 	if (!format_info)
 	    continue;
@@ -132,7 +177,7 @@ end_adaptor_loop:
 	for (j = 0; j != adaptor_info[i].num_ports; ++j)
 	{
 	    XvPortID port = adaptor_info[i].base_id + i;
-	    if (XvGrabPort(display, port, CurrentTime) == Success)
+	    if (XvGrabPort(x_display, port, CurrentTime) == Success)
 	    {
 		xv_port_ = port;
 		break;
@@ -150,11 +195,11 @@ end_adaptor_loop:
     if (XShmSegmentInfo * xv_shm_info = new (std::nothrow) XShmSegmentInfo)
     {
 	if (XvImage * xv_image =
-	    XvShmCreateImage(display, xv_port_, pixel_format_id, 0,
+	    XvShmCreateImage(x_display, xv_port_, pixel_format_id, 0,
 			     frame_max_width, frame_max_height,
 			     xv_shm_info))
 	{
-	    if ((xv_image->data = allocate_x_shm(display, xv_shm_info,
+	    if ((xv_image->data = allocate_x_shm(x_display, xv_shm_info,
 						 xv_image->data_size)))
 	    {
 		xv_image_ = xv_image;
@@ -177,9 +222,9 @@ void dv_full_display_widget::on_unrealize()
 {
     if (xv_port_ != invalid_xv_port)
     {
-	Display * display = get_x_display(*this);
+	Display * x_display = get_x_display(*this);
 
-	XvStopVideo(display, xv_port_, get_x_window(*this));
+	XvStopVideo(x_display, xv_port_, get_x_window(*this));
 
 	if (XvImage * xv_image = static_cast<XvImage *>(xv_image_))
 	{
@@ -192,25 +237,8 @@ void dv_full_display_widget::on_unrealize()
 	    delete xv_shm_info;
 	}
 
-	XvUngrabPort(display, xv_port_, CurrentTime);
+	XvUngrabPort(x_display, xv_port_, CurrentTime);
 	xv_port_ = invalid_xv_port;
-    }
-}
-
-void dv_display_widget::put_frame(const mixer::frame_ptr & dv_frame)
-{
-    if (dv_frame->serial_num != decoded_serial_num_)
-    {
-	pixels_pitch buffer = get_frame_buffer();
-	if (!buffer.first)
-	    return;
-
-	dv_parse_header(decoder_, dv_frame->buffer);
-	dv_decode_full_frame(decoder_, dv_frame->buffer,
-			     e_dv_color_yuv, &buffer.first, &buffer.second);
-	decoded_serial_num_ = dv_frame->serial_num;
-
-	draw_frame(decoder_->width, decoder_->height);
     }
 }
 
@@ -228,31 +256,36 @@ dv_display_widget::pixels_pitch dv_full_display_widget::get_frame_buffer()
     }
 }
 
-void dv_full_display_widget::draw_frame(unsigned width, unsigned height)
+void dv_full_display_widget::draw_frame(const drawing_context & context,
+					unsigned width, unsigned height)
 {
-    XvImage * xv_image = static_cast<XvImage *>(xv_image_);
     // XXX should use get_window()->get_internal_paint_info()
-    Display * display = get_x_display(*this);
-    if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(get_window()))
-    {
-	XvShmPutImage(display, xv_port_,
-		      get_x_window(*this), gdk_x11_gc_get_xgc(gc->gobj()),
-		      xv_image,
-		      0, 0, width, height,
-		      0, 0, display_width_full, display_height_full,
-		      False);
-	XFlush(display);
-    }
+    XvShmPutImage(context.x_display, xv_port_, context.x_window, context.x_gc,
+		  static_cast<XvImage *>(xv_image_),
+		  0, 0, width, height,
+		  0, 0, display_width_full, display_height_full,
+		  False);
+    XFlush(context.x_display);
+}
+
+// dv_thumb_display_widget
+
+dv_thumb_display_widget::dv_thumb_display_widget()
+    : dv_display_widget(DV_QUALITY_FASTEST),
+      x_image_(0),
+      x_shm_info_(0)
+{
+    set_size_request(display_width_thumb, display_height_thumb);
 }
 
 void dv_thumb_display_widget::on_realize()
 {
     dv_display_widget::on_realize();
 
-    Display * display = get_x_display(*this);
+    Display * x_display = get_x_display(*this);
     int screen = 0; // XXX should use gdk_x11_screen_get_screen_number
     XVisualInfo visual_info;
-    if (XMatchVisualInfo(display, screen, 24, DirectColor, &visual_info))
+    if (XMatchVisualInfo(x_display, screen, 24, DirectColor, &visual_info))
     {
 	if (XShmSegmentInfo * x_shm_info = new (std::nothrow) XShmSegmentInfo)
 	{
@@ -260,11 +293,11 @@ void dv_thumb_display_widget::on_realize()
 	    // display size and a YUY2 buffer at the video frame
 	    // size.  But this will do for a rough demo.
 	    if (XImage * x_image = XShmCreateImage(
-		    display, visual_info.visual, 24, ZPixmap,
+		    x_display, visual_info.visual, 24, ZPixmap,
 		    0, x_shm_info, frame_max_width, frame_max_height))
 	    {
 		if ((x_image->data = allocate_x_shm(
-			 display, x_shm_info,
+			 x_display, x_shm_info,
 			 x_image->height * x_image->bytes_per_line)))
 		{
 		    x_image_ = x_image;
@@ -311,20 +344,16 @@ dv_display_widget::pixels_pitch dv_thumb_display_widget::get_frame_buffer()
     }
 }
 
-void dv_thumb_display_widget::draw_frame(unsigned width, unsigned height)
+void dv_thumb_display_widget::draw_frame(const drawing_context & context,
+					 unsigned width, unsigned height)
 {
     // XXX This needs to convert and scale between the two buffers.
     XImage * x_image = static_cast<XImage *>(x_image_);
     // XXX should use get_window()->get_internal_paint_info()
-    Display * display = get_x_display(*this);
-    if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(get_window()))
-    {
-	XShmPutImage(display,
-		     get_x_window(*this), gdk_x11_gc_get_xgc(gc->gobj()),
-		     x_image,
-		     0, 0,
-		     0, 0, display_width_thumb, display_height_thumb,
-		     False);
-	XFlush(display);
-    }
+    XShmPutImage(context.x_display, context.x_window, context.x_gc,
+		 x_image,
+		 0, 0,
+		 0, 0, display_width_thumb, display_height_thumb,
+		 False);
+    XFlush(context.x_display);
 }

@@ -6,10 +6,6 @@
 #include "mixer.hpp"
 #include "mixer_window.hpp"
 
-// X headers come last due to egregious macro pollution.
-#include "gtk_x_utils.hpp"
-#include <X11/extensions/Xvlib.h>
-
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
       timeout_event_source_(Glib::TimeoutSource::create(20))
