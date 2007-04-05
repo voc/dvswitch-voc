@@ -1,3 +1,9 @@
+dvswitch (0.2-1) testing; urgency=low
+
+  * New upstream version
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Fri,  6 Apr 2007 00:54:25 +0100
+
 dvswitch (0.1-1) testing; urgency=low
 
   * Initial release

@@ -1,3 +1,13 @@
+dvswitch (0.2) unstable; urgency=low
+
+  * Fixed hang on exit
+  * Implemented thumbnail displays of all sources
+  * Switched to 1-based source selection in order to match keyboard layout
+  * Reduced display lag
+  * Reduced processor load of display updates by using Xv and Xshm
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Fri,  6 Apr 2007 00:54:22 +0100
+
 dvswitch (0.1) unstable; urgency=low
 
   * Initial release

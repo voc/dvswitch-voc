@@ -1,4 +1,4 @@
-dvswitch 0.1
+dvswitch 0.2
 
 This is far from ready for use, but may serve as an early demonstration.
 
@@ -9,14 +9,10 @@ However this will probably change in later versions as we will use
 multiple listening ports.
 
 Run dvswitch and you will see a rather bare mixing window.  This only
-knows keyboard commands: Q to quit, digits to select between sources,
-C to cut (which does nothing at present).
+knows keyboard commands: Control-Q to quit, digits to select between
+sources, C to cut (which does nothing at present).
 
 Now run dvsource-file to feed a file as a source and/or
 dvsource-firewire to capture over Firewire.
-
-Currently dvswitch only shows the selected source; previews of other
-sources are not generated.  Sources are numbered in order of
-connection starting from 0 (which should probably change to 1).
 
 That's all for now.
