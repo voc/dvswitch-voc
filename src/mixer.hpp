@@ -82,10 +82,12 @@ public:
     void cut();
 
 private:
-    // XXX this is rather arbitrary
-    static const unsigned ring_buffer_size = 10;
-
-    typedef ring_buffer<frame_ptr, ring_buffer_size> frame_queue;
+    // Frame queue.  We want to allow a bit of leeway in the input
+    // pipeline before we have to drop or repeat a frame.  At the
+    // same time we don't want to add much to latency.  We try to
+    // keep the queue half-full so there are 2 frame-times
+    // (66-80 ms) of added latency here.
+    typedef ring_buffer<frame_ptr, 4> frame_queue;
 
     // Settings for mixing/switching.  Rather simple at present. ;-)
     // If and when we do real mixing, these will need to be preserved

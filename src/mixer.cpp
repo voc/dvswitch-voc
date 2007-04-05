@@ -77,7 +77,7 @@ void mixer::put_frame(source_id id, const frame_ptr & frame)
 	    queue.push(frame);
 
 	    // Start running once we have one half-full source queue.
-	    if (!clock_thread_ && queue.size() == ring_buffer_size / 2)
+	    if (!clock_thread_ && queue.size() == queue.capacity() / 2)
 	    {
 		settings_.cut_before = false;
 		settings_.video_source_id = id;
