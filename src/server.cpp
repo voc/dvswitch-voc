@@ -118,7 +118,7 @@ bool server::connection::do_receive(Glib::IOCondition condition)
 	    // whether the system is set in our partial frame yet.
 	    std::size_t target_size = 
 		(partial_frame_->system == e_dv_system_none)
-		? DIF_FRAME_HEADER_SIZE
+		? DIF_SEQUENCE_SIZE
 		: decoder_->frame_size;
 
 	    ssize_t received_size = read(
