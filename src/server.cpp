@@ -87,6 +87,7 @@ server::connection::connection(server & server, int socket)
 server::connection::~connection()
 {
     dv_decoder_free(decoder_);
+    server_.mixer_.remove_source(source_id_);
     close(socket_);
 }
 

@@ -82,12 +82,17 @@ public:
     void cut();
 
 private:
-    // Frame queue.  We want to allow a bit of leeway in the input
+    // Source data.  We want to allow a bit of leeway in the input
     // pipeline before we have to drop or repeat a frame.  At the
     // same time we don't want to add much to latency.  We try to
     // keep the queue half-full so there are 2 frame-times
     // (66-80 ms) of added latency here.
-    typedef ring_buffer<frame_ptr, 4> frame_queue;
+    struct source_data
+    {
+	source_data() : is_live(true) {}
+	bool is_live;
+	ring_buffer<frame_ptr, 4> frames;
+    };
 
     // Settings for mixing/switching.  Rather simple at present. ;-)
     // If and when we do real mixing, these will need to be preserved
@@ -106,7 +111,7 @@ private:
 
     boost::mutex source_mutex_; // controls access to the following
     mix_settings settings_;
-    std::vector<frame_queue> source_queues_;
+    std::vector<source_data> sources_;
 
     boost::mutex sink_mutex_; // controls access to the following
     std::vector<sink *> sinks_;

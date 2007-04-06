@@ -21,7 +21,7 @@ mixer::mixer()
     : monitor_(0),
       clock_thread_(0)
 {
-    source_queues_.reserve(5);
+    sources_.reserve(5);
     sinks_.reserve(5);
 }
 
@@ -55,13 +55,23 @@ mixer::frame_ptr mixer::allocate_frame()
 mixer::source_id mixer::add_source()
 {
     boost::mutex::scoped_lock lock(source_mutex_);
-    source_queues_.push_back(frame_queue());
-    return source_queues_.size() - 1;
+    source_id id;
+    for (id = 0; id != sources_.size(); ++id)
+    {
+	if (!sources_[id].is_live)
+	{
+	    sources_[id].is_live = true;
+	    return id;
+	}
+    }
+    sources_.resize(id + 1);
+    return id;
 }
 
-void mixer::remove_source(source_id)
+void mixer::remove_source(source_id id)
 {
-    // XXX We probably want to be able to reuse source slots.
+    boost::mutex::scoped_lock lock(source_mutex_);
+    sources_.at(id).is_live = false;
 }
 
 void mixer::put_frame(source_id id, const frame_ptr & frame)
@@ -71,15 +81,16 @@ void mixer::put_frame(source_id id, const frame_ptr & frame)
     {
 	boost::mutex::scoped_lock lock(source_mutex_);
 
-	frame_queue & queue = source_queues_.at(id);
-	was_full = queue.full();
+	source_data & source = sources_.at(id);
+	was_full = source.frames.full();
 
 	if (!was_full)
 	{
-	    queue.push(frame);
+	    source.frames.push(frame);
 
 	    // Start running once we have one half-full source queue.
-	    if (!clock_thread_ && queue.size() == queue.capacity() / 2)
+	    if (!clock_thread_
+		&& source.frames.size() == source.frames.capacity() / 2)
 	    {
 		settings_.video_source_id = id;
 		settings_.audio_source_id = id;
@@ -142,7 +153,7 @@ void mixer::stop_clock()
     {
 	// This is supposed to signal the clock thread to exit
 	boost::mutex::scoped_lock lock(source_mutex_);
-	source_queues_.clear();
+	sources_.clear();
     }
 
     // Wait for it to do so
@@ -283,24 +294,24 @@ void mixer::run_clock()
 	{
 	    boost::mutex::scoped_lock lock(source_mutex_);
 
-	    if (source_queues_.size() == 0) // signal to exit
+	    if (sources_.size() == 0) // signal to exit
 		break;
 
 	    settings = settings_;
 	    settings_.cut_before = false;
 
-	    source_frames.resize(source_queues_.size());
-	    for (source_id id = 0; id != source_queues_.size(); ++id)
+	    source_frames.resize(sources_.size());
+	    for (source_id id = 0; id != sources_.size(); ++id)
 	    {
-		if (source_queues_[id].empty())
+		if (sources_[id].frames.empty())
 		{
 		    source_frames[id].reset();
 		}
 		else
 		{
-		    source_frames[id] = source_queues_[id].front();
+		    source_frames[id] = sources_[id].frames.front();
 		    source_frames[id]->serial_num = serial_num;
-		    source_queues_[id].pop();
+		    sources_[id].frames.pop();
 		}
 	    }
 	}
@@ -338,7 +349,6 @@ void mixer::run_clock()
 	    else
 	    {
 		silence_audio(*mixed_frame);
-		std::cout << "no new audio available; substituting silence\n";
 	    }
 	}
 
