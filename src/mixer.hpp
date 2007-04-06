@@ -96,6 +96,7 @@ private:
     struct mix_settings
     {
 	source_id video_source_id;
+	source_id audio_source_id;
 	bool cut_before;
     };
 
