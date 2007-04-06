@@ -66,8 +66,8 @@ static void transfer_frames(struct transfer_params * params)
 
     init_frame_timer();
 
-    while ((size = read(params->file, buf, DIF_PACK_SIZE))
-	   == (ssize_t)DIF_PACK_SIZE)
+    while ((size = read(params->file, buf, DIF_FRAME_HEADER_SIZE))
+	   == (ssize_t)DIF_FRAME_HEADER_SIZE)
     {
 	if (dv_parse_header(params->decoder, buf) < 0)
 	{
@@ -84,9 +84,9 @@ static void transfer_frames(struct transfer_params * params)
 			    : frame_time_ns_625_50);
 	}
 
-	if (read(params->file, buf + DIF_PACK_SIZE,
-		 params->decoder->frame_size - DIF_PACK_SIZE)
-	    != (ssize_t)(params->decoder->frame_size - DIF_PACK_SIZE))
+	if (read(params->file, buf + DIF_FRAME_HEADER_SIZE,
+		 params->decoder->frame_size - DIF_FRAME_HEADER_SIZE)
+	    != (ssize_t)(params->decoder->frame_size - DIF_FRAME_HEADER_SIZE))
 	{
 	    perror("ERROR: read");
 	    exit(1);

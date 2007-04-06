@@ -5,7 +5,8 @@
 #define DVSWITCH_DIF_H
 
 #define DIF_BLOCK_SIZE 80
-#define DIF_PACK_SIZE (6 * DIF_BLOCK_SIZE)
 #define DIF_MAX_BLOCKS_PER_FRAME 1800
+
+#define DIF_FRAME_HEADER_SIZE (6 * DIF_BLOCK_SIZE)
 
 #endif // !defined(DVSWITCH_DIF_H)
