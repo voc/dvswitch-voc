@@ -19,7 +19,8 @@
 
 mixer::mixer()
     : monitor_(0),
-      clock_thread_(0)
+      clock_state_(clock_state_wait),
+      clock_thread_(boost::bind(&mixer::run_clock, this))
 {
     sources_.reserve(5);
     sinks_.reserve(5);
@@ -27,8 +28,13 @@ mixer::mixer()
 
 mixer::~mixer()
 {
-    if (clock_thread_)
-	stop_clock();
+    {
+	boost::mutex::scoped_lock lock(source_mutex_);
+	clock_state_ = clock_state_stop;
+	clock_state_cond_.notify_one(); // in case it's still waiting
+    }
+
+    clock_thread_.join();
 }
 
 // Memory pool for frame buffers.  This should make frame
@@ -77,6 +83,7 @@ void mixer::remove_source(source_id id)
 void mixer::put_frame(source_id id, const frame_ptr & frame)
 {
     bool was_full;
+    bool should_notify_clock = false;
 
     {
 	boost::mutex::scoped_lock lock(source_mutex_);
@@ -88,17 +95,21 @@ void mixer::put_frame(source_id id, const frame_ptr & frame)
 	{
 	    source.frames.push(frame);
 
-	    // Start running once we have one half-full source queue.
-	    if (!clock_thread_
+	    // Start clock ticking once we have one half-full source queue.
+	    if (clock_state_ == clock_state_wait
 		&& source.frames.size() == source.frames.capacity() / 2)
 	    {
 		settings_.video_source_id = id;
 		settings_.audio_source_id = id;
 		settings_.cut_before = false;
-		start_clock();
+		clock_state_ = clock_state_run;
+		should_notify_clock = true; // after we unlock the mutex
 	    }
 	}
     }
+
+    if (should_notify_clock)
+	clock_state_cond_.notify_one();
 
     if (was_full)
 	std::cerr << "WARN: Dropped frame from source " << 1 + id
@@ -135,31 +146,6 @@ void mixer::cut()
 {
     boost::mutex::scoped_lock lock(source_mutex_);
     settings_.cut_before = true;
-}
-
-void mixer::start_clock()
-{
-    // XXX This could take some time (e.g. it may allocate the thread
-    // stack before returning). We should start the thread earlier and
-    // only set a condition here.
-    assert(!clock_thread_);
-    clock_thread_ = new boost::thread(boost::bind(&mixer::run_clock, this));
-}
-
-void mixer::stop_clock()
-{
-    assert(clock_thread_);
-
-    {
-	// This is supposed to signal the clock thread to exit
-	boost::mutex::scoped_lock lock(source_mutex_);
-	sources_.clear();
-    }
-
-    // Wait for it to do so
-    clock_thread_->join();
-    delete clock_thread_;
-    clock_thread_ = 0;
 }
 
 namespace
@@ -285,6 +271,12 @@ void mixer::run_clock()
     frame_ptr last_mixed_frame;
     unsigned serial_num = 0;
 
+    {
+	boost::mutex::scoped_lock lock(source_mutex_);
+	while (clock_state_ == clock_state_wait)
+	    clock_state_cond_.wait(lock);
+    }
+
     for (;;)
     {
 	mix_settings settings;
@@ -294,7 +286,7 @@ void mixer::run_clock()
 	{
 	    boost::mutex::scoped_lock lock(source_mutex_);
 
-	    if (sources_.size() == 0) // signal to exit
+	    if (clock_state_ == clock_state_stop)
 		break;
 
 	    settings = settings_;

@@ -9,7 +9,9 @@
 
 #include <tr1/memory>
 
+#include <boost/thread/condition.hpp>
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
 
 #include "ring_buffer.hpp"
 
@@ -112,13 +114,15 @@ private:
     boost::mutex source_mutex_; // controls access to the following
     mix_settings settings_;
     std::vector<source_data> sources_;
+    enum { clock_state_wait, clock_state_run, clock_state_stop } clock_state_;
+    boost::condition clock_state_cond_;
+
+    boost::thread clock_thread_;
 
     boost::mutex sink_mutex_; // controls access to the following
     std::vector<sink *> sinks_;
 
     monitor * monitor_;
-
-    boost::thread * clock_thread_;
 };
 
 #endif // !defined(DVSWITCH_MIXER_HPP)
