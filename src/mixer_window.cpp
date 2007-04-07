@@ -68,7 +68,7 @@ bool mixer_window::on_key_press_event(GdkEventKey * event)
 	    id = event->keyval - GDK_KP_1;
 	try
 	{
-	    mixer_.set_video_source(event->keyval - '1');
+	    mixer_.set_video_source(id);
 	}
 	catch (std::range_error &)
 	{
