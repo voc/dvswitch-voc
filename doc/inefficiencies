@@ -1,6 +1,10 @@
-Clamping luma and chroma values may be a waste of time.
+Clamping luma and chroma values may be a waste of time (but turning
+it off didn't seem to make much difference to processor usage).
 
 We should decode in multiple threads if there are multiple processors
 available.  dv_decode_full_frame currently prevents this with a mutex,
 though there's no obvious shared state that would make it unsafe
 without the mutex.
+
+The server should use larger socket buffers or asynchronous I/O so
+that it doesn't need to wake up so often.
