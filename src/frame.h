@@ -12,7 +12,6 @@
 
 struct frame
 {
-    struct timeval time_received; // set by source
     unsigned serial_num;          // set by mixer
     dv_system_t system;           // set by source
     size_t size;                  // set by source

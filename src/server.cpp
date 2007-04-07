@@ -248,7 +248,6 @@ server::connection::receive_state server::connection::handle_source_sequence()
 
 server::connection::receive_state server::connection::handle_source_frame()
 {
-    gettimeofday(&frame_->time_received, 0);
     server_.mixer_.put_frame(source_id_, frame_);
     frame_.reset();
     frame_ = server_.mixer_.allocate_frame();

@@ -24,14 +24,12 @@ namespace
     struct option options[] = {
 	{"host",             1, NULL, 'h'},
 	{"port",             1, NULL, 'p'},
-	{"output-directory", 1, NULL, 'o'},
 	{"help",             0, NULL, 'H'},
 	{NULL,               0, NULL, 0}
     };
 
     std::string mixer_host;
     std::string mixer_port;
-    std::string output_directory;
 
     extern "C"
     {
@@ -41,8 +39,6 @@ namespace
 		mixer_host = value;
 	    else if (strcmp(name, "MIXER_PORT") == 0)
 		mixer_port = value;
-	    else if (strcmp(name, "OUTPUT_DIRECTORY") == 0)
-		output_directory = value;
 	}
     }
 
