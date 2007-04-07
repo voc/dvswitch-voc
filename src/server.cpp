@@ -20,20 +20,55 @@
 #include "server.hpp"
 #include "socket.h"
 
-class server::connection : public SigC::Object
+class server::connection : public SigC::Object, private mixer::sink
 {
 public:
     connection(server & server, int socket);
     ~connection();
 
 private:
+    struct receive_state
+    {
+	receive_state()
+	    : buffer(0),
+	      size(0),
+	      handler(0)
+	{}
+	receive_state(uint8_t * buffer, std::size_t size,
+		      receive_state (connection::*handler)())
+	    : buffer(buffer),
+	      size(size),
+	      handler(handler)
+	{}
+	uint8_t * buffer;
+	std::size_t size;
+	receive_state (connection::*handler)();
+    };
+
     bool do_receive(Glib::IOCondition);
+    receive_state identify_client_type();
+    receive_state handle_source_sequence();
+    receive_state handle_source_frame();
+    receive_state handle_unexpected_input();
+
+    virtual void put_frame(const mixer::frame_ptr & frame);
+    virtual void cut();
 
     server & server_;
     int socket_;
-    mixer::source_id source_id_;
-    dv_decoder_t * decoder_;
-    mixer::frame_ptr partial_frame_;
+    receive_state receive_state_;
+    enum { type_unknown, type_source, type_sink } type_;
+    union
+    {
+	uint8_t type_buffer_[4];
+	struct
+	{
+	    mixer::source_id source_id_;
+	    dv_decoder_t * decoder_;
+	};
+	mixer::sink_id sink_id_;
+    };
+    mixer::frame_ptr frame_;
 };
 
 server::server(const std::string & host, const std::string & port,
@@ -73,8 +108,10 @@ void server::disconnect(connection * conn)
 server::connection::connection(server & server, int socket)
     : server_(server),
       socket_(socket),
-      source_id_(server_.mixer_.add_source()),
-      decoder_(dv_decoder_new(0, true, true))
+      receive_state_(type_buffer_,
+		     sizeof(type_buffer_),
+		     &connection::identify_client_type),
+      type_(type_unknown)
 {
     fcntl(socket_, F_SETFL, O_NONBLOCK);
     Glib::RefPtr<Glib::IOSource> io_source(
@@ -86,88 +123,151 @@ server::connection::connection(server & server, int socket)
 
 server::connection::~connection()
 {
-    dv_decoder_free(decoder_);
-    server_.mixer_.remove_source(source_id_);
+    if (type_ == type_source)
+    {
+	dv_decoder_free(decoder_);
+	server_.mixer_.remove_source(source_id_);
+    }
+    else if (type_ == type_sink)
+    {
+	server_.mixer_.remove_sink(sink_id_);
+    }
+
     close(socket_);
 }
 
 bool server::connection::do_receive(Glib::IOCondition condition)
 {
-    bool successful = true;
+    bool successful = false;
 
-    if (condition & (Glib::IO_ERR | Glib::IO_HUP))
+    if (condition & Glib::IO_IN)
     {
-	successful = false;
-    }
-    else
-    {
-	bool first_try = true;
+	bool should_retry;
 
-	for (;;)
+	do
 	{
-	    if (!partial_frame_)
-	    {
-		partial_frame_ = server_.mixer_.allocate_frame();
-		partial_frame_->system = e_dv_system_none;
-		partial_frame_->size = 0;
-	    }
+	    should_retry = false;
 
-	    // First we must read the first pack, containing the
-	    // header which will indicate the video system and full
-	    // frame size.  Then we must read the full frame.
-	    // We can determine which state we're in by checking
-	    // whether the system is set in our partial frame yet.
-	    std::size_t target_size = 
-		(partial_frame_->system == e_dv_system_none)
-		? DIF_SEQUENCE_SIZE
-		: decoder_->frame_size;
-
-	    ssize_t received_size = read(
-		socket_,
-		partial_frame_->buffer + partial_frame_->size,
-		target_size - partial_frame_->size);
-
+	    ssize_t received_size = read(socket_,
+					 receive_state_.buffer,
+					 receive_state_.size);
 	    if (received_size > 0)
 	    {
-		partial_frame_->size += received_size;
-		if (partial_frame_->size == target_size)
+		receive_state_.buffer += received_size;
+		receive_state_.size -= received_size;
+		if (receive_state_.size == 0)
 		{
-		    if (partial_frame_->system == e_dv_system_none)
-		    {
-			// We just finished reading the header.
-			if (dv_parse_header(decoder_, partial_frame_->buffer)
-			    >= 0)
-			    partial_frame_->system = decoder_->system;
-			else
-			    successful = false;
-		    }
-		    else
-		    {
-			// We just finished reading the frame.
-			gettimeofday(&partial_frame_->time_received, 0);
-			server_.mixer_.put_frame(source_id_, partial_frame_);
-			partial_frame_.reset();
-		    }
+		    receive_state_ = (this->*(receive_state_.handler))();
+		    successful = receive_state_.handler != 0;
+		    should_retry = successful; // there may be more available
+		}
+		else
+		{
+		    successful = true;
 		}
 	    }
-	    else
+	    else if (received_size == -1 && errno == EWOULDBLOCK)
 	    {
-		if (first_try
-		    || (received_size < 0 && errno != EWOULDBLOCK))
-		    successful = false;
-		break;
+		// This is expected when the socket buffer is empty
+		successful = true;
 	    }
-
-	    first_try = false;
 	}
+	while (should_retry);
     }
 
     if (!successful)
     {
+	// XXX We should distinguish several kinds of failure: network
+	// problems, normal disconnection, protocol violation, and
+	// resource allocation failure.
 	std::cerr << "WARN: Lost connection from source " << 1 + source_id_
 		  << "\n";
 	server_.disconnect(this);
     }
 
     return successful;
+}
+
+server::connection::receive_state server::connection::identify_client_type()
+{
+    // New sources should send 'SORC' as a greeting.
+    // Old sources will just start sending DIF directly.
+    if (std::memcmp(type_buffer_, "SORC", 4) == 0
+	|| ((type_buffer_[0] >> 5) == 0    // header block
+	    && (type_buffer_[1] >> 4) == 0 // sequence 0
+	    && type_buffer_[2] == 0))      // block 0
+    {
+	std::size_t received_size =
+	    (type_buffer_[0] == 'S') ? 0 : sizeof(type_buffer_);
+
+	if ((frame_ = server_.mixer_.allocate_frame())
+	    && (decoder_ = dv_decoder_new(0, true, true)))
+	{
+	    type_ = type_source;
+	    source_id_ = server_.mixer_.add_source();
+
+	    if (received_size)
+	    {
+		std::memcpy(frame_->buffer,
+			    type_buffer_, sizeof(type_buffer_));
+		received_size = sizeof(type_buffer_);
+	    }
+
+	    return receive_state(frame_->buffer + received_size,
+				 DIF_SEQUENCE_SIZE - received_size,
+				 &connection::handle_source_sequence);
+	}
+    }
+    // Sinks should send 'SINK' as a greeting (and then nothing else).
+    else if (std::memcmp(type_buffer_, "SINK", 4) == 0)
+    {
+	type_ = type_sink;
+	sink_id_ = server_.mixer_.add_sink(this);
+	static uint8_t dummy;
+	return receive_state(&dummy,
+			     1,
+			     &connection::handle_unexpected_input);
+    }
+
+    return receive_state();
+}
+
+server::connection::receive_state server::connection::handle_source_sequence()
+{
+    if (dv_parse_header(decoder_, frame_->buffer) >= 0)
+    {
+	frame_->system = decoder_->system;
+	frame_->size = decoder_->frame_size;
+	return receive_state(frame_->buffer + DIF_SEQUENCE_SIZE,
+			     frame_->size - DIF_SEQUENCE_SIZE,
+			     &connection::handle_source_frame);
+    }
+
+    return receive_state();
+}
+
+server::connection::receive_state server::connection::handle_source_frame()
+{
+    gettimeofday(&frame_->time_received, 0);
+    server_.mixer_.put_frame(source_id_, frame_);
+    frame_.reset();
+    frame_ = server_.mixer_.allocate_frame();
+    return receive_state(frame_->buffer,
+			 DIF_SEQUENCE_SIZE,
+			 &connection::handle_source_sequence);
+}
+
+server::connection::receive_state server::connection::handle_unexpected_input()
+{
+    return receive_state();
+}
+
+void server::connection::put_frame(const mixer::frame_ptr &)
+{
+    // TODO
+}
+
+void server::connection::cut()
+{
+    // TODO
 }
