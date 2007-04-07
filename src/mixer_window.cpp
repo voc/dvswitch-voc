@@ -59,8 +59,14 @@ bool mixer_window::on_key_press_event(GdkEventKey * event)
 
     if (event->keyval >= '1' && event->keyval <= '9')
     {
-	// XXX We need to range-check this.
-	mixer_.set_video_source(event->keyval - '1');
+	try
+	{
+	    mixer_.set_video_source(event->keyval - '1');
+	}
+	catch (std::range_error &)
+	{
+	    // never mind
+	}
 	return true;
     }
 

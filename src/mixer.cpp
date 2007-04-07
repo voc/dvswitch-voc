@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 #include <ostream>
+#include <stdexcept>
 
 #include <boost/bind.hpp>
 #include <boost/pool/object_pool.hpp>
@@ -133,7 +134,10 @@ void mixer::remove_sink(sink_id id)
 void mixer::set_video_source(source_id id)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
-    settings_.video_source_id = id;
+    if (id < sources_.size())
+	settings_.video_source_id = id;
+    else
+	throw std::range_error("video source id out of range");
 }
 
 void mixer::set_monitor(monitor * monitor)
@@ -307,6 +311,9 @@ void mixer::run_clock()
 		}
 	    }
 	}
+
+	assert(settings.audio_source_id < source_frames.size()
+	       && settings.video_source_id < source_frames.size());
 
 	// If we have a single live source for both audio and video,
 	// use the source frame unchanged.
