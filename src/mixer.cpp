@@ -19,9 +19,9 @@
 #include "mixer.hpp"
 
 mixer::mixer()
-    : monitor_(0),
-      clock_state_(clock_state_wait),
-      clock_thread_(boost::bind(&mixer::run_clock, this))
+    : clock_state_(clock_state_wait),
+      clock_thread_(boost::bind(&mixer::run_clock, this)),
+      monitor_(0)
 {
     sources_.reserve(5);
     sinks_.reserve(5);
@@ -135,7 +135,7 @@ void mixer::set_video_source(source_id id)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
     if (id < sources_.size())
-	settings_.video_source_id = id;
+    settings_.video_source_id = id;
     else
 	throw std::range_error("video source id out of range");
 }
@@ -343,8 +343,10 @@ void mixer::run_clock()
 	    if (source_frames[settings.audio_source_id]
 		&& (source_frames[settings.audio_source_id]->system
 		    == mixed_frame->system))
+	    {
 		dub_audio(*mixed_frame,
 			  *source_frames[settings.audio_source_id]);
+	    }
 	    else
 	    {
 		silence_audio(*mixed_frame);
