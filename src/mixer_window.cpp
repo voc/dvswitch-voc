@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <gdk/gdkkeysyms.h>
 #include <gtkmm/main.h>
 
 #include "mixer.hpp"
@@ -57,8 +58,14 @@ bool mixer_window::on_key_press_event(GdkEventKey * event)
 	return true;
     }
 
-    if (event->keyval >= '1' && event->keyval <= '9')
+    if (event->keyval >= '1' && event->keyval <= '9'
+	|| event->keyval >= GDK_KP_1 && event->keyval <= GDK_KP_9)
     {
+	mixer::source_id id;
+	if (event->keyval >= '1' && event->keyval <= '9')
+	    id = event->keyval - '1';
+	else
+	    id = event->keyval - GDK_KP_1;
 	try
 	{
 	    mixer_.set_video_source(event->keyval - '1');
