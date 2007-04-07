@@ -182,6 +182,11 @@ int main(int argc, char ** argv)
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);
     params.sock = create_connected_socket(mixer_host, mixer_port);
     assert(params.sock >= 0); /* create_connected_socket() should handle errors */
+    if (write(params.sock, "SORC", 4) != 4)
+    {
+	perror("ERROR: write");
+	exit(1);
+    }
 
     transfer_frames(&params);
 

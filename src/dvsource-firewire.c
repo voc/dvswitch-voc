@@ -109,6 +109,11 @@ int main(int argc, char ** argv)
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);
     int sock = create_connected_socket(mixer_host, mixer_port);
     assert(sock >= 0); /* create_connected_socket() should handle errors */
+    if (write(sock, "SORC", 4) != 4)
+    {
+	perror("ERROR: write");
+	exit(1);
+    }
     if (dup2(sock, STDOUT_FILENO) < 0)
     {
 	perror("ERROR: dup2");
