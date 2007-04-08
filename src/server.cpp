@@ -57,7 +57,6 @@ private:
     receive_state handle_unexpected_input();
 
     virtual void put_frame(const mixer::frame_ptr & frame);
-    virtual void cut();
 
     server & server_;
     int socket_;
@@ -313,11 +312,6 @@ server::connection::receive_state server::connection::handle_unexpected_input()
 }
 
 void server::connection::put_frame(const mixer::frame_ptr &)
-{
-    // TODO
-}
-
-void server::connection::cut()
 {
     // TODO
 }

@@ -353,6 +353,8 @@ void mixer::run_clock()
 	    }
 	}
 
+	mixed_frame->cut_before = settings.cut_before;
+
 	last_mixed_frame = mixed_frame;
 	++serial_num;
 
@@ -361,11 +363,7 @@ void mixer::run_clock()
 	    boost::mutex::scoped_lock lock(sink_mutex_);
 	    for (sink_id id = 0; id != sinks_.size(); ++id)
 		if (sinks_[id])
-		{
-		    if (settings.cut_before)
-			sinks_[id]->cut();
 		    sinks_[id]->put_frame(mixed_frame);
-		}
 	}
 	if (monitor_)
 	    monitor_->put_frames(source_frames.size(), &source_frames[0],

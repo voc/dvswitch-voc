@@ -41,8 +41,6 @@ public:
 	// member of the frame can be used to check whether the
 	// frame is new.
 	virtual void put_frame(const frame_ptr &) = 0;
-	// Make a cut in the output, if appropriate
-	virtual void cut() = 0;
     };
 
     // Interface to monitor
