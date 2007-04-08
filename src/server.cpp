@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include <boost/bind.hpp>
+#include <boost/variant.hpp>
 
 #include <libdv/dv.h>
 
@@ -28,9 +29,16 @@
 class server::connection : private mixer::sink
 {
 public:
+    enum send_status {
+	send_failed,
+	sent_some,
+	sent_all
+    };
+
     connection(server & server, int socket);
     ~connection();
     bool do_receive();
+    send_status do_send();
 
 private:
     struct receive_state
@@ -61,18 +69,81 @@ private:
     server & server_;
     int socket_;
     receive_state receive_state_;
-    enum { type_unknown, type_source, type_sink } type_;
-    union
+
+    struct unknown_state
     {
-	uint8_t type_buffer_[4];
-	struct
-	{
-	    mixer::source_id source_id_;
-	    dv_decoder_t * decoder_;
-	};
-	mixer::sink_id sink_id_;
+	uint8_t greeting[4];
     };
-    mixer::frame_ptr frame_;
+
+    struct source_state
+    {
+	mixer::source_id source_id;
+	dv_decoder_t * decoder;
+	mixer::frame_ptr frame;
+    };
+
+    // This controls access to frames and overflowed in sink state.
+    // It's not a member of sink_state because it's non-copiable.
+    boost::mutex sink_queue_mutex_;
+
+    struct sink_state
+    {
+	mixer::sink_id sink_id;
+	std::size_t frame_pos;
+
+	ring_buffer<mixer::frame_ptr, 30> frames;
+	bool overflowed;
+    };
+
+    boost::variant<unknown_state, source_state, sink_state> conn_state_;
+
+    struct state_visitor_reporter;
+    struct state_visitor_cleaner;
+};
+
+class server::connection::state_visitor_reporter
+{
+public:
+    state_visitor_reporter(std::ostream & os)
+	: os_(os)
+    {}
+    void operator()(const unknown_state &) const
+    {
+	os_ << "unknown client";
+    }
+    void operator()(const source_state & state) const
+    {
+	os_ << "source " << 1 + state.source_id;
+    }
+    void operator()(const sink_state & state) const
+    {
+	os_ << "sink " << 1 + state.sink_id;
+    }
+    typedef void result_type;
+private:
+    std::ostream & os_;
+};
+
+class server::connection::state_visitor_cleaner
+{
+public:
+    state_visitor_cleaner(mixer & mixer)
+	: mixer_(mixer)
+    {}
+    void operator()(unknown_state &) const
+    {}
+    void operator()(source_state & state) const
+    {
+	dv_decoder_free(state.decoder);
+	mixer_.remove_source(state.source_id);
+    }
+    void operator()(sink_state & state) const
+    {
+	mixer_.remove_sink(state.sink_id);
+    }
+    typedef void result_type;
+private:
+    mixer & mixer_;
 };
 
 server::server(const std::string & host, const std::string & port,
@@ -117,6 +188,9 @@ void server::serve()
 	int count = poll(&poll_fds[0], poll_fds.size(), -1);
 	if (count < 0)
 	{
+	    int error = errno;
+	    if (error == EAGAIN || error == EINTR)
+		continue;
 	    std::cerr << "ERROR: poll: " << std::strerror(errno) << "\n";
 	    break;
 	}
@@ -127,7 +201,26 @@ void server::serve()
 	    int messages[1024];
 	    ssize_t size = read(pipe_ends_[0], messages, sizeof(messages));
 	    if (size > 0)
-		break;
+	    {
+		for (std::size_t i = 0;
+		     (i + 1) * sizeof(int) <= std::size_t(size);
+		     ++i)
+		{
+		    // Each message is either -1 (quit) or the number of an
+		    // FD that we now want to write to.
+		    if (messages[i] == -1)
+			goto exit;
+
+		    for (std::size_t j = 2; j != poll_fds.size(); ++j)
+		    {
+			if (poll_fds[j].fd == messages[i])
+			{
+			    poll_fds[j].events |= POLLOUT;
+			    break;
+			}
+		    }
+		}
+	    }
 	}
 
 	// Check listening socket
@@ -147,8 +240,39 @@ void server::serve()
 	for (std::size_t i = 0; i != connections.size();)
 	{
 	    short revents = poll_fds[2 + i].revents;
-	    if ((revents & (POLLHUP | POLLERR))
-		|| (revents & POLLIN && !connections[i]->do_receive()))
+	    bool should_drop = false;
+	    try
+	    {
+		if (revents & (POLLHUP | POLLERR))
+		{
+		    should_drop = true;
+		}
+		else if (revents & POLLIN && !connections[i]->do_receive())
+		{
+		    should_drop = true;
+		}
+		else if (revents & POLLOUT)
+		{
+		    switch (connections[i]->do_send())
+		    {
+		    case connection::send_failed:
+			should_drop = true;
+			break;
+		    case connection::sent_some:
+			break;
+		    case connection::sent_all:
+			poll_fds[2 + i].events &= ~POLLOUT;
+		        break;
+		    }
+		}
+	    }
+	    catch (std::exception & e)
+	    {
+		std::cerr << "ERROR: " << e.what() << "\n";
+		should_drop = true;
+	    }
+
+	    if (should_drop)
 	    {
 		delete connections[i];
 		connections.erase(connections.begin() + i);
@@ -161,33 +285,29 @@ void server::serve()
 	}
     }
 
+exit:
     std::vector<connection *>::iterator
 	it = connections.begin(), end = connections.end();
     while (it != end)
 	delete *it++;
 }
 
+void server::enable_output_polling(int fd)
+{
+    write(pipe_ends_[1], &fd, sizeof(int));
+}
+
 server::connection::connection(server & server, int socket)
     : server_(server),
       socket_(socket),
-      receive_state_(type_buffer_,
-		     sizeof(type_buffer_),
-		     &connection::identify_client_type),
-      type_(type_unknown)
+      receive_state_(boost::get<unknown_state>(conn_state_).greeting,
+		     sizeof(unknown_state().greeting),
+		     &connection::identify_client_type)
 {}
 
 server::connection::~connection()
 {
-    if (type_ == type_source)
-    {
-	dv_decoder_free(decoder_);
-	server_.mixer_.remove_source(source_id_);
-    }
-    else if (type_ == type_sink)
-    {
-	server_.mixer_.remove_sink(sink_id_);
-    }
-
+    boost::apply_visitor(state_visitor_cleaner(server_.mixer_), conn_state_);
     close(socket_);
 }
 
@@ -231,48 +351,116 @@ bool server::connection::do_receive()
 	// XXX We should distinguish several kinds of failure: network
 	// problems, normal disconnection, protocol violation, and
 	// resource allocation failure.
-	std::cerr << "WARN: Dropping connection from source " << 1 + source_id_
-		  << "\n";
+	std::cerr << "WARN: Dropping connection from ";
+	boost::apply_visitor(state_visitor_reporter(std::cerr), conn_state_);
+	std::cerr << "\n";
     }
 
     return successful;
 }
 
+server::connection::send_status server::connection::do_send()
+{
+    sink_state & state = boost::get<sink_state>(conn_state_);
+
+    send_status result = send_failed;
+    bool finished_frame = false;
+
+    do
+    {
+	mixer::frame_ptr frame;
+	{
+	    boost::mutex::scoped_lock lock(sink_queue_mutex_);
+	    if (state.overflowed)
+		break;
+	    if (finished_frame)
+	    {
+		state.frames.pop();
+		finished_frame = false;
+	    }
+	    if (state.frames.empty())
+	    {
+		result = sent_all;
+		break;
+	    }
+	    frame = state.frames.front();
+	}
+
+	ssize_t sent_size = write(socket_,
+				  frame->buffer + state.frame_pos,
+				  frame->size - state.frame_pos);
+	if (sent_size > 0)
+	{
+	    state.frame_pos += sent_size;
+	    if (state.frame_pos == frame->size)
+	    {
+		finished_frame = true;
+		state.frame_pos = 0;
+	    }
+	    result = sent_some;
+	}
+	else if (sent_size == -1 && errno == EWOULDBLOCK)
+	{
+	    result = sent_some;
+	}
+    }
+    while (finished_frame);
+
+    if (result == send_failed)
+    {
+	// XXX We should distinguish several kinds of failure: network
+	// problems, normal disconnection, protocol violation, and
+	// resource allocation failure.
+	std::cerr << "WARN: Dropping connection from sink "
+		  << 1 + state.sink_id << "\n";
+    }
+
+    return result;
+}
+
 server::connection::receive_state server::connection::identify_client_type()
 {
+    unknown_state old_state = boost::get<unknown_state>(conn_state_);
+
     // New sources should send 'SORC' as a greeting.
     // Old sources will just start sending DIF directly.
-    if (std::memcmp(type_buffer_, "SORC", 4) == 0
-	|| ((type_buffer_[0] >> 5) == 0    // header block
-	    && (type_buffer_[1] >> 4) == 0 // sequence 0
-	    && type_buffer_[2] == 0))      // block 0
+    if (std::memcmp(old_state.greeting, "SORC", 4) == 0
+	|| ((old_state.greeting[0] >> 5) == 0    // header block
+	    && (old_state.greeting[1] >> 4) == 0 // sequence 0
+	    && old_state.greeting[2] == 0))      // block 0
     {
-	std::size_t received_size =
-	    (type_buffer_[0] == 'S') ? 0 : sizeof(type_buffer_);
-
-	if ((frame_ = server_.mixer_.allocate_frame())
-	    && (decoder_ = dv_decoder_new(0, true, true)))
+	source_state new_state;
+	if ((new_state.frame = server_.mixer_.allocate_frame())
+	    && (new_state.decoder = dv_decoder_new(0, true, true)))
 	{
-	    type_ = type_source;
-	    source_id_ = server_.mixer_.add_source();
+	    new_state.source_id = server_.mixer_.add_source();
+	    conn_state_ = new_state;
 
-	    if (received_size)
+	    std::size_t received_size;
+	    if (old_state.greeting[0] == 'S')
 	    {
-		std::memcpy(frame_->buffer,
-			    type_buffer_, sizeof(type_buffer_));
-		received_size = sizeof(type_buffer_);
+		received_size = 0;
 	    }
-
-	    return receive_state(frame_->buffer + received_size,
+	    else
+	    {
+		std::memcpy(new_state.frame->buffer,
+			    old_state.greeting, sizeof(old_state.greeting));
+		received_size = sizeof(old_state.greeting);
+	    }
+	    return receive_state(new_state.frame->buffer + received_size,
 				 DIF_SEQUENCE_SIZE - received_size,
 				 &connection::handle_source_sequence);
 	}
     }
     // Sinks should send 'SINK' as a greeting (and then nothing else).
-    else if (std::memcmp(type_buffer_, "SINK", 4) == 0)
+    else if (std::memcmp(old_state.greeting, "SINK", 4) == 0)
     {
-	type_ = type_sink;
-	sink_id_ = server_.mixer_.add_sink(this);
+	conn_state_ = sink_state();
+	sink_state & new_state = boost::get<sink_state>(conn_state_);
+	new_state.frame_pos = 0;
+	new_state.overflowed = false;
+	new_state.sink_id = server_.mixer_.add_sink(this);
+
 	static uint8_t dummy;
 	return receive_state(&dummy,
 			     1,
@@ -284,12 +472,14 @@ server::connection::receive_state server::connection::identify_client_type()
 
 server::connection::receive_state server::connection::handle_source_sequence()
 {
-    if (dv_parse_header(decoder_, frame_->buffer) >= 0)
+    source_state & state = boost::get<source_state>(conn_state_);
+
+    if (dv_parse_header(state.decoder, state.frame->buffer) >= 0)
     {
-	frame_->system = decoder_->system;
-	frame_->size = decoder_->frame_size;
-	return receive_state(frame_->buffer + DIF_SEQUENCE_SIZE,
-			     frame_->size - DIF_SEQUENCE_SIZE,
+	state.frame->system = state.decoder->system;
+	state.frame->size = state.decoder->frame_size;
+	return receive_state(state.frame->buffer + DIF_SEQUENCE_SIZE,
+			     state.frame->size - DIF_SEQUENCE_SIZE,
 			     &connection::handle_source_frame);
     }
 
@@ -298,10 +488,13 @@ server::connection::receive_state server::connection::handle_source_sequence()
 
 server::connection::receive_state server::connection::handle_source_frame()
 {
-    server_.mixer_.put_frame(source_id_, frame_);
-    frame_.reset();
-    frame_ = server_.mixer_.allocate_frame();
-    return receive_state(frame_->buffer,
+    source_state & state = boost::get<source_state>(conn_state_);
+
+    server_.mixer_.put_frame(state.source_id, state.frame);
+    state.frame.reset();
+    state.frame = server_.mixer_.allocate_frame();
+
+    return receive_state(state.frame->buffer,
 			 DIF_SEQUENCE_SIZE,
 			 &connection::handle_source_sequence);
 }
@@ -311,7 +504,24 @@ server::connection::receive_state server::connection::handle_unexpected_input()
     return receive_state();
 }
 
-void server::connection::put_frame(const mixer::frame_ptr &)
+void server::connection::put_frame(const mixer::frame_ptr & frame)
 {
-    // TODO
+    sink_state & state = boost::get<sink_state>(conn_state_);
+
+    bool was_empty = false;
+    {
+	boost::mutex::scoped_lock lock(sink_queue_mutex_);
+	if (state.frames.full())
+	{
+	    state.overflowed = true;
+	}
+	else
+	{
+	    if (state.frames.empty())
+		was_empty = true;
+	    state.frames.push(frame);
+	}
+    }
+    if (was_empty)
+	server_.enable_output_polling(socket_);
 }

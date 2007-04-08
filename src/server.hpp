@@ -21,6 +21,7 @@ private:
     class connection;
 
     void serve();
+    void enable_output_polling(int fd);
 
     mixer & mixer_;
     int listen_socket_;
