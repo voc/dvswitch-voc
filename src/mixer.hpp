@@ -87,11 +87,13 @@ private:
     // same time we don't want to add much to latency.  We try to
     // keep the queue half-full so there are 2 frame-times
     // (66-80 ms) of added latency here.
+    static const std::size_t target_queue_len = 2;
+    static const std::size_t full_queue_len = target_queue_len * 2;
     struct source_data
     {
 	source_data() : is_live(true) {}
 	bool is_live;
-	ring_buffer<frame_ptr, 4> frames;
+	ring_buffer<frame_ptr, full_queue_len> frames;
     };
 
     // Settings for mixing/switching.  Rather simple at present. ;-)

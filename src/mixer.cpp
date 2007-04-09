@@ -94,11 +94,13 @@ void mixer::put_frame(source_id id, const frame_ptr & frame)
 
 	if (!was_full)
 	{
+	    frame->timestamp = frame_timer_get();
 	    source.frames.push(frame);
 
-	    // Start clock ticking once we have one half-full source queue.
+	    // Start clock ticking once one source has reached the
+	    // target queue length
 	    if (clock_state_ == clock_state_wait
-		&& source.frames.size() == source.frames.capacity() / 2)
+		&& source.frames.size() == target_queue_len)
 	    {
 		settings_.video_source_id = id;
 		settings_.audio_source_id = id;
@@ -269,15 +271,11 @@ namespace
 
 void mixer::run_clock()
 {
+    dv_system_t audio_source_system = e_dv_system_none;
     std::vector<frame_ptr> source_frames;
     source_frames.reserve(5);
     frame_ptr last_mixed_frame;
     unsigned serial_num = 0;
-
-    unsigned frame_time;
-    unsigned frame_timer_res = frame_timer_get_res();
-    unsigned frame_timer_period = 0;
-    int64_t frame_timer_offset = 0;
 
     {
 	boost::mutex::scoped_lock lock(source_mutex_);
@@ -285,7 +283,14 @@ void mixer::run_clock()
 	    clock_state_cond_.wait(lock);
     }
 
-    for (int frame_tick_count = 0; ; --frame_tick_count)
+    // Interval to the next frame (in ns)
+    unsigned frame_interval;
+    // Weighted rolling average frame interval
+    unsigned average_frame_interval;
+
+    for (uint64_t tick_timestamp = frame_timer_get();
+	 ;
+	 tick_timestamp += frame_interval, frame_timer_wait(tick_timestamp))
     {
 	mix_settings settings;
 	frame_ptr mixed_frame;
@@ -323,45 +328,61 @@ void mixer::run_clock()
 	// with the audio source matters more because audio
 	// discontinuities are even more annoying than dropped or
 	// repeated video frames.
-	// TODO: Adjust frame time dynamically to maintain synch with
-	// audio source.
-	if (source_frames[settings.audio_source_id])
-	    frame_time =
-		(source_frames[settings.audio_source_id]->system
-		 == e_dv_system_625_50)
-		? frame_time_ns_625_50
-		: frame_time_ns_525_60;
-
-	// (Re)set the timer.  We do this as soon as possible after
-	// waiting to reduce the risk of losing ticks.  On a 250 Hz
-	// system with 30 fps video we'll be continually adjusting the
-	// timer, but that's just tough.
-	if (frame_tick_count == 0)
+	if (frame * audio_source_frame =
+	    source_frames[settings.audio_source_id].get())
 	{
-	    bool changed = false;
-	    if (frame_timer_period == 0)
+	    if (audio_source_system != audio_source_frame->system)
 	    {
-		// Round frame time to nearest multiple of timer resolution
-		frame_timer_period =
-		    (frame_time + frame_timer_res / 2)
-		    / frame_timer_res * frame_timer_res;
-		changed = true;
-	    }
-	    else if (frame_timer_offset > int(frame_timer_res / 2)
-		     && frame_timer_period > frame_time)
-	    {
-		frame_timer_period -= frame_timer_res;
-		changed = true;
-	    }
-	    else if (frame_timer_offset < -int(frame_timer_res / 2)
-		     && frame_timer_period < frame_time)
-	    {
-		frame_timer_period += frame_timer_res;
-		changed = true;
-	    }
+		audio_source_system = audio_source_frame->system;
 
-	    if (changed)
-		frame_timer_set(frame_timer_period);
+		// Use standard frame timing initially.
+		frame_interval = (audio_source_system == e_dv_system_625_50
+				  ? frame_interval_ns_625_50
+				  : frame_interval_ns_525_60);
+		average_frame_interval = frame_interval;
+	    }
+	    else
+	    {
+		// The delay for this frame has a large effect on the
+		// interval to the next frame because we want to
+		// correct clock deviations quickly, but a much
+		// smaller effect on the rolling average so that we
+		// don't over-correct.  This has experimentally been
+		// found to work well.
+		static const unsigned next_average_weight = 3;
+		static const unsigned next_delay_weight = 1;
+		static const unsigned average_rolling_weight = 15;
+		static const unsigned average_next_weight = 1;
+
+		// Try to keep target_queue_len - 0.5 frame intervals
+		// between delivery of source frames and mixing them.
+		// The "obvious" way to feed the delay into the
+		// frame_time is to divide it by target_queue_len-0.5.
+		// But this is inverse to the effect we want it to
+		// have: if the delay is long, we need to reduce,
+		// not increase, frame_time.  So we calculate a kind
+		// of inverse based on the amount of queue space
+		// that should remain free.
+		const uint64_t delay =
+		    tick_timestamp > audio_source_frame->timestamp
+		    ? tick_timestamp - audio_source_frame->timestamp
+		    : 0;
+		const unsigned free_queue_time =
+		    full_queue_len * frame_interval > delay
+		    ? full_queue_len * frame_interval - delay
+		    : 0;
+		frame_interval =
+		    (average_frame_interval * next_average_weight
+		     + (free_queue_time
+			* 2 / (2 * (full_queue_len - target_queue_len) + 1)
+			* next_delay_weight))
+		    / (next_average_weight + next_delay_weight);
+
+		average_frame_interval =
+		    (average_frame_interval * average_rolling_weight
+		     + frame_interval * average_next_weight)
+		    / (average_rolling_weight + average_next_weight);
+	    }
 	}
 
 	// If we have a single live source for both audio and video,
@@ -393,8 +414,7 @@ void mixer::run_clock()
 	    }
 
 	    if (source_frames[settings.audio_source_id]
-		&& (source_frames[settings.audio_source_id]->system
-		    == mixed_frame->system))
+		&& mixed_frame->system == audio_source_system)
 	    {
 		dub_audio(*mixed_frame,
 			  *source_frames[settings.audio_source_id]);
@@ -420,15 +440,5 @@ void mixer::run_clock()
 	if (monitor_)
 	    monitor_->put_frames(source_frames.size(), &source_frames[0],
 				 mixed_frame);
-
-	// Update timer offset.  Wait for the next tick if we've handled
-	// all ticks so far.
-	frame_timer_offset -= frame_time;
-	if (frame_tick_count == 0)
-	{
-	    frame_tick_count = frame_timer_wait();
-	    frame_timer_offset +=
-		int64_t(frame_timer_period) * int64_t(frame_tick_count);
-	}
     }
 }

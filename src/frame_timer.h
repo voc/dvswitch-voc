@@ -4,6 +4,8 @@
 #ifndef DVSWITCH_FRAME_TIMER_H
 #define DVSWITCH_FRAME_TIMER_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,21 +15,17 @@ extern "C" {
 // following functions are used.
 void frame_timer_init(void);
 
-// Get the timer resolution (in ns).
-unsigned frame_timer_get_res(void);
+// Get a timestamp.  This is the time since an unspecified point in
+// the past, in ns.
+uint64_t frame_timer_get(void);
 
-// Arm the timer and set the period between ticks (in ns).  The period
-// will be rounded to a multiple of the timer resolution.
-void frame_timer_set(unsigned period_ns);
+// Wait until frame_timer_get() would return at least the given
+// timestamp.
+void frame_timer_wait(uint64_t timestamp);
 
-// Normal frame periods for "PAL" (625/50) and "NTSC" (525/60).
-static const unsigned frame_time_ns_625_50 = 1000000000 / 25;
-static const unsigned frame_time_ns_525_60 = 1001000000 / 30;
-
-// Wait until at least 1 tick has occurred since the timer was armed
-// or this function was last called.  Return the number of ticks that
-// have occurred.
-int frame_timer_wait(void);
+// Normal frame intervals for "PAL" (625/50) and "NTSC" (525/60).
+static const unsigned frame_interval_ns_625_50 = 1000000000 / 25;
+static const unsigned frame_interval_ns_525_60 = 1001000000 / 30;
 
 #ifdef __cplusplus
 }

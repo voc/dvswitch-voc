@@ -58,33 +58,33 @@ void frame_timer_init(void)
     }
 }
 
-unsigned frame_timer_get_res(void)
+uint64_t frame_timer_get(void)
 {
-    return frame_timer_res.tv_nsec;
+    struct timespec result;
+    if (clock_gettime(CLOCK_MONOTONIC, &result) != 0)
+    {
+	perror("FATAL: clock_gettime");
+	exit(1);
+    }
+    return (uint64_t)result.tv_sec * 1000000000 + result.tv_nsec;
 }
 
-void frame_timer_set(unsigned period_ns)
+void frame_timer_wait(uint64_t point)
 {
-    struct itimerspec interval;
-    interval.it_interval.tv_sec = 0;
-    interval.it_interval.tv_nsec = period_ns;
-    interval.it_value.tv_sec = 0;
-    interval.it_value.tv_nsec = (period_ns > (unsigned)frame_timer_res.tv_nsec
-				 ? period_ns - (unsigned)frame_timer_res.tv_nsec
-				 : 1);
-    if (timer_settime(frame_timer_id, 0, &interval, NULL) != 0)
+    struct itimerspec interval = {
+	.it_value = { .tv_sec = point / 1000000000,
+		      .tv_nsec = point % 1000000000 },
+	.it_interval = { .tv_sec = 0,
+			 .tv_nsec = 0 }
+    };
+    if (timer_settime(frame_timer_id, TIMER_ABSTIME, &interval, 0) != 0)
     {
 	perror("FATAL: timer_settime");
 	exit(1);
-    }
-}
-
-int frame_timer_wait(void)
-{
+    }  
     sigset_t sigset_alarm;
     sigemptyset(&sigset_alarm);
     sigaddset(&sigset_alarm, SIGALRM);
     int dummy;
     sigwait(&sigset_alarm, &dummy);
-    return 1 + timer_getoverrun(frame_timer_id);
 }
