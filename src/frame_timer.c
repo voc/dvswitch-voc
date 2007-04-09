@@ -14,7 +14,7 @@
 
 static timer_t frame_timer;
 
-void init_frame_timer(void)
+void frame_timer_init(void)
 {
     sigset_t sigset_alarm;
     sigemptyset(&sigset_alarm);
@@ -51,7 +51,7 @@ void init_frame_timer(void)
     }
 }
 
-void set_frame_timer(unsigned period_ns)
+void frame_timer_set(unsigned period_ns)
 {
     struct itimerspec interval;
     interval.it_interval.tv_sec = 0;
@@ -64,7 +64,7 @@ void set_frame_timer(unsigned period_ns)
     }
 }
 
-int wait_frame_timer(void)
+int frame_timer_wait(void)
 {
     sigset_t sigset_alarm;
     sigemptyset(&sigset_alarm);

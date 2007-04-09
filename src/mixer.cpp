@@ -158,7 +158,7 @@ namespace
     struct timer_initialiser { timer_initialiser(); } timer_dummy;
     timer_initialiser::timer_initialiser()
     {
-	init_frame_timer();
+	frame_timer_init();
     }
 
     void dub_audio(frame & dest_frame, const frame & source_frame)
@@ -382,12 +382,12 @@ void mixer::run_clock()
 	    if (mixed_frame->system != last_frame_system)
 	    {
 		last_frame_system = mixed_frame->system;
-		set_frame_timer((mixed_frame->system == e_dv_system_525_60)
+		frame_timer_set((mixed_frame->system == e_dv_system_525_60)
 				? frame_time_ns_525_60
 				: frame_time_ns_625_50);
 	    }
 
-	    frame_tick_count = wait_frame_timer();
+	    frame_tick_count = frame_timer_wait();
 	}
     }
 }

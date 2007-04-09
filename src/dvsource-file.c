@@ -64,7 +64,7 @@ static void transfer_frames(struct transfer_params * params)
     static uint8_t buf[DIF_MAX_FRAME_SIZE];
     ssize_t size;
 
-    init_frame_timer();
+    frame_timer_init();
 
     while ((size = read(params->file, buf, DIF_SEQUENCE_SIZE))
 	   == (ssize_t)DIF_SEQUENCE_SIZE)
@@ -79,7 +79,7 @@ static void transfer_frames(struct transfer_params * params)
 	if (params->decoder->system != last_frame_system)
 	{
 	    last_frame_system = params->decoder->system;
-	    set_frame_timer((params->decoder->system == e_dv_system_525_60)
+	    frame_timer_set((params->decoder->system == e_dv_system_525_60)
 			    ? frame_time_ns_525_60
 			    : frame_time_ns_625_50);
 	}
@@ -98,7 +98,7 @@ static void transfer_frames(struct transfer_params * params)
 	    exit(1);
 	}
 
-	wait_frame_timer();
+	frame_timer_wait();
     }
 
     if (size != 0)
