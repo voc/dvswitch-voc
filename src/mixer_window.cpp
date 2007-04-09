@@ -38,7 +38,7 @@ mixer_window::mixer_window(mixer & mixer)
 
 mixer_window::~mixer_window()
 {
-    // pipe_ends_[0] will be closed by pipe_io_source_ (I think)
+    close(pipe_ends_[0]);
     close(pipe_ends_[1]);
 }
 
