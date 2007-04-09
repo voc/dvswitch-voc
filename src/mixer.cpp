@@ -269,11 +269,15 @@ namespace
 
 void mixer::run_clock()
 {
-    dv_system_t last_frame_system = e_dv_system_none;
     std::vector<frame_ptr> source_frames;
     source_frames.reserve(5);
     frame_ptr last_mixed_frame;
     unsigned serial_num = 0;
+
+    unsigned frame_time;
+    unsigned frame_timer_res = frame_timer_get_res();
+    unsigned frame_timer_period = 0;
+    int64_t frame_timer_offset = 0;
 
     {
 	boost::mutex::scoped_lock lock(source_mutex_);
@@ -281,9 +285,7 @@ void mixer::run_clock()
 	    clock_state_cond_.wait(lock);
     }
 
-    int frame_tick_count = 1;
-
-    for (;;)
+    for (int frame_tick_count = 0; ; --frame_tick_count)
     {
 	mix_settings settings;
 	frame_ptr mixed_frame;
@@ -316,6 +318,51 @@ void mixer::run_clock()
 
 	assert(settings.audio_source_id < source_frames.size()
 	       && settings.video_source_id < source_frames.size());
+
+	// Frame timer is based on the audio source.  Synchronisation
+	// with the audio source matters more because audio
+	// discontinuities are even more annoying than dropped or
+	// repeated video frames.
+	// TODO: Adjust frame time dynamically to maintain synch with
+	// audio source.
+	if (source_frames[settings.audio_source_id])
+	    frame_time =
+		(source_frames[settings.audio_source_id]->system
+		 == e_dv_system_625_50)
+		? frame_time_ns_625_50
+		: frame_time_ns_525_60;
+
+	// (Re)set the timer.  We do this as soon as possible after
+	// waiting to reduce the risk of losing ticks.  On a 250 Hz
+	// system with 30 fps video we'll be continually adjusting the
+	// timer, but that's just tough.
+	if (frame_tick_count == 0)
+	{
+	    bool changed = false;
+	    if (frame_timer_period == 0)
+	    {
+		// Round frame time to nearest multiple of timer resolution
+		frame_timer_period =
+		    (frame_time + frame_timer_res / 2)
+		    / frame_timer_res * frame_timer_res;
+		changed = true;
+	    }
+	    else if (frame_timer_offset > int(frame_timer_res / 2)
+		     && frame_timer_period > frame_time)
+	    {
+		frame_timer_period -= frame_timer_res;
+		changed = true;
+	    }
+	    else if (frame_timer_offset < -int(frame_timer_res / 2)
+		     && frame_timer_period < frame_time)
+	    {
+		frame_timer_period += frame_timer_res;
+		changed = true;
+	    }
+
+	    if (changed)
+		frame_timer_set(frame_timer_period);
+	}
 
 	// If we have a single live source for both audio and video,
 	// use the source frame unchanged.
@@ -374,20 +421,14 @@ void mixer::run_clock()
 	    monitor_->put_frames(source_frames.size(), &source_frames[0],
 				 mixed_frame);
 
-	if (--frame_tick_count == 0)
+	// Update timer offset.  Wait for the next tick if we've handled
+	// all ticks so far.
+	frame_timer_offset -= frame_time;
+	if (frame_tick_count == 0)
 	{
-	    // (Re)set the timer according to this frame's video system.
-	    // TODO: Adjust timer interval dynamically to maintain synch with
-	    // audio source.
-	    if (mixed_frame->system != last_frame_system)
-	    {
-		last_frame_system = mixed_frame->system;
-		frame_timer_set((mixed_frame->system == e_dv_system_525_60)
-				? frame_time_ns_525_60
-				: frame_time_ns_625_50);
-	    }
-
 	    frame_tick_count = frame_timer_wait();
+	    frame_timer_offset +=
+		int64_t(frame_timer_period) * int64_t(frame_tick_count);
 	}
     }
 }

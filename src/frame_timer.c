@@ -35,9 +35,8 @@ void frame_timer_init(void)
 	exit(1);
     }
     // Require a 250 Hz or faster clock.  The maximum clock period is
-    // 1% longer than this because Linux can report the clock period
-    // as slightly higher than configured (perhaps due to run-time
-    // calibration?).
+    // set 1% longer than this because Linux rounds to the nearest
+    // number of whole hardware timer periods and reports that.
     if (frame_timer_res.tv_sec != 0
 	|| (unsigned)frame_timer_res.tv_nsec > 1010000000 / 250)
     {
@@ -69,7 +68,10 @@ void frame_timer_set(unsigned period_ns)
     struct itimerspec interval;
     interval.it_interval.tv_sec = 0;
     interval.it_interval.tv_nsec = period_ns;
-    interval.it_value = interval.it_interval;
+    interval.it_value.tv_sec = 0;
+    interval.it_value.tv_nsec = (period_ns > (unsigned)frame_timer_res.tv_nsec
+				 ? period_ns - (unsigned)frame_timer_res.tv_nsec
+				 : 1);
     if (timer_settime(frame_timer_id, 0, &interval, NULL) != 0)
     {
 	perror("FATAL: timer_settime");
