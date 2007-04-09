@@ -142,7 +142,7 @@ void mixer::set_video_source(source_id id)
 
 void mixer::set_monitor(monitor * monitor)
 {
-    assert(!monitor ^ !monitor_);
+    assert(monitor && !monitor_);
     monitor_ = monitor;
 }
 

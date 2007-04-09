@@ -89,11 +89,21 @@ int main(int argc, char **argv)
 
 	dv_init(true, true);
 
+	// The mixer must be created before the window, since we pass
+	// a reference to the mixer into the window's constructor to
+	// allow it to adjust the mixer's controls.
+	// However, the mixer must also be destroyed before the
+	// window, since as long as it exists it may call into the
+	// window as a monitor.
+	// This should probably be fixed by a smarter design, but for
+	// now we arrange this by attaching the window to an auto_ptr.
+	std::auto_ptr<mixer_window> the_window;
 	mixer the_mixer;
 	server the_server(mixer_host, mixer_port, the_mixer);
-	mixer_window the_window(the_mixer);
-	the_window.show();
-	the_window.signal_hide().connect(SigC::slot(&Gtk::Main::quit));
+	the_window.reset(new mixer_window(the_mixer));
+	the_mixer.set_monitor(the_window.get());
+	the_window->show();
+	the_window->signal_hide().connect(SigC::slot(&Gtk::Main::quit));
 	Gtk::Main::run();
 	return EXIT_SUCCESS;
     }

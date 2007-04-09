@@ -28,8 +28,6 @@ mixer_window::mixer_window(mixer & mixer)
     pipe_io_source_->connect(SigC::slot(*this, &mixer_window::update));
     pipe_io_source_->attach();
 
-    mixer_.set_monitor(this);
-
     add(box_);
     box_.add(display_);
     display_.show();

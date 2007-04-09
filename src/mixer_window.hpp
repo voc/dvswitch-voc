@@ -21,7 +21,7 @@ namespace Glib
     class IOSource;
 }
 
-class mixer_window : public Gtk::Window, private mixer::monitor
+class mixer_window : public Gtk::Window, public mixer::monitor
 {
 public:
     explicit mixer_window(mixer & mixer);
