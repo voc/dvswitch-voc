@@ -281,6 +281,8 @@ void mixer::run_clock()
 	    clock_state_cond_.wait(lock);
     }
 
+    int frame_tick_count = 1;
+
     for (;;)
     {
 	mix_settings settings;
@@ -330,6 +332,9 @@ void mixer::run_clock()
 	    }
 	    else
 	    {
+		std::cerr << "WARN: Repeating frame due to empty queue"
+		    " for source " << 1 + settings.video_source_id << "\n";
+
 		// Make a copy of the last mixed frame so we can
 		// replace the audio.  (We can't modify the last frame
 		// because sinks may still be reading from it.)
@@ -369,17 +374,20 @@ void mixer::run_clock()
 	    monitor_->put_frames(source_frames.size(), &source_frames[0],
 				 mixed_frame);
 
-	// (Re)set the timer according to this frame's video system.
-	// TODO: Adjust timer interval dynamically to maintain synch with
-	// audio source.
-	if (mixed_frame->system != last_frame_system)
+	if (--frame_tick_count == 0)
 	{
-	    last_frame_system = mixed_frame->system;
-	    set_frame_timer((mixed_frame->system == e_dv_system_525_60)
-			    ? frame_time_ns_525_60
-			    : frame_time_ns_625_50);
-	}
+	    // (Re)set the timer according to this frame's video system.
+	    // TODO: Adjust timer interval dynamically to maintain synch with
+	    // audio source.
+	    if (mixed_frame->system != last_frame_system)
+	    {
+		last_frame_system = mixed_frame->system;
+		set_frame_timer((mixed_frame->system == e_dv_system_525_60)
+				? frame_time_ns_525_60
+				: frame_time_ns_625_50);
+	    }
 
-	wait_frame_timer();
+	    frame_tick_count = wait_frame_timer();
+	}
     }
 }

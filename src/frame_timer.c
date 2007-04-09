@@ -51,11 +51,11 @@ void init_frame_timer(void)
     }
 }
 
-void set_frame_timer(unsigned interval_ns)
+void set_frame_timer(unsigned period_ns)
 {
     struct itimerspec interval;
     interval.it_interval.tv_sec = 0;
-    interval.it_interval.tv_nsec = interval_ns;
+    interval.it_interval.tv_nsec = period_ns;
     interval.it_value = interval.it_interval;
     if (timer_settime(frame_timer, 0, &interval, NULL) != 0)
     {
@@ -64,11 +64,12 @@ void set_frame_timer(unsigned interval_ns)
     }
 }
 
-void wait_frame_timer(void)
+int wait_frame_timer(void)
 {
     sigset_t sigset_alarm;
     sigemptyset(&sigset_alarm);
     sigaddset(&sigset_alarm, SIGALRM);
     int dummy;
     sigwait(&sigset_alarm, &dummy);
+    return 1 + timer_getoverrun(frame_timer);
 }

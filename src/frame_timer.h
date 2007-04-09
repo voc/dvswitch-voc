@@ -12,16 +12,17 @@ extern "C" {
 // thread before any more threads are created.
 void init_frame_timer(void);
 
-// Arm the timer and set its interval.
-void set_frame_timer(unsigned interval_ns);
+// Arm the timer and set the period between ticks.
+void set_frame_timer(unsigned period_ns);
 
 // Normal frame periods for "PAL" (625/50) and "NTSC" (525/60).
 static const unsigned frame_time_ns_625_50 = 1000000000 / 25;
 static const unsigned frame_time_ns_525_60 = 1001000000 / 30;
 
-// Wait for the timer to expire.  The timer must be armed; otherwise
-// this will wait forever!
-void wait_frame_timer(void);
+// Wait until at least 1 tick has occurred since the timer was armed
+// or this function was last called.  Return the number of ticks that
+// have occurred.
+int wait_frame_timer(void);
 
 #ifdef __cplusplus
 }
