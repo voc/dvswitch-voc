@@ -12,7 +12,8 @@
 
 #include "frame_timer.h"
 
-static timer_t frame_timer;
+static timer_t frame_timer_id;
+struct timespec frame_timer_res;
 
 void frame_timer_init(void)
 {
@@ -28,27 +29,39 @@ void frame_timer_init(void)
     // On Linux, CLOCK_MONOTONIC matches the kernel interval timer
     // (resolution is controlled by HZ) and there is no
     // CLOCK_MONOTONIC_HR.
-    struct timespec res;
-    if (clock_getres(CLOCK_MONOTONIC, &res) == -1)
+    if (clock_getres(CLOCK_MONOTONIC, &frame_timer_res) == -1)
     {
 	perror("FATAL: clock_get_res");
 	exit(1);
     }
-    if (res.tv_sec != 0 || (unsigned)res.tv_nsec > frame_time_ns_525_60)
-	fprintf(stderr, 
-		"WARNING: CLOCK_MONOTONIC resolution is too low"
-		" (%lu.%09lus)\n",
-		(unsigned long)res.tv_sec, (unsigned long)res.tv_nsec);
+    // Require a 250 Hz or faster clock.  The maximum clock period is
+    // 1% longer than this because Linux can report the clock period
+    // as slightly higher than configured (perhaps due to run-time
+    // calibration?).
+    if (frame_timer_res.tv_sec != 0
+	|| (unsigned)frame_timer_res.tv_nsec > 1010000000 / 250)
+    {
+	fputs("FATAL: CLOCK_MONOTONIC resolution is too low; it must be"
+	      " at least 250 Hz\n"
+	      "       (Linux: CONFIG_HZ=250)\n",
+	      stderr);
+	exit(1);
+    }
 
     struct sigevent event = {
 	.sigev_notify = SIGEV_SIGNAL,
 	.sigev_signo =  SIGALRM
     };
-    if (timer_create(CLOCK_MONOTONIC, &event, &frame_timer) != 0)
+    if (timer_create(CLOCK_MONOTONIC, &event, &frame_timer_id) != 0)
     {
 	perror("FATAL: timer_create");
 	exit(1);
     }
+}
+
+unsigned frame_timer_get_res(void)
+{
+    return frame_timer_res.tv_nsec;
 }
 
 void frame_timer_set(unsigned period_ns)
@@ -57,7 +70,7 @@ void frame_timer_set(unsigned period_ns)
     interval.it_interval.tv_sec = 0;
     interval.it_interval.tv_nsec = period_ns;
     interval.it_value = interval.it_interval;
-    if (timer_settime(frame_timer, 0, &interval, NULL) != 0)
+    if (timer_settime(frame_timer_id, 0, &interval, NULL) != 0)
     {
 	perror("FATAL: timer_settime");
 	exit(1);
@@ -71,5 +84,5 @@ int frame_timer_wait(void)
     sigaddset(&sigset_alarm, SIGALRM);
     int dummy;
     sigwait(&sigset_alarm, &dummy);
-    return 1 + timer_getoverrun(frame_timer);
+    return 1 + timer_getoverrun(frame_timer_id);
 }

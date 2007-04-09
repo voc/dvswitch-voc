@@ -8,11 +8,16 @@
 extern "C" {
 #endif
 
-// Initialise timer in a disarmed state.  Must be done in the first
-// thread before any more threads are created.
+// Initialise timer in a disarmed state.  Must be called in the first
+// thread before any more threads are created and before any of the
+// following functions are used.
 void frame_timer_init(void);
 
-// Arm the timer and set the period between ticks.
+// Get the timer resolution (in ns).
+unsigned frame_timer_get_res(void);
+
+// Arm the timer and set the period between ticks (in ns).  The period
+// will be rounded to a multiple of the timer resolution.
 void frame_timer_set(unsigned period_ns);
 
 // Normal frame periods for "PAL" (625/50) and "NTSC" (525/60).
