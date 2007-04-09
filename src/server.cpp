@@ -59,17 +59,6 @@ private:
 	receive_state (connection::*handler)();
     };
 
-    receive_state identify_client_type();
-    receive_state handle_source_sequence();
-    receive_state handle_source_frame();
-    receive_state handle_unexpected_input();
-
-    virtual void put_frame(const mixer::frame_ptr & frame);
-
-    server & server_;
-    int socket_;
-    receive_state receive_state_;
-
     struct unknown_state
     {
 	uint8_t greeting[4];
@@ -95,7 +84,19 @@ private:
 	bool overflowed;
     };
 
+    receive_state identify_client_type();
+    receive_state handle_source_sequence();
+    receive_state handle_source_frame();
+    receive_state handle_unexpected_input();
+
+    virtual void put_frame(const mixer::frame_ptr & frame);
+
+    server & server_;
+    int socket_;
+    // conn_state_ *must* come before receive_state_ so that we can
+    // safely initialise receive_state_ to refer to conn_state_.
     boost::variant<unknown_state, source_state, sink_state> conn_state_;
+    receive_state receive_state_;
 
     struct state_visitor_reporter;
     struct state_visitor_cleaner;
