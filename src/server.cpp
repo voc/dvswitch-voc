@@ -78,6 +78,7 @@ private:
 
     struct sink_state
     {
+	bool is_raw;
 	mixer::sink_id sink_id;
 	std::size_t frame_pos;
 
@@ -389,13 +390,17 @@ server::connection::send_status server::connection::do_send()
 	}
 
 	uint8_t frame_header[SINK_FRAME_HEADER_SIZE] = {};
-	frame_header[SINK_FRAME_CUT_FLAG_POS] = frame->cut_before ? 'C' : 0;
-	// rest of header left as zero for expansion
+	if (!state.is_raw)
+	{
+	    frame_header[SINK_FRAME_CUT_FLAG_POS] =
+		frame->cut_before ? 'C' : 0;
+	    // rest of header left as zero for expansion
+	}
 	iovec io_vector[2] = {
 	    { frame_header,  SINK_FRAME_HEADER_SIZE },
 	    { frame->buffer, frame->size }
 	};
-	int done_count = 0;
+	int done_count = state.is_raw ? 1 : 0;
 	std::size_t rel_pos = state.frame_pos;
 	while (rel_pos >= io_vector[done_count].iov_len)
 	{
@@ -412,7 +417,8 @@ server::connection::send_status server::connection::do_send()
 	if (sent_size > 0)
 	{
 	    state.frame_pos += sent_size;
-	    if (state.frame_pos == SINK_FRAME_HEADER_SIZE + frame->size)
+	    if (state.frame_pos
+		== (state.is_raw ? 0 : SINK_FRAME_HEADER_SIZE) + frame->size)
 	    {
 		finished_frame = true;
 		state.frame_pos = 0;
@@ -442,12 +448,34 @@ server::connection::receive_state server::connection::identify_client_type()
 {
     unknown_state old_state = boost::get<unknown_state>(conn_state_);
 
-    // New sources should send 'SORC' as a greeting.
-    // Old sources will just start sending DIF directly.
-    if (std::memcmp(old_state.greeting, GREETING_SOURCE, GREETING_SIZE) == 0
-	|| ((old_state.greeting[0] >> 5) == 0    // header block
-	    && (old_state.greeting[1] >> 4) == 0 // sequence 0
-	    && old_state.greeting[2] == 0))      // block 0
+    enum {
+	client_type_unknown,
+	client_type_source,     // source which sends greeting (>= 0.3)
+	client_type_old_source, // source which doesn't send greeting (< 0.3)
+	client_type_sink,       // sink which wants DIF with control headers
+	client_type_raw_sink,   // sink which wants raw DIF
+    } client_type;
+
+    if (std::memcmp(old_state.greeting, GREETING_SOURCE, GREETING_SIZE) == 0)
+	client_type = client_type_source;
+    // XXX This support should be removed shortly.
+    else if ((old_state.greeting[0] >> 5) == 0    // header block
+	     && (old_state.greeting[1] >> 4) == 0 // sequence 0
+	     && old_state.greeting[2] == 0)       // block 0
+	client_type = client_type_old_source;
+    else if (std::memcmp(old_state.greeting, GREETING_SINK, GREETING_SIZE)
+	     == 0)
+	client_type = client_type_sink;
+    else if (std::memcmp(old_state.greeting, GREETING_RAW_SINK, GREETING_SIZE)
+	     == 0)
+	client_type = client_type_raw_sink;
+    else
+	client_type = client_type_unknown;
+
+    switch (client_type)
+    {
+    case client_type_source:
+    case client_type_old_source:
     {
 	source_state new_state;
 	if ((new_state.frame = server_.mixer_.allocate_frame())
@@ -457,7 +485,7 @@ server::connection::receive_state server::connection::identify_client_type()
 	    conn_state_ = new_state;
 
 	    std::size_t received_size;
-	    if ((old_state.greeting[0] >> 5) != 0)
+	    if (client_type == client_type_source)
 	    {
 		received_size = 0;
 	    }
@@ -471,12 +499,14 @@ server::connection::receive_state server::connection::identify_client_type()
 				 DIF_SEQUENCE_SIZE - received_size,
 				 &connection::handle_source_sequence);
 	}
+	break;
     }
-    // Sinks should send 'SINK' as a greeting (and then nothing else).
-    else if (std::memcmp(old_state.greeting, GREETING_SINK, GREETING_SIZE) == 0)
+    case client_type_sink:
+    case client_type_raw_sink:
     {
 	conn_state_ = sink_state();
 	sink_state & new_state = boost::get<sink_state>(conn_state_);
+	new_state.is_raw = client_type == client_type_raw_sink;
 	new_state.frame_pos = 0;
 	new_state.overflowed = false;
 	new_state.sink_id = server_.mixer_.add_sink(this);
@@ -485,6 +515,9 @@ server::connection::receive_state server::connection::identify_client_type()
 	return receive_state(&dummy,
 			     1,
 			     &connection::handle_unexpected_input);
+    }
+    default:
+	break;
     }
 
     return receive_state();
