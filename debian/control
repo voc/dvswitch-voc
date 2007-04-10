@@ -8,7 +8,7 @@ Standards-Version: 3.7.2
 Package: dvswitch
 Architecture: any
 Depends: ${shlibs:Depends}
-Suggests: dvsource
+Suggests: dvsink, dvsource
 Description: basic video mixer for DV streams
  dvswitch is a very basic video mixer that receives DV streams over a
  network and stores the currently selected stream to a file.  The
@@ -28,3 +28,11 @@ Description: programs to provide source frames for dvswitch
  .
  dvsource-firewire reads DV frames from a camera or other device
  connected by Firewire (1394).
+
+Package: dvsink
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: programs to sink frames from dvswitch
+ This packages provides a sink for dvswitch:
+ .
+ dvsink-files stores DV frames in files named according to a pattern
