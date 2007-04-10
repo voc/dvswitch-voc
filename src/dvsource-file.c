@@ -18,6 +18,7 @@
 #include "config.h"
 #include "dif.h"
 #include "frame_timer.h"
+#include "protocol.h"
 #include "socket.h"
 
 static struct option options[] = {
@@ -186,7 +187,7 @@ int main(int argc, char ** argv)
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);
     params.sock = create_connected_socket(mixer_host, mixer_port);
     assert(params.sock >= 0); /* create_connected_socket() should handle errors */
-    if (write(params.sock, "SORC", 4) != 4)
+    if (write(params.sock, GREETING_SOURCE, GREETING_SIZE) != GREETING_SIZE)
     {
 	perror("ERROR: write");
 	exit(1);

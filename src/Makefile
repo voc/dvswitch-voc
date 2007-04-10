@@ -9,23 +9,26 @@ CFLAGS := -std=c99 -Wall -Wextra -O2 -g
 CXXFLAGS := -std=c++98 -Wall -Wextra -O2 -g
 CPPFLAGS := -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_POSIX_C_SOURCE
 
-csources := dvsource-file.c dvsource-firewire.c config.c socket.c frame_timer.c
+csources := dvsink-files.c dvsource-file.c dvsource-firewire.c config.c \
+	socket.c frame_timer.c
 cxxsources := dvswitch.cpp mixer.cpp mixer_window.cpp dv_display_widget.cpp \
 	dv_selector_widget.cpp server.cpp
 common_objects := .objs/config.o .objs/socket.o
 
-all : .objs/dvsource-file .objs/dvsource-firewire .objs/dvswitch
+all : .objs/dvsink-files .objs/dvsource-file .objs/dvsource-firewire \
+	.objs/dvswitch
 
 install :
 	mkdir -p -m755 $(DESTDIR)$(bindir)
-	install .objs/dvsource-file .objs/dvsource-firewire .objs/dvswitch \
+	install .objs/dvsink-files .objs/dvsource-file \
+		.objs/dvsource-firewire .objs/dvswitch \
 		$(DESTDIR)$(bindir)
 
 clean :
 	rm -rf .objs
 
-.objs/dvsource-file.% : CFLAGS += $(shell pkg-config --cflags libdv)
-.objs/dvsource-file .objs/dvswitch : \
+.objs/% : CFLAGS += $(shell pkg-config --cflags libdv)
+.objs/dvsink-files .objs/dvsource-file .objs/dvswitch : \
 	LDFLAGS += $(shell pkg-config --libs libdv)
 
 .objs/dvsource-file .objs/dvswitch : LDFLAGS += -lpthread -lrt
@@ -38,6 +41,8 @@ clean :
 .objs/dvswitch : LDFLAGS += -lboost_thread
 
 .objs/dvswitch : LDFLAGS += -lXv
+
+.objs/dvsink-files : .objs/dvsink-files.o $(common_objects)
 
 .objs/dvsource-file : \
 	.objs/dvsource-file.o .objs/frame_timer.o $(common_objects)

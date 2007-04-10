@@ -23,6 +23,7 @@
 
 #include "frame.h"
 #include "mixer.hpp"
+#include "protocol.h"
 #include "server.hpp"
 #include "socket.h"
 
@@ -387,13 +388,31 @@ server::connection::send_status server::connection::do_send()
 	    frame = state.frames.front();
 	}
 
-	ssize_t sent_size = write(socket_,
-				  frame->buffer + state.frame_pos,
-				  frame->size - state.frame_pos);
+	uint8_t frame_header[SINK_FRAME_HEADER_SIZE] = {};
+	frame_header[SINK_FRAME_CUT_FLAG_POS] = frame->cut_before ? 'C' : 0;
+	// rest of header left as zero for expansion
+	iovec io_vector[2] = {
+	    { frame_header,  SINK_FRAME_HEADER_SIZE },
+	    { frame->buffer, frame->size }
+	};
+	int done_count = 0;
+	std::size_t rel_pos = state.frame_pos;
+	while (rel_pos >= io_vector[done_count].iov_len)
+	{
+	    rel_pos -= io_vector[done_count].iov_len;
+	    ++done_count;
+	}
+	io_vector[done_count].iov_base =
+	    static_cast<char *>(io_vector[done_count].iov_base) + rel_pos;
+	io_vector[done_count].iov_len -= rel_pos;
+	  
+	ssize_t sent_size = writev(socket_,
+				   io_vector + done_count,
+				   2 - done_count);
 	if (sent_size > 0)
 	{
 	    state.frame_pos += sent_size;
-	    if (state.frame_pos == frame->size)
+	    if (state.frame_pos == SINK_FRAME_HEADER_SIZE + frame->size)
 	    {
 		finished_frame = true;
 		state.frame_pos = 0;
@@ -425,7 +444,7 @@ server::connection::receive_state server::connection::identify_client_type()
 
     // New sources should send 'SORC' as a greeting.
     // Old sources will just start sending DIF directly.
-    if (std::memcmp(old_state.greeting, "SORC", 4) == 0
+    if (std::memcmp(old_state.greeting, GREETING_SOURCE, GREETING_SIZE) == 0
 	|| ((old_state.greeting[0] >> 5) == 0    // header block
 	    && (old_state.greeting[1] >> 4) == 0 // sequence 0
 	    && old_state.greeting[2] == 0))      // block 0
@@ -438,7 +457,7 @@ server::connection::receive_state server::connection::identify_client_type()
 	    conn_state_ = new_state;
 
 	    std::size_t received_size;
-	    if (old_state.greeting[0] == 'S')
+	    if ((old_state.greeting[0] >> 5) != 0)
 	    {
 		received_size = 0;
 	    }
@@ -454,7 +473,7 @@ server::connection::receive_state server::connection::identify_client_type()
 	}
     }
     // Sinks should send 'SINK' as a greeting (and then nothing else).
-    else if (std::memcmp(old_state.greeting, "SINK", 4) == 0)
+    else if (std::memcmp(old_state.greeting, GREETING_SINK, GREETING_SIZE) == 0)
     {
 	conn_state_ = sink_state();
 	sink_state & new_state = boost::get<sink_state>(conn_state_);
