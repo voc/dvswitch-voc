@@ -1,3 +1,18 @@
+dvswitch (0.3) unstable; urgency=low
+
+  * Implemented dubbing of audio source onto video source (and
+    silencing if audio source is unavailable)
+  * Implemented reuse of source slots, so a disconnected source that
+    reconnects will normally reappear in the same place
+  * Added support for digit keys on the numeric keypad
+  * Fixed priority of display updates, so the user interfaceshould
+    remain responsive even with silly numbers of sources
+  * Implemented synchronisation of mixer clock with audio source clock
+  * Implemented sink serving and a DIF file sink
+  * Fixed various bugs
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Tue, 10 Apr 2007 01:54:32 +0100
+
 dvswitch (0.2) unstable; urgency=low
 
   * Fixed hang on exit
