@@ -15,12 +15,12 @@ cxxsources := dvswitch.cpp mixer.cpp mixer_window.cpp dv_display_widget.cpp \
 	dv_selector_widget.cpp server.cpp
 common_objects := .objs/config.o .objs/socket.o
 
-all : .objs/dvsink-files .objs/dvsource-file .objs/dvsource-firewire \
-	.objs/dvswitch
+all : .objs/dvsink-command .objs/dvsink-files .objs/dvsource-file \
+	.objs/dvsource-firewire .objs/dvswitch
 
 install :
 	mkdir -p -m755 $(DESTDIR)$(bindir)
-	install .objs/dvsink-files .objs/dvsource-file \
+	install .objs/dvsink-command .objs/dvsink-files .objs/dvsource-file \
 		.objs/dvsource-firewire .objs/dvswitch \
 		$(DESTDIR)$(bindir)
 
@@ -41,6 +41,8 @@ clean :
 .objs/dvswitch : LDFLAGS += -lboost_thread
 
 .objs/dvswitch : LDFLAGS += -lXv
+
+.objs/dvsink-command : .objs/dvsink-command.o $(common_objects)
 
 .objs/dvsink-files : .objs/dvsink-files.o $(common_objects)
 
