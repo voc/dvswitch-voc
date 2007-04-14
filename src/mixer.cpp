@@ -49,7 +49,8 @@ namespace
     void free_frame(frame * frame)
     {
 	boost::mutex::scoped_lock lock(frame_pool_mutex);
-	frame_pool.free(frame);
+	if (frame)
+	    frame_pool.free(frame);
     }
 }
 
