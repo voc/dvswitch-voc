@@ -23,11 +23,12 @@
 
 #include "frame.h"
 #include "mixer.hpp"
+#include "os_error.hpp"
 #include "protocol.h"
 #include "server.hpp"
 #include "socket.h"
 
-class server::connection : private mixer::sink
+class server::connection
 {
 public:
     enum send_status {
@@ -36,154 +37,120 @@ public:
 	sent_all
     };
 
-    connection(server & server, int socket);
-    ~connection();
-    bool do_receive();
-    send_status do_send();
+    virtual ~connection() {}
+    connection * do_receive();
+    virtual send_status do_send() { return send_failed; }
+
+protected:
+    struct receive_buffer
+    {
+	receive_buffer()
+	    : pointer(0),
+	      size(0)
+	{}
+	receive_buffer(uint8_t * pointer, std::size_t size)
+	    : pointer(pointer),
+	      size(size)
+	{}
+	uint8_t * pointer;
+	std::size_t size;
+    };
+
+    connection(server & server, auto_fd socket);
+
+    server & server_;
+    auto_fd socket_;
 
 private:
-    struct receive_state
-    {
-	receive_state()
-	    : buffer(0),
-	      size(0),
-	      handler(0)
-	{}
-	receive_state(uint8_t * buffer, std::size_t size,
-		      receive_state (connection::*handler)())
-	    : buffer(buffer),
-	      size(size),
-	      handler(handler)
-	{}
-	uint8_t * buffer;
-	std::size_t size;
-	receive_state (connection::*handler)();
-    };
+    virtual receive_buffer get_receive_buffer() = 0;
+    virtual connection * handle_complete_receive() = 0;
+    virtual std::ostream & print_identity(std::ostream &) = 0;
 
-    struct unknown_state
-    {
-	uint8_t greeting[4];
-    };
+    receive_buffer receive_buffer_;
+};
 
-    struct source_state
-    {
-	mixer::source_id source_id;
-	dv_decoder_t * decoder;
-	mixer::frame_ptr frame;
-    };
+class server::unknown_connection : public connection
+{
+public:
+    unknown_connection(server & server, auto_fd socket);
 
-    // This controls access to frames and overflowed in sink state.
-    // It's not a member of sink_state because it's non-copiable.
-    boost::mutex sink_queue_mutex_;
+private:
+    virtual receive_buffer get_receive_buffer();
+    virtual connection * handle_complete_receive();
+    virtual std::ostream & print_identity(std::ostream &);
 
-    struct sink_state
-    {
-	bool is_raw;
-	mixer::sink_id sink_id;
-	std::size_t frame_pos;
+    receive_buffer identify_client_type();
 
-	ring_buffer<mixer::frame_ptr, 30> frames;
-	bool overflowed;
-    };
+    uint8_t greeting_[4];
+};
 
-    receive_state identify_client_type();
-    receive_state handle_source_sequence();
-    receive_state handle_source_frame();
-    receive_state handle_unexpected_input();
+class server::source_connection : public connection
+{
+public:
+    source_connection(server & server, auto_fd socket);
+    virtual ~source_connection();
+
+private:
+    virtual receive_buffer get_receive_buffer();
+    virtual connection * handle_complete_receive();
+    virtual std::ostream & print_identity(std::ostream &);
+
+    dv_decoder_t * decoder_;
+
+    mixer::frame_ptr frame_;
+    bool first_sequence_;
+
+    mixer::source_id source_id_;
+};
+
+class server::sink_connection : public connection, private mixer::sink
+{
+public:
+    sink_connection(server &, auto_fd socket, bool is_raw);
+    virtual ~sink_connection();
+
+private:
+    virtual send_status do_send();
+    virtual receive_buffer get_receive_buffer();
+    virtual connection * handle_complete_receive();
+    virtual std::ostream & print_identity(std::ostream &);
 
     virtual void put_frame(const mixer::frame_ptr & frame);
 
-    server & server_;
-    int socket_;
-    // conn_state_ *must* come before receive_state_ so that we can
-    // safely initialise receive_state_ to refer to conn_state_.
-    boost::variant<unknown_state, source_state, sink_state> conn_state_;
-    receive_state receive_state_;
+    receive_buffer handle_unexpected_input();
 
-    struct state_visitor_reporter;
-    struct state_visitor_cleaner;
-};
+    bool is_raw_;
+    mixer::sink_id sink_id_;
+    std::size_t frame_pos_;
 
-class server::connection::state_visitor_reporter
-{
-public:
-    state_visitor_reporter(std::ostream & os)
-	: os_(os)
-    {}
-    void operator()(const unknown_state &) const
-    {
-	os_ << "unknown client";
-    }
-    void operator()(const source_state & state) const
-    {
-	os_ << "source " << 1 + state.source_id;
-    }
-    void operator()(const sink_state & state) const
-    {
-	os_ << "sink " << 1 + state.sink_id;
-    }
-    typedef void result_type;
-private:
-    std::ostream & os_;
-};
-
-class server::connection::state_visitor_cleaner
-{
-public:
-    state_visitor_cleaner(mixer & mixer)
-	: mixer_(mixer)
-    {}
-    void operator()(unknown_state &) const
-    {}
-    void operator()(source_state & state) const
-    {
-	dv_decoder_free(state.decoder);
-	mixer_.remove_source(state.source_id);
-    }
-    void operator()(sink_state & state) const
-    {
-	mixer_.remove_sink(state.sink_id);
-    }
-    typedef void result_type;
-private:
-    mixer & mixer_;
+    boost::mutex mutex_; // controls access to the following
+    ring_buffer<mixer::frame_ptr, 30> frames_;
+    bool overflowed_;
 };
 
 server::server(const std::string & host, const std::string & port,
 	       mixer & mixer)
     : mixer_(mixer),
-      listen_socket_(create_listening_socket(host.c_str(), port.c_str()))
+      listen_socket_(create_listening_socket(host.c_str(), port.c_str())),
+      message_pipe_(O_NONBLOCK, O_NONBLOCK)
 {
-    if (pipe(pipe_ends_) != 0)
-    {
-	close(listen_socket_);
-	throw std::runtime_error(std::string("pipe: ")
-				 .append(std::strerror(errno)));
-    }
-    fcntl(pipe_ends_[0], F_SETFL, O_NONBLOCK);
-    fcntl(pipe_ends_[1], F_SETFL, O_NONBLOCK);
-
     server_thread_.reset(new boost::thread(boost::bind(&server::serve, this)));
 }
 
 server::~server()
 {
     int quit_message = -1;
-    write(pipe_ends_[1], &quit_message, sizeof(int));
+    write(message_pipe_.writer.get(), &quit_message, sizeof(int));
     server_thread_->join();
-
-    close(listen_socket_);
-    close(pipe_ends_[0]);
-    close(pipe_ends_[1]);
 }
 
 void server::serve()
 {
     std::vector<pollfd> poll_fds(2);
     std::vector<connection *> connections;
-    poll_fds[0].fd = pipe_ends_[0];
+    poll_fds[0].fd = message_pipe_.reader.get();
     poll_fds[0].events = POLLIN;
-    poll_fds[1].fd = listen_socket_;
+    poll_fds[1].fd = listen_socket_.get();
     poll_fds[1].events = POLLIN;
 
     for (;;)
@@ -202,7 +169,8 @@ void server::serve()
 	if (poll_fds[0].revents & POLLIN)
 	{
 	    int messages[1024];
-	    ssize_t size = read(pipe_ends_[0], messages, sizeof(messages));
+	    ssize_t size = read(message_pipe_.reader.get(),
+				messages, sizeof(messages));
 	    if (size > 0)
 	    {
 		for (std::size_t i = 0;
@@ -229,12 +197,14 @@ void server::serve()
 	// Check listening socket
 	if (poll_fds[1].revents & POLLIN)
 	{
-	    int conn_socket = accept(listen_socket_, 0, 0);
-	    if (conn_socket >= 0)
+	    auto_fd conn_socket(accept(listen_socket_.get(), 0, 0));
+	    if (conn_socket.get() >= 0)
 	    {
-		fcntl(conn_socket, F_SETFL, O_NONBLOCK);
-		connections.push_back(new connection(*this, conn_socket));
-		pollfd new_poll_fd = { conn_socket, POLLIN, 0 };
+		os_check_nonneg("fcntl",
+				fcntl(conn_socket.get(), F_SETFL, O_NONBLOCK));
+		pollfd new_poll_fd = { conn_socket.get(), POLLIN, 0 };
+		connections.push_back(
+		    new unknown_connection(*this, conn_socket));
 		poll_fds.push_back(new_poll_fd);
 	    }
 	}
@@ -250,9 +220,19 @@ void server::serve()
 		{
 		    should_drop = true;
 		}
-		else if (revents & POLLIN && !connections[i]->do_receive())
+		else if (revents & POLLIN)
 		{
-		    should_drop = true;
+		    connection * new_connection =
+			connections[i]->do_receive();
+		    if (!new_connection)
+		    {
+			should_drop = true;
+		    }
+		    else if (new_connection != connections[i])
+		    {
+			delete connections[i];
+			connections[i] = new_connection;
+		    }
 		}
 		else if (revents & POLLOUT)
 		{
@@ -297,75 +277,73 @@ exit:
 
 void server::enable_output_polling(int fd)
 {
-    write(pipe_ends_[1], &fd, sizeof(int));
+    os_check_zero("write",
+		  write(message_pipe_.writer.get(), &fd, sizeof(int))
+		  - sizeof(int));
 }
 
-server::connection::connection(server & server, int socket)
+server::connection::connection(server & server, auto_fd socket)
     : server_(server),
-      socket_(socket),
-      receive_state_(boost::get<unknown_state>(conn_state_).greeting,
-		     sizeof(unknown_state().greeting),
-		     &connection::identify_client_type)
+      socket_(socket)
 {}
 
-server::connection::~connection()
+server::connection * server::connection::do_receive()
 {
-    boost::apply_visitor(state_visitor_cleaner(server_.mixer_), conn_state_);
-    close(socket_);
-}
+    connection * result = 0;
 
-bool server::connection::do_receive()
-{
-    bool successful = false;
-    bool should_retry;
-
-    do
+    if (receive_buffer_.size == 0)
     {
-	should_retry = false;
-
-	ssize_t received_size = read(socket_,
-				     receive_state_.buffer,
-				     receive_state_.size);
-	if (received_size > 0)
-	{
-	    receive_state_.buffer += received_size;
-	    receive_state_.size -= received_size;
-	    if (receive_state_.size == 0)
-	    {
-		receive_state_ = (this->*(receive_state_.handler))();
-		successful = receive_state_.handler != 0;
-		should_retry = successful; // there may be more available
-	    }
-	    else
-	    {
-		successful = true;
-	    }
-	}
-	else if (received_size == -1 && errno == EWOULDBLOCK)
-	{
-	    // This is expected when the socket buffer is empty
-	    successful = true;
-	}
+	receive_buffer_ = get_receive_buffer();
+	assert(receive_buffer_.pointer && receive_buffer_.size);
     }
-    while (should_retry);
 
-    if (!successful)
+    ssize_t received_size = read(socket_.get(),
+				 receive_buffer_.pointer,
+				 receive_buffer_.size);
+    if (received_size > 0)
+    {
+	receive_buffer_.pointer += received_size;
+	receive_buffer_.size -= received_size;
+	if (receive_buffer_.size == 0)
+	    result = handle_complete_receive();
+	else
+	    result = this;
+    }
+    else if (received_size == -1 && errno == EWOULDBLOCK)
+    {
+	// This is expected when the socket buffer is empty
+	result = this;
+    }
+
+    if (!result)
     {
 	// XXX We should distinguish several kinds of failure: network
 	// problems, normal disconnection, protocol violation, and
 	// resource allocation failure.
 	std::cerr << "WARN: Dropping connection from ";
-	boost::apply_visitor(state_visitor_reporter(std::cerr), conn_state_);
-	std::cerr << "\n";
+	print_identity(std::cerr) << "\n";
     }
 
-    return successful;
+    return result;
 }
 
-server::connection::send_status server::connection::do_send()
+server::sink_connection::sink_connection(server & server, auto_fd socket,
+					 bool is_raw)
+    : connection(server, socket),
+      is_raw_(is_raw),
+      frame_pos_(0),
+      overflowed_(false)
 {
-    sink_state & state = boost::get<sink_state>(conn_state_);
+    sink_id_ = server_.mixer_.add_sink(this);
+}
 
+server::sink_connection::~sink_connection()
+{	  
+    server_.mixer_.remove_sink(sink_id_);
+}
+
+server::connection::send_status server::sink_connection::do_send()
+{
     send_status result = send_failed;
     bool finished_frame = false;
 
@@ -373,24 +351,24 @@ server::connection::send_status server::connection::do_send()
     {
 	mixer::frame_ptr frame;
 	{
-	    boost::mutex::scoped_lock lock(sink_queue_mutex_);
-	    if (state.overflowed)
+	    boost::mutex::scoped_lock lock(mutex_);
+	    if (overflowed_)
 		break;
 	    if (finished_frame)
 	    {
-		state.frames.pop();
+		frames_.pop();
 		finished_frame = false;
 	    }
-	    if (state.frames.empty())
+	    if (frames_.empty())
 	    {
 		result = sent_all;
 		break;
 	    }
-	    frame = state.frames.front();
+	    frame = frames_.front();
 	}
 
 	uint8_t frame_header[SINK_FRAME_HEADER_SIZE] = {};
-	if (!state.is_raw)
+	if (!is_raw_)
 	{
 	    frame_header[SINK_FRAME_CUT_FLAG_POS] =
 		frame->cut_before ? 'C' : 0;
@@ -400,8 +378,8 @@ server::connection::send_status server::connection::do_send()
 	    { frame_header,  SINK_FRAME_HEADER_SIZE },
 	    { frame->buffer, frame->size }
 	};
-	int done_count = state.is_raw ? 1 : 0;
-	std::size_t rel_pos = state.frame_pos;
+	int done_count = is_raw_ ? 1 : 0;
+	std::size_t rel_pos = frame_pos_;
 	while (rel_pos >= io_vector[done_count].iov_len)
 	{
 	    rel_pos -= io_vector[done_count].iov_len;
@@ -411,17 +389,17 @@ server::connection::send_status server::connection::do_send()
 	    static_cast<char *>(io_vector[done_count].iov_base) + rel_pos;
 	io_vector[done_count].iov_len -= rel_pos;
 	  
-	ssize_t sent_size = writev(socket_,
+	ssize_t sent_size = writev(socket_.get(),
 				   io_vector + done_count,
 				   2 - done_count);
 	if (sent_size > 0)
 	{
-	    state.frame_pos += sent_size;
-	    if (state.frame_pos
-		== (state.is_raw ? 0 : SINK_FRAME_HEADER_SIZE) + frame->size)
+	    frame_pos_ += sent_size;
+	    if (frame_pos_
+		== (is_raw_ ? 0 : SINK_FRAME_HEADER_SIZE) + frame->size)
 	    {
 		finished_frame = true;
-		state.frame_pos = 0;
+		frame_pos_ = 0;
 	    }
 	    result = sent_some;
 	}
@@ -438,35 +416,37 @@ server::connection::send_status server::connection::do_send()
 	// problems, normal disconnection, protocol violation, and
 	// resource allocation failure.
 	std::cerr << "WARN: Dropping connection from sink "
-		  << 1 + state.sink_id << "\n";
+		  << 1 + sink_id_ << "\n";
     }
 
     return result;
 }
 
-server::connection::receive_state server::connection::identify_client_type()
-{
-    unknown_state old_state = boost::get<unknown_state>(conn_state_);
+server::unknown_connection::unknown_connection(server & server, auto_fd socket)
+    : connection(server, socket)
+{}
 
+server::connection::receive_buffer
+server::unknown_connection::get_receive_buffer()
+{
+    return receive_buffer(greeting_, sizeof(greeting_));
+}
+
+server::connection * server::unknown_connection::handle_complete_receive()
+{
     enum {
 	client_type_unknown,
 	client_type_source,     // source which sends greeting (>= 0.3)
-	client_type_old_source, // source which doesn't send greeting (< 0.3)
 	client_type_sink,       // sink which wants DIF with control headers
 	client_type_raw_sink,   // sink which wants raw DIF
     } client_type;
 
-    if (std::memcmp(old_state.greeting, GREETING_SOURCE, GREETING_SIZE) == 0)
+    if (std::memcmp(greeting_, GREETING_SOURCE, GREETING_SIZE) == 0)
 	client_type = client_type_source;
-    // XXX This support should be removed shortly.
-    else if ((old_state.greeting[0] >> 5) == 0    // header block
-	     && (old_state.greeting[1] >> 4) == 0 // sequence 0
-	     && old_state.greeting[2] == 0)       // block 0
-	client_type = client_type_old_source;
-    else if (std::memcmp(old_state.greeting, GREETING_SINK, GREETING_SIZE)
+    else if (std::memcmp(greeting_, GREETING_SINK, GREETING_SIZE)
 	     == 0)
 	client_type = client_type_sink;
-    else if (std::memcmp(old_state.greeting, GREETING_RAW_SINK, GREETING_SIZE)
+    else if (std::memcmp(greeting_, GREETING_RAW_SINK, GREETING_SIZE)
 	     == 0)
 	client_type = client_type_raw_sink;
     else
@@ -475,106 +455,110 @@ server::connection::receive_state server::connection::identify_client_type()
     switch (client_type)
     {
     case client_type_source:
-    case client_type_old_source:
-    {
-	source_state new_state;
-	if ((new_state.frame = server_.mixer_.allocate_frame())
-	    && (new_state.decoder = dv_decoder_new(0, true, true)))
-	{
-	    new_state.source_id = server_.mixer_.add_source();
-	    conn_state_ = new_state;
-
-	    std::size_t received_size;
-	    if (client_type == client_type_source)
-	    {
-		received_size = 0;
-	    }
-	    else
-	    {
-		std::memcpy(new_state.frame->buffer,
-			    old_state.greeting, sizeof(old_state.greeting));
-		received_size = sizeof(old_state.greeting);
-	    }
-	    return receive_state(new_state.frame->buffer + received_size,
-				 DIF_SEQUENCE_SIZE - received_size,
-				 &connection::handle_source_sequence);
-	}
-	break;
-    }
+	return new source_connection(server_, socket_);
     case client_type_sink:
     case client_type_raw_sink:
-    {
-	conn_state_ = sink_state();
-	sink_state & new_state = boost::get<sink_state>(conn_state_);
-	new_state.is_raw = client_type == client_type_raw_sink;
-	new_state.frame_pos = 0;
-	new_state.overflowed = false;
-	new_state.sink_id = server_.mixer_.add_sink(this);
-
-	static uint8_t dummy;
-	return receive_state(&dummy,
-			     1,
-			     &connection::handle_unexpected_input);
-    }
+	return new sink_connection(server_, socket_,
+				   client_type == client_type_raw_sink);
     default:
-	break;
+	return 0;
     }
-
-    return receive_state();
 }
 
-server::connection::receive_state server::connection::handle_source_sequence()
+std::ostream & server::unknown_connection::print_identity(std::ostream & os)
 {
-    source_state & state = boost::get<source_state>(conn_state_);
+    return os << "unknown client";
+}
 
-    if (dv_parse_header(state.decoder, state.frame->buffer) >= 0)
+server::source_connection::source_connection(server & server, auto_fd socket)
+    : connection(server, socket),
+      decoder_(dv_decoder_new(0, true, true)),
+      frame_(server_.mixer_.allocate_frame()),
+      first_sequence_(true)
+{
+    if (!decoder_)
+	throw std::bad_alloc();
+    source_id_ = server_.mixer_.add_source();
+}
+
+server::source_connection::~source_connection()
+{
+    server_.mixer_.remove_source(source_id_);
+    dv_decoder_free(decoder_);
+}
+
+server::connection::receive_buffer
+server::source_connection::get_receive_buffer()
+{
+    if (first_sequence_)
+	return receive_buffer(frame_->buffer, DIF_SEQUENCE_SIZE);
+    else
+	return receive_buffer(frame_->buffer + DIF_SEQUENCE_SIZE,
+			      frame_->size - DIF_SEQUENCE_SIZE);
+}
+
+server::connection * server::source_connection::handle_complete_receive()
+{
+    if (first_sequence_)
     {
-	state.frame->system = state.decoder->system;
-	state.frame->size = state.decoder->frame_size;
-	return receive_state(state.frame->buffer + DIF_SEQUENCE_SIZE,
-			     state.frame->size - DIF_SEQUENCE_SIZE,
-			     &connection::handle_source_frame);
+	if (dv_parse_header(decoder_, frame_->buffer) >= 0)
+	{
+	    frame_->system = decoder_->system;
+	    frame_->size = decoder_->frame_size;
+	    first_sequence_ = false;
+	    return this;
+	}
+    }
+    else // !first_sequence_
+    {
+	server_.mixer_.put_frame(source_id_, frame_);
+	frame_.reset();
+	frame_ = server_.mixer_.allocate_frame();
+	first_sequence_ = true;
+	return this;
     }
 
-    return receive_state();
+    return 0;
 }
 
-server::connection::receive_state server::connection::handle_source_frame()
+std::ostream & server::source_connection::print_identity(std::ostream & os)
 {
-    source_state & state = boost::get<source_state>(conn_state_);
-
-    server_.mixer_.put_frame(state.source_id, state.frame);
-    state.frame.reset();
-    state.frame = server_.mixer_.allocate_frame();
-
-    return receive_state(state.frame->buffer,
-			 DIF_SEQUENCE_SIZE,
-			 &connection::handle_source_sequence);
+    return os << "source " << 1 + source_id_;
 }
 
-server::connection::receive_state server::connection::handle_unexpected_input()
+server::connection::receive_buffer
+server::sink_connection::get_receive_buffer()
 {
-    return receive_state();
+    static uint8_t dummy;
+    return receive_buffer(&dummy, sizeof(dummy));
 }
 
-void server::connection::put_frame(const mixer::frame_ptr & frame)
+server::connection * server::sink_connection::handle_complete_receive()
 {
-    sink_state & state = boost::get<sink_state>(conn_state_);
+    return 0;
+}
 
+std::ostream & server::sink_connection::print_identity(std::ostream & os)
+{
+    return os << "sink " << 1 + sink_id_;
+}
+
+void server::sink_connection::put_frame(const mixer::frame_ptr & frame)
+{
     bool was_empty = false;
     {
-	boost::mutex::scoped_lock lock(sink_queue_mutex_);
-	if (state.frames.full())
+	boost::mutex::scoped_lock lock(mutex_);
+	if (frames_.full())
 	{
-	    state.overflowed = true;
+	    overflowed_ = true;
 	}
 	else
 	{
-	    if (state.frames.empty())
+	    if (frames_.empty())
 		was_empty = true;
-	    state.frames.push(frame);
+	    frames_.push(frame);
 	}
     }
     if (was_empty)
-	server_.enable_output_polling(socket_);
+	server_.enable_output_polling(socket_.get());
 }

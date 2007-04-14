@@ -9,6 +9,8 @@
 
 #include <boost/thread.hpp>
 
+#include "auto_fd.hpp"
+#include "auto_pipe.hpp"
 #include "mixer.hpp"
 
 class server
@@ -19,13 +21,16 @@ public:
 
 private:
     class connection;
+    class unknown_connection;
+    class source_connection;
+    class sink_connection;
 
     void serve();
     void enable_output_polling(int fd);
 
     mixer & mixer_;
-    int listen_socket_;
-    int pipe_ends_[2];
+    auto_fd listen_socket_;
+    auto_pipe message_pipe_;
     std::auto_ptr<boost::thread> server_thread_;
 };
 

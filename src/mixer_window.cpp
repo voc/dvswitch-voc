@@ -3,6 +3,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <iostream>
 #include <stdexcept>
 
 #include <fcntl.h>
@@ -16,17 +17,14 @@
 
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
+      wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)
 {
-    if (pipe(pipe_ends_) != 0)
-	throw std::runtime_error(
-	    std::string("pipe: ").append(std::strerror(errno)));
-    fcntl(pipe_ends_[0], F_SETFL, O_NONBLOCK);
-    fcntl(pipe_ends_[1], F_SETFL, O_NONBLOCK);
-    pipe_io_source_ = Glib::IOSource::create(pipe_ends_[0], Glib::IO_IN);
-    pipe_io_source_->set_priority(Glib::PRIORITY_DEFAULT_IDLE);
-    pipe_io_source_->connect(SigC::slot(*this, &mixer_window::update));
-    pipe_io_source_->attach();
+    Glib::RefPtr<Glib::IOSource> pipe_io_source(
+	Glib::IOSource::create(wakeup_pipe_.reader.get(), Glib::IO_IN));
+    pipe_io_source->set_priority(Glib::PRIORITY_DEFAULT_IDLE);
+    pipe_io_source->connect(SigC::slot(*this, &mixer_window::update));
+    pipe_io_source->attach();
 
     add(box_);
     box_.add(display_);
@@ -34,12 +32,6 @@ mixer_window::mixer_window(mixer & mixer)
     box_.add(selector_);
     selector_.show();
     box_.show();
-}
-
-mixer_window::~mixer_window()
-{
-    close(pipe_ends_[0]);
-    close(pipe_ends_[1]);
 }
 
 bool mixer_window::on_key_press_event(GdkEventKey * event)
@@ -90,7 +82,7 @@ void mixer_window::put_frames(unsigned source_count,
 
     // Poke the event loop.
     static const char dummy[1] = {0};
-    write(pipe_ends_[1], dummy, sizeof(dummy));
+    write(wakeup_pipe_.writer.get(), dummy, sizeof(dummy));
 }
 
 bool mixer_window::update(Glib::IOCondition)
@@ -98,7 +90,7 @@ bool mixer_window::update(Glib::IOCondition)
     // Empty the pipe (if frames have been dropped there's nothing we
     // can do about that now).
     static char dummy[4096];
-    read(pipe_ends_[0], dummy, sizeof(dummy));
+    read(wakeup_pipe_.reader.get(), dummy, sizeof(dummy));
 
     mixer::frame_ptr mixed_frame;
     std::vector<mixer::frame_ptr> source_frames;

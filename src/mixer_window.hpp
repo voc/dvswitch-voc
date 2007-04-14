@@ -12,6 +12,7 @@
 #include <gtkmm/box.h>
 #include <gtkmm/window.h>
 
+#include "auto_pipe.hpp"
 #include "dv_display_widget.hpp"
 #include "dv_selector_widget.hpp"
 #include "mixer.hpp"
@@ -25,7 +26,6 @@ class mixer_window : public Gtk::Window, public mixer::monitor
 {
 public:
     explicit mixer_window(mixer & mixer);
-    ~mixer_window();
 
 private:
     virtual bool on_key_press_event(GdkEventKey *);
@@ -41,8 +41,7 @@ private:
     dv_full_display_widget display_;
     dv_selector_widget selector_;
 
-    int pipe_ends_[2];
-    Glib::RefPtr<Glib::IOSource> pipe_io_source_;
+    auto_pipe wakeup_pipe_;
 
     boost::mutex frame_mutex_; // controls access to the following
     std::vector<mixer::frame_ptr> source_frames_;
