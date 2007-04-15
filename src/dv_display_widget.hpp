@@ -45,8 +45,8 @@ private:
     virtual void draw_frame(const drawing_context &,
 			    unsigned width, unsigned height);
 
-    virtual void on_realize();
-    virtual void on_unrealize();
+    virtual void on_realize() throw();
+    virtual void on_unrealize() throw();
 
     uint32_t xv_port_;
     void * xv_image_;
@@ -64,8 +64,8 @@ private:
     virtual void draw_frame(const drawing_context &,
 			    unsigned width, unsigned height);
 
-    virtual void on_realize();
-    virtual void on_unrealize();
+    virtual void on_realize() throw();
+    virtual void on_unrealize() throw();
 
     uint8_t * frame_buffer_;
     void * x_image_;

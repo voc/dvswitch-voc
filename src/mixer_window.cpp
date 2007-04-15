@@ -34,7 +34,7 @@ mixer_window::mixer_window(mixer & mixer)
     box_.show();
 }
 
-bool mixer_window::on_key_press_event(GdkEventKey * event)
+bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 {
     if (event->keyval == 'c')
     {
@@ -85,47 +85,54 @@ void mixer_window::put_frames(unsigned source_count,
     write(wakeup_pipe_.writer.get(), dummy, sizeof(dummy));
 }
 
-bool mixer_window::update(Glib::IOCondition)
+bool mixer_window::update(Glib::IOCondition) throw()
 {
     // Empty the pipe (if frames have been dropped there's nothing we
     // can do about that now).
     static char dummy[4096];
     read(wakeup_pipe_.reader.get(), dummy, sizeof(dummy));
 
-    mixer::frame_ptr mixed_frame;
-    std::vector<mixer::frame_ptr> source_frames;
+    try
     {
-	boost::mutex::scoped_lock lock(frame_mutex_);
-	mixed_frame = mixed_frame_;
-	mixed_frame_.reset();
-	source_frames = source_frames_;
-	source_frames_.clear();
-    }
-
-    if (mixed_frame)
-	display_.put_frame(mixed_frame);
-
-    // Update the thumbnail displays of sources.  If a new mixed frame
-    // arrives while we were doing this, return to the event loop.
-    // (We want to handle the next mixed frame but we need to let it
-    // handle other events as well.)  Use a rota for source updates so
-    // even if we don't have time to run them all at full frame rate
-    // they all get updated at roughly the same rate.
-
-    for (std::size_t i = 0; i != source_frames.size(); ++i)
-    {
-	if (next_source_id_ >= source_frames.size())
-	    next_source_id_ = 0;
-	mixer::source_id id = next_source_id_++;
-
-	if (source_frames[id])
+	mixer::frame_ptr mixed_frame;
+	std::vector<mixer::frame_ptr> source_frames;
 	{
-	    selector_.put_frame(id, source_frames[id]);
-
 	    boost::mutex::scoped_lock lock(frame_mutex_);
-	    if (mixed_frame_)
-		break;
+	    mixed_frame = mixed_frame_;
+	    mixed_frame_.reset();
+	    source_frames = source_frames_;
+	    source_frames_.clear();
 	}
+
+	if (mixed_frame)
+	    display_.put_frame(mixed_frame);
+
+	// Update the thumbnail displays of sources.  If a new mixed frame
+	// arrives while we were doing this, return to the event loop.
+	// (We want to handle the next mixed frame but we need to let it
+	// handle other events as well.)  Use a rota for source updates so
+	// even if we don't have time to run them all at full frame rate
+	// they all get updated at roughly the same rate.
+
+	for (std::size_t i = 0; i != source_frames.size(); ++i)
+	{
+	    if (next_source_id_ >= source_frames.size())
+		next_source_id_ = 0;
+	    mixer::source_id id = next_source_id_++;
+
+	    if (source_frames[id])
+	    {
+		selector_.put_frame(id, source_frames[id]);
+
+		boost::mutex::scoped_lock lock(frame_mutex_);
+		if (mixed_frame_)
+		    break;
+	    }
+	}
+    }
+    catch (std::exception & e)
+    {
+	std::cerr << "ERROR: Failed to update window: " << e.what() << "\n";
     }
 
     return true; // call again

@@ -129,7 +129,7 @@ dv_full_display_widget::dv_full_display_widget()
     set_size_request(display_width_full, display_height_full);
 }
 
-void dv_full_display_widget::on_realize()
+void dv_full_display_widget::on_realize() throw()
 {
     dv_display_widget::on_realize();
 
@@ -221,7 +221,7 @@ end_adaptor_loop:
     }
 }
 
-void dv_full_display_widget::on_unrealize()
+void dv_full_display_widget::on_unrealize() throw()
 {
     if (xv_port_ != invalid_xv_port)
     {
@@ -290,7 +290,7 @@ dv_thumb_display_widget::~dv_thumb_display_widget()
     delete[] frame_buffer_;
 }
 
-void dv_thumb_display_widget::on_realize()
+void dv_thumb_display_widget::on_realize() throw()
 {
     dv_display_widget::on_realize();
 
@@ -323,7 +323,7 @@ void dv_thumb_display_widget::on_realize()
     }
 }
 
-void dv_thumb_display_widget::on_unrealize()
+void dv_thumb_display_widget::on_unrealize() throw()
 {
     if (XImage * x_image = static_cast<XImage *>(x_image_))
     {

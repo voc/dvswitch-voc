@@ -28,8 +28,8 @@ public:
     explicit mixer_window(mixer & mixer);
 
 private:
-    virtual bool on_key_press_event(GdkEventKey *);
-    bool update(Glib::IOCondition);
+    virtual bool on_key_press_event(GdkEventKey *) throw();
+    bool update(Glib::IOCondition) throw();
 
     virtual void put_frames(unsigned source_count,
 			    const mixer::frame_ptr * source_frames,

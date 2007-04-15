@@ -1,6 +1,9 @@
 // Copyright 2007 Ben Hutchings and Tore Sinding Bekkedal.
 // See the file "COPYING" for licence details.
 
+#include <iostream>
+#include <ostream>
+
 #include <gtkmm/label.h>
 
 #include "dv_selector_widget.hpp"
@@ -23,27 +26,38 @@ void dv_selector_widget::put_frame(mixer::source_id source_id,
 	mixer::source_id first_new_source_id = thumbnails_.size();
 	thumbnails_.resize(source_id + 1);
 
-	for (mixer::source_id i = first_new_source_id; i <= source_id; ++i)
+	try
 	{
-	    dv_thumb_display_widget * thumb =
-		manage(new dv_thumb_display_widget);
-	    thumb->show();
-	    attach(*thumb,
-		   i % thumbs_per_row, i % thumbs_per_row + 1,
-		   2 * (i / thumbs_per_row), 2 * (i / thumbs_per_row) + 1,
-		   Gtk::FILL, Gtk::FILL,
-		   6, 6);
-	    thumbnails_[i] = thumb;
+	    for (mixer::source_id i = first_new_source_id; i <= source_id; ++i)
+	    {
+		dv_thumb_display_widget * thumb =
+		    manage(new dv_thumb_display_widget);
+		thumb->show();
+		attach(*thumb,
+		       i % thumbs_per_row, i % thumbs_per_row + 1,
+		       2 * (i / thumbs_per_row), 2 * (i / thumbs_per_row) + 1,
+		       Gtk::FILL, Gtk::FILL,
+		       6, 6);
+		thumbnails_[i] = thumb;
 
-	    // XXX we'll be in trouble with > 9 sources
-	    char label_text[2] = { '1' + i, 0 };
-	    Gtk::Label * label = manage(new Gtk::Label(label_text));
-	    label->show();
-	    attach(*label,
-		   i % thumbs_per_row, i % thumbs_per_row + 1,
-		   2 * (i / thumbs_per_row) + 1, 2 * (i / thumbs_per_row) + 2,
-		   Gtk::FILL, Gtk::FILL,
-		   6, 6);
+		// XXX we'll be in trouble with > 9 sources
+		char label_text[2] = { '1' + i, 0 };
+		Gtk::Label * label = manage(new Gtk::Label(label_text));
+		label->show();
+		attach(*label,
+		       i % thumbs_per_row, i % thumbs_per_row + 1,
+		       2 * (i / thumbs_per_row) + 1, 2 * (i / thumbs_per_row) + 2,
+		       Gtk::FILL, Gtk::FILL,
+		       6, 6);
+	    }
+	}
+	catch (std::exception & e)
+	{
+	    // Roll back size changes
+	    thumbnails_.resize(first_new_source_id);
+	    std::cerr << "ERROR: Failed to add source display: " << e.what()
+		      << "\n";
+	    return;
 	}
     }
 
