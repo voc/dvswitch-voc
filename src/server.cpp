@@ -212,15 +212,21 @@ void server::serve()
 	if (poll_fds[poll_index_listen].revents & POLLIN)
 	{
 	    auto_fd conn_socket(accept(listen_socket_.get(), 0, 0));
-	    if (conn_socket.get() >= 0)
+	    try
 	    {
+		os_check_nonneg("accept", conn_socket.get());
 		os_check_nonneg("fcntl",
 				fcntl(conn_socket.get(), F_SETFL, O_NONBLOCK));
 		pollfd new_poll_fd = { conn_socket.get(), POLLIN, 0 };
+		poll_fds.reserve(poll_fds.size() + 1);
 		connections.push_back(
 		    std::tr1::shared_ptr<connection>(
 			new unknown_connection(*this, conn_socket)));
 		poll_fds.push_back(new_poll_fd);
+	    }
+	    catch (std::exception & e)
+	    {
+		std::cerr << "ERROR: " << e.what() << "\n";
 	    }
 	}
 
