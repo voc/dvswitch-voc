@@ -1,12 +1,10 @@
-dvswitch 0.3
+dvswitch 0.4
 
 This is barely ready for use.
 
 You can configure the mixer's host and port using the -h and -p
 options to any of the commands, or configure them for all commands by
 setting MIXER_HOST=<hostname> and MIXER_PORT=<port> in ~/.dvswitchrc.
-However this will probably change in later versions as we will use
-multiple listening ports.
 
 Run dvswitch and you will see a rather bare mixing window.  This only
 knows keyboard commands: Control-Q to quit, digits to select between
@@ -22,5 +20,12 @@ It will open a new file every time you press C in the mixing window.
 If the name pattern does not end with the suffix ".dv", this will be
 added.  Finally, a hyphen and a number will be added before the ".dv"
 if necessary to avoid filename collisions.
+
+Run dvsink-command to send the output to the standard input of a
+command.  For example, to send a downscaled Theora stream over
+Icecast, run:
+    dvsink-command -- \
+    ffmpeg2theora -o - -f dv -x 320 -y 240 --aspect 4:3 --deinterlace - \
+    | oggfwd <icecast-hostname> <icecast-port> <password> <path>
 
 That's all for now.

@@ -1,3 +1,10 @@
+dvswitch (0.4) unstable; urgency=low
+
+  * Implemented a command-spawning sink
+  * Improved error handling
+
+ --
+
 dvswitch (0.3) unstable; urgency=low
 
   * Implemented dubbing of audio source onto video source (and
