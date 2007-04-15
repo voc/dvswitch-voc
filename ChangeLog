@@ -2,8 +2,10 @@ dvswitch (0.4) unstable; urgency=low
 
   * Implemented a command-spawning sink
   * Improved error handling
+  * Added ability to switch between audio sources
+  * Added indicators of selected video and audio sources
 
- --
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 15 Apr 2007 16:27:47 +0100
 
 dvswitch (0.3) unstable; urgency=low
 

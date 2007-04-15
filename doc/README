@@ -7,8 +7,12 @@ options to any of the commands, or configure them for all commands by
 setting MIXER_HOST=<hostname> and MIXER_PORT=<port> in ~/.dvswitchrc.
 
 Run dvswitch and you will see a rather bare mixing window.  This only
-knows keyboard commands: Control-Q to quit, digits to select between
-sources, C to cut.
+supports keyboard commands:
+
+1 to 9          select the video source
+Alt-1 to Alt-9  select the audio source
+C               cut the output (where meaningful)
+Ctrl-Q          quit
 
 Now run dvsource-file to feed a file as a source and/or
 dvsource-firewire to capture over Firewire.
