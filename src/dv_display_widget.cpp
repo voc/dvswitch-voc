@@ -18,19 +18,13 @@
 
 namespace
 {
-    const unsigned frame_max_width = 720;
-    const unsigned frame_max_height = 576;
-
     // Assume 4:3 frame ratio for now.
-    const unsigned display_width_full = 768;
-    const unsigned display_height_full = 576;
+    const unsigned display_width_full = FRAME_HEIGHT_MAX * 4 / 3;
+    const unsigned display_height_full = FRAME_HEIGHT_MAX;
     const unsigned display_width_thumb = display_width_full / 4;
     const unsigned display_height_thumb = display_height_full / 4;
 
     const uint32_t invalid_xv_port = uint32_t(-1);
-
-    const int pixel_format_id = 0x32595559; // 'YUY2'
-    const unsigned bytes_per_pixel = 2; // Y and alternately U or V
 
     Display * get_x_display(Gtk::Widget & widget)
     {
@@ -160,17 +154,17 @@ void dv_full_display_widget::on_realize() throw()
 	if (!format_info)
 	    continue;
 	for (int j = 0; j != format_count; ++j)
-	    if (format_info[j].id == pixel_format_id)
+	    if (format_info[j].id == FRAME_PIXEL_FORMAT)
 		goto end_adaptor_loop;
     }
 end_adaptor_loop:
     if (i == adaptor_count)
     {
 	std::cerr << "ERROR: No Xv adaptor for this display supports "
-		  << char(pixel_format_id >> 24)
-		  << char((pixel_format_id >> 16) & 0xFF)
-		  << char((pixel_format_id >> 8) & 0xFF)
-		  << char(pixel_format_id & 0xFF)
+		  << char(FRAME_PIXEL_FORMAT >> 24)
+		  << char((FRAME_PIXEL_FORMAT >> 16) & 0xFF)
+		  << char((FRAME_PIXEL_FORMAT >> 8) & 0xFF)
+		  << char(FRAME_PIXEL_FORMAT & 0xFF)
 		  << " format\n";
     }
     else
@@ -198,8 +192,8 @@ end_adaptor_loop:
     if (XShmSegmentInfo * xv_shm_info = new (std::nothrow) XShmSegmentInfo)
     {
 	if (XvImage * xv_image =
-	    XvShmCreateImage(x_display, xv_port_, pixel_format_id, 0,
-			     frame_max_width, frame_max_height,
+	    XvShmCreateImage(x_display, xv_port_, FRAME_PIXEL_FORMAT, 0,
+			     FRAME_WIDTH, FRAME_HEIGHT_MAX,
 			     xv_shm_info))
 	{
 	    if ((xv_image->data = allocate_x_shm(x_display, xv_shm_info,
@@ -277,8 +271,8 @@ void dv_full_display_widget::draw_frame(const drawing_context & context,
 
 dv_thumb_display_widget::dv_thumb_display_widget()
     : dv_display_widget(DV_QUALITY_FASTEST),
-      frame_buffer_(new uint8_t[bytes_per_pixel * frame_max_width
-				* frame_max_height]),
+      frame_buffer_(new uint8_t[FRAME_BYTES_PER_PIXEL * FRAME_WIDTH
+				* FRAME_HEIGHT_MAX]),
       x_image_(0),
       x_shm_info_(0)
 {
@@ -341,7 +335,7 @@ void dv_thumb_display_widget::on_unrealize() throw()
 
 dv_display_widget::pixels_pitch dv_thumb_display_widget::get_frame_buffer()
 {
-    return pixels_pitch(frame_buffer_, bytes_per_pixel * frame_max_width);
+    return pixels_pitch(frame_buffer_, FRAME_BYTES_PER_PIXEL * FRAME_WIDTH);
 }
 
 void dv_thumb_display_widget::draw_frame(const drawing_context & context,
@@ -364,7 +358,7 @@ void dv_thumb_display_widget::draw_frame(const drawing_context & context,
     do
     {
 	const uint8_t * in =
-	    frame_buffer_ + bytes_per_pixel * frame_max_width * y_in;
+	    frame_buffer_ + FRAME_BYTES_PER_PIXEL * FRAME_WIDTH * y_in;
 	uint8_t * out = reinterpret_cast<uint8_t *>(
 	    x_image->data + x_image->bytes_per_line * y_out);
 	uint8_t * out_row_end =
@@ -383,7 +377,7 @@ void dv_thumb_display_widget::draw_frame(const drawing_context & context,
 	    x_error += width_blocks;
 	    if (x_error >= display_width_thumb)
 	    {
-		in += bytes_per_pixel * block_size; // next block
+		in += FRAME_BYTES_PER_PIXEL * block_size; // next block
 		in_value = *in; // read first Y component
 		x_error -= display_width_thumb;
 	    }

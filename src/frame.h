@@ -24,4 +24,18 @@ struct frame
     uint8_t buffer[DIF_MAX_FRAME_SIZE];
 };
 
+#define FRAME_WIDTH           720
+#define FRAME_HEIGHT_625_50   576
+#define FRAME_HEIGHT_525_60   480
+#define FRAME_HEIGHT_MAX      576
+
+#define FRAME_PIXEL_FORMAT    0x32595559 // 'YUY2'
+#define FRAME_BYTES_PER_PIXEL 2 // Y and alternately U or V
+
+struct frame_decoded
+{
+    dv_system_t system;
+    uint8_t buffer[FRAME_BYTES_PER_PIXEL * FRAME_WIDTH * FRAME_HEIGHT_MAX];
+};
+
 #endif // !defined(DVSWITCH_FRAME_H)
