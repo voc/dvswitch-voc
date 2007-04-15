@@ -17,7 +17,7 @@
 #include <unistd.h>
 
 #include <boost/bind.hpp>
-#include <boost/variant.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include <libdv/dv.h>
 
@@ -147,7 +147,7 @@ server::~server()
 void server::serve()
 {
     std::vector<pollfd> poll_fds(2);
-    std::vector<connection *> connections;
+    std::vector<std::tr1::shared_ptr<connection> > connections;
     poll_fds[0].fd = message_pipe_.reader.get();
     poll_fds[0].events = POLLIN;
     poll_fds[1].fd = listen_socket_.get();
@@ -180,7 +180,7 @@ void server::serve()
 		    // Each message is either -1 (quit) or the number of an
 		    // FD that we now want to write to.
 		    if (messages[i] == -1)
-			goto exit;
+			return;
 
 		    for (std::size_t j = 2; j != poll_fds.size(); ++j)
 		    {
@@ -204,7 +204,8 @@ void server::serve()
 				fcntl(conn_socket.get(), F_SETFL, O_NONBLOCK));
 		pollfd new_poll_fd = { conn_socket.get(), POLLIN, 0 };
 		connections.push_back(
-		    new unknown_connection(*this, conn_socket));
+		    std::tr1::shared_ptr<connection>(
+			new unknown_connection(*this, conn_socket)));
 		poll_fds.push_back(new_poll_fd);
 	    }
 	}
@@ -222,17 +223,11 @@ void server::serve()
 		}
 		else if (revents & POLLIN)
 		{
-		    connection * new_connection =
-			connections[i]->do_receive();
+		    connection * new_connection = connections[i]->do_receive();
 		    if (!new_connection)
-		    {
 			should_drop = true;
-		    }
-		    else if (new_connection != connections[i])
-		    {
-			delete connections[i];
-			connections[i] = new_connection;
-		    }
+		    else if (new_connection != connections[i].get())
+			connections[i].reset(new_connection);
 		}
 		else if (revents & POLLOUT)
 		{
@@ -257,7 +252,6 @@ void server::serve()
 
 	    if (should_drop)
 	    {
-		delete connections[i];
 		connections.erase(connections.begin() + i);
 		poll_fds.erase(poll_fds.begin() + 2 + i);
 	    }
@@ -267,12 +261,6 @@ void server::serve()
 	    }
 	}
     }
-
-exit:
-    std::vector<connection *>::iterator
-	it = connections.begin(), end = connections.end();
-    while (it != end)
-	delete *it++;
 }
 
 void server::enable_output_polling(int fd)
