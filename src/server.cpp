@@ -28,6 +28,14 @@
 #include "server.hpp"
 #include "socket.h"
 
+namespace
+{
+    // Numbers used in the message pipe
+    enum {
+	message_quit = -1
+    };
+}
+
 class server::connection
 {
 public:
@@ -139,19 +147,25 @@ server::server(const std::string & host, const std::string & port,
 
 server::~server()
 {
-    int quit_message = -1;
-    write(message_pipe_.writer.get(), &quit_message, sizeof(int));
+    static const int message = message_quit;
+    write(message_pipe_.writer.get(), &message, sizeof(int));
     server_thread_->join();
 }
 
 void server::serve()
 {
-    std::vector<pollfd> poll_fds(2);
+    enum {
+	poll_index_message,
+	poll_index_listen,
+	poll_count_fixed,
+	poll_index_clients = poll_count_fixed
+    };
+    std::vector<pollfd> poll_fds(poll_count_fixed);
     std::vector<std::tr1::shared_ptr<connection> > connections;
-    poll_fds[0].fd = message_pipe_.reader.get();
-    poll_fds[0].events = POLLIN;
-    poll_fds[1].fd = listen_socket_.get();
-    poll_fds[1].events = POLLIN;
+    poll_fds[poll_index_message].fd = message_pipe_.reader.get();
+    poll_fds[poll_index_message].events = POLLIN;
+    poll_fds[poll_index_listen].fd = listen_socket_.get();
+    poll_fds[poll_index_listen].events = POLLIN;
 
     for (;;)
     {
@@ -166,23 +180,23 @@ void server::serve()
 	}
 
 	// Check message pipe
-	if (poll_fds[0].revents & POLLIN)
+	if (poll_fds[poll_index_message].revents & POLLIN)
 	{
 	    int messages[1024];
 	    ssize_t size = read(message_pipe_.reader.get(),
 				messages, sizeof(messages));
 	    if (size > 0)
 	    {
-		for (std::size_t i = 0;
-		     (i + 1) * sizeof(int) <= std::size_t(size);
-		     ++i)
+		assert(size % sizeof(int) == 0);
+		for (std::size_t i = 0; i != size / sizeof(int); ++i)
 		{
-		    // Each message is either -1 (quit) or the number of an
-		    // FD that we now want to write to.
-		    if (messages[i] == -1)
+		    if (messages[i] == message_quit)
 			return;
-
-		    for (std::size_t j = 2; j != poll_fds.size(); ++j)
+		    // otherwise message is the number of a file
+		    // descriptor we want to send on
+		    for (std::size_t j = poll_index_clients;
+			 j != poll_fds.size();
+			 ++j)
 		    {
 			if (poll_fds[j].fd == messages[i])
 			{
@@ -195,7 +209,7 @@ void server::serve()
 	}
 
 	// Check listening socket
-	if (poll_fds[1].revents & POLLIN)
+	if (poll_fds[poll_index_listen].revents & POLLIN)
 	{
 	    auto_fd conn_socket(accept(listen_socket_.get(), 0, 0));
 	    if (conn_socket.get() >= 0)
@@ -213,7 +227,7 @@ void server::serve()
 	// Check client connections
 	for (std::size_t i = 0; i != connections.size();)
 	{
-	    short revents = poll_fds[2 + i].revents;
+	    short revents = poll_fds[poll_index_clients + i].revents;
 	    bool should_drop = false;
 	    try
 	    {
@@ -239,7 +253,7 @@ void server::serve()
 		    case connection::sent_some:
 			break;
 		    case connection::sent_all:
-			poll_fds[2 + i].events &= ~POLLOUT;
+			poll_fds[poll_index_clients + i].events &= ~POLLOUT;
 		        break;
 		    }
 		}
