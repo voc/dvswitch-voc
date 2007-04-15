@@ -33,6 +33,8 @@ Package: dvsink
 Architecture: any
 Depends: ${shlibs:Depends}
 Description: programs to sink frames from dvswitch
- This packages provides a sink for dvswitch:
+ This packages provides two sinks for dvswitch:
  .
- dvsink-files stores DV frames in files named according to a pattern
+ dvsink-command runs a command with the DV stream on its standard input.
+ .
+ dvsink-files stores DV frames in files named according to a pattern.

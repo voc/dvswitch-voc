@@ -7,18 +7,18 @@ install-stamp : build
 	dh_testroot
 	make DESTDIR=$$(pwd)/debian/tmp prefix=/usr install
 	mkdir -p debian/dvsink/usr/bin debian/dvsink/usr/share/doc
-	mv debian/tmp/usr/bin/dvsink-files debian/dvsink/usr/bin
+	mv debian/tmp/usr/bin/dvsink-* debian/dvsink/usr/bin
 	cp -R debian/tmp/usr/share/doc/dvswitch \
 		debian/dvsink/usr/share/doc/dvsink
 	mkdir -p debian/dvsource/usr/bin debian/dvsource/usr/share/doc
-	mv debian/tmp/usr/bin/dvsource-file debian/dvsource/usr/bin
-	mv debian/tmp/usr/bin/dvsource-firewire debian/dvsource/usr/bin
+	mv debian/tmp/usr/bin/dvsource-* debian/dvsource/usr/bin
 	cp -R debian/tmp/usr/share/doc/dvswitch \
 		debian/dvsource/usr/share/doc/dvsource
 	mkdir -p debian/dvswitch/usr/bin debian/dvswitch/usr/share/doc
 	mv debian/tmp/usr/bin/dvswitch debian/dvswitch/usr/bin
 	mv debian/tmp/usr/share/doc/dvswitch \
 		debian/dvswitch/usr/share/doc/dvswitch
+	mv debian/tmp/usr/share/dvswitch debian/dvswitch/usr/share/dvswitch
 	touch install-stamp
 
 binary : binary-arch binary-indep
