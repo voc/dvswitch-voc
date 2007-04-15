@@ -10,6 +10,7 @@
 
 #include "dv_display_widget.hpp"
 #include "frame.h"
+#include "video_effect.h"
 
 // X headers come last due to egregious macro pollution.
 #include <gdk/gdkx.h>
@@ -107,7 +108,8 @@ void dv_display_widget::put_frame(const mixer::frame_ptr & dv_frame)
 		get_x_window(*this),
 		gdk_x11_gc_get_xgc(gc->gobj())
 	    };
-	    draw_frame(context, decoder_->width, decoder_->height);
+	    assert(decoder_->width == FRAME_WIDTH);
+	    draw_frame(context, decoder_->height);
 	}
     }
 }
@@ -256,12 +258,20 @@ dv_display_widget::pixels_pitch dv_full_display_widget::get_frame_buffer()
 }
 
 void dv_full_display_widget::draw_frame(const drawing_context & context,
-					unsigned width, unsigned height)
+					unsigned height)
 {
+    XvImage * xv_image = static_cast<XvImage *>(xv_image_);
+    frame_decoded_ref frame_ref = {
+	reinterpret_cast<uint8_t *>(xv_image->data),
+	xv_image->pitches[0],
+	height
+    };
+    video_effect_show_title_safe(frame_ref);
+	    
     // XXX should use get_window()->get_internal_paint_info()
     XvShmPutImage(context.x_display, xv_port_, context.x_window, context.x_gc,
 		  static_cast<XvImage *>(xv_image_),
-		  0, 0, width, height,
+		  0, 0, FRAME_WIDTH, height,
 		  0, 0, display_width_full, display_height_full,
 		  False);
     XFlush(context.x_display);
@@ -339,7 +349,7 @@ dv_display_widget::pixels_pitch dv_thumb_display_widget::get_frame_buffer()
 }
 
 void dv_thumb_display_widget::draw_frame(const drawing_context & context,
-					 unsigned width, unsigned height)
+					 unsigned height)
 {
     XImage * x_image = static_cast<XImage *>(x_image_);
 
@@ -349,9 +359,9 @@ void dv_thumb_display_widget::draw_frame(const drawing_context & context,
 
     assert(x_image->bits_per_pixel == 24 || x_image->bits_per_pixel == 32);
 
-    const unsigned block_size = 8;
-    unsigned width_blocks = width / block_size;
-    unsigned height_blocks = height / block_size;
+    static const unsigned block_size = 8;
+    static const unsigned width_blocks = FRAME_WIDTH / block_size;
+    const unsigned height_blocks = height / block_size;
     assert(width_blocks <= display_width_thumb);
     assert(height_blocks <= display_height_thumb);
     unsigned y_in = 0, y_out = 0, y_error = height_blocks / 2;

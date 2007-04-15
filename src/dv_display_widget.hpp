@@ -26,8 +26,7 @@ protected:
 
 private:
     virtual pixels_pitch get_frame_buffer() = 0;
-    virtual void draw_frame(const drawing_context &,
-			    unsigned width, unsigned height) = 0;
+    virtual void draw_frame(const drawing_context &, unsigned height) = 0;
 
     dv_decoder_t * decoder_;
     unsigned decoded_serial_num_;
@@ -42,8 +41,7 @@ public:
 
 private:
     virtual pixels_pitch get_frame_buffer();
-    virtual void draw_frame(const drawing_context &,
-			    unsigned width, unsigned height);
+    virtual void draw_frame(const drawing_context &, unsigned height);
 
     virtual void on_realize() throw();
     virtual void on_unrealize() throw();
@@ -61,8 +59,7 @@ public:
 
 private:
     virtual pixels_pitch get_frame_buffer();
-    virtual void draw_frame(const drawing_context &,
-			    unsigned width, unsigned height);
+    virtual void draw_frame(const drawing_context &, unsigned height);
 
     virtual void on_realize() throw();
     virtual void on_unrealize() throw();

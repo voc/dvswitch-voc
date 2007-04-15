@@ -38,4 +38,11 @@ struct frame_decoded
     uint8_t buffer[FRAME_BYTES_PER_PIXEL * FRAME_WIDTH * FRAME_HEIGHT_MAX];
 };
 
+struct frame_decoded_ref
+{
+    uint8_t * pixels;
+    unsigned pitch; // number of bytes per row; width is always FRAME_WIDTH
+    unsigned height;
+};
+
 #endif // !defined(DVSWITCH_FRAME_H)

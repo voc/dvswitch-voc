@@ -55,7 +55,7 @@ clean :
 .objs/dvswitch : .objs/dvswitch.o .objs/mixer.o .objs/frame_timer.o \
 	.objs/mixer_window.o .objs/dv_display_widget.o \
         .objs/dv_selector_widget.o .objs/server.o $(common_objects) \
-	.objs/auto_pipe.o .objs/os_error.o
+	.objs/auto_pipe.o .objs/os_error.o .objs/video_effect.o
 
 .PHONY : all install clean
 
