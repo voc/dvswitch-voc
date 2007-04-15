@@ -72,11 +72,13 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 
 void mixer_window::put_frames(unsigned source_count,
 			      const mixer::frame_ptr * source_frames,
+			      mixer::mix_settings mix_settings,
 			      const mixer::frame_ptr & mixed_frame)
 {
     {
 	boost::mutex::scoped_lock lock(frame_mutex_);
 	source_frames_.assign(source_frames, source_frames + source_count);
+	mix_settings_ = mix_settings;
 	mixed_frame_ = mixed_frame;
     }
 
@@ -106,6 +108,10 @@ bool mixer_window::update(Glib::IOCondition) throw()
 
 	if (mixed_frame)
 	    display_.put_frame(mixed_frame);
+
+	selector_.set_source_count(source_frames.size());
+	selector_.set_video_source(mix_settings_.video_source_id);
+	selector_.set_audio_source(mix_settings_.audio_source_id);
 
 	// Update the thumbnail displays of sources.  If a new mixed frame
 	// arrives while we were doing this, return to the event loop.

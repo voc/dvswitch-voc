@@ -11,33 +11,57 @@
 namespace
 {
     const unsigned thumbs_per_row = 4;
+    enum {
+	row_display,
+	row_labels,
+	row_multiplier
+    };
+    enum {
+	column_text_label,
+	column_video_source_image,
+	column_audio_source_image,
+	column_multiplier
+    };
+    const unsigned padding_standard = 6;
 }
 
 dv_selector_widget::dv_selector_widget()
-{}
-
-void dv_selector_widget::put_frame(mixer::source_id source_id,
-				   const mixer::frame_ptr & source_frame)
+    : video_source_image_(SHAREDIR "/dvswitch/video-source.png"),
+      last_video_source_id_(mixer::invalid_id),
+      audio_source_image_(SHAREDIR "/dvswitch/audio-source.png"),
+      last_audio_source_id_(mixer::invalid_id)
 {
-    if (source_id >= thumbnails_.size())
+    video_source_image_.reference();
+    video_source_image_.show();
+    audio_source_image_.reference();
+    audio_source_image_.show();
+}
+
+void dv_selector_widget::set_source_count(unsigned count)
+{
+    if (count > thumbnails_.size())
     {
-	resize(2 * ((source_id + thumbs_per_row) / thumbs_per_row),
-	       thumbs_per_row);
+	resize(((count + thumbs_per_row) / thumbs_per_row)
+	       * row_multiplier,
+	       thumbs_per_row * column_multiplier);
 	mixer::source_id first_new_source_id = thumbnails_.size();
-	thumbnails_.resize(source_id + 1);
 
 	try
 	{
-	    for (mixer::source_id i = first_new_source_id; i <= source_id; ++i)
+	    thumbnails_.resize(count);
+
+	    for (mixer::source_id i = first_new_source_id; i != count; ++i)
 	    {
 		dv_thumb_display_widget * thumb =
 		    manage(new dv_thumb_display_widget);
 		thumb->show();
 		attach(*thumb,
-		       i % thumbs_per_row, i % thumbs_per_row + 1,
-		       2 * (i / thumbs_per_row), 2 * (i / thumbs_per_row) + 1,
+		       (i % thumbs_per_row) * column_multiplier,
+		       (i % thumbs_per_row + 1) * column_multiplier,
+		       (i / thumbs_per_row) * row_multiplier + row_display,
+		       (i / thumbs_per_row) * row_multiplier + row_display + 1,
 		       Gtk::FILL, Gtk::FILL,
-		       6, 6);
+		       padding_standard, padding_standard);
 		thumbnails_[i] = thumb;
 
 		// XXX we'll be in trouble with > 9 sources
@@ -45,10 +69,14 @@ void dv_selector_widget::put_frame(mixer::source_id source_id,
 		Gtk::Label * label = manage(new Gtk::Label(label_text));
 		label->show();
 		attach(*label,
-		       i % thumbs_per_row, i % thumbs_per_row + 1,
-		       2 * (i / thumbs_per_row) + 1, 2 * (i / thumbs_per_row) + 2,
+		       (i % thumbs_per_row) * column_multiplier
+		       + column_text_label,
+		       (i % thumbs_per_row) * column_multiplier
+		       + column_text_label + 1,
+		       (i / thumbs_per_row) * row_multiplier + row_labels,
+		       (i / thumbs_per_row) * row_multiplier + row_labels + 1,
 		       Gtk::FILL, Gtk::FILL,
-		       6, 6);
+		       padding_standard, padding_standard);
 	    }
 	}
 	catch (std::exception & e)
@@ -57,9 +85,51 @@ void dv_selector_widget::put_frame(mixer::source_id source_id,
 	    thumbnails_.resize(first_new_source_id);
 	    std::cerr << "ERROR: Failed to add source display: " << e.what()
 		      << "\n";
-	    return;
 	}
     }
+}
 
-    thumbnails_[source_id]->put_frame(source_frame);
+void dv_selector_widget::set_video_source(mixer::source_id source_id)
+{
+    if (source_id != last_video_source_id_)
+    {
+	if (last_video_source_id_ != mixer::invalid_id)
+	    remove(video_source_image_);
+	attach(video_source_image_,
+	       (source_id % thumbs_per_row) * column_multiplier
+	       + column_video_source_image,
+	       (source_id % thumbs_per_row) * column_multiplier
+	       + column_video_source_image + 1,
+	       (source_id / thumbs_per_row) * row_multiplier + row_labels,
+	       (source_id / thumbs_per_row) * row_multiplier + row_labels + 1,
+	       Gtk::FILL, Gtk::FILL,
+	       padding_standard, padding_standard);
+	last_video_source_id_ = source_id;
+    }
+}
+
+void dv_selector_widget::set_audio_source(mixer::source_id source_id)
+{
+    if (source_id != last_audio_source_id_)
+    {
+	if (last_audio_source_id_ != mixer::invalid_id)
+	    remove(audio_source_image_);
+	attach(audio_source_image_,
+	       (source_id % thumbs_per_row) * column_multiplier
+	       + column_audio_source_image,
+	       (source_id % thumbs_per_row) * column_multiplier
+	       + column_audio_source_image + 1,
+	       (source_id / thumbs_per_row) * row_multiplier + row_labels,
+	       (source_id / thumbs_per_row) * row_multiplier + row_labels + 1,
+	       Gtk::FILL, Gtk::FILL,
+	       padding_standard, padding_standard);
+	last_audio_source_id_ = source_id;
+    }
+}
+
+void dv_selector_widget::put_frame(mixer::source_id source_id,
+				   const mixer::frame_ptr & source_frame)
+{
+    if (source_id < thumbnails_.size())
+	thumbnails_[source_id]->put_frame(source_frame);
 }

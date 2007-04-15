@@ -440,6 +440,6 @@ void mixer::run_clock()
 	}
 	if (monitor_)
 	    monitor_->put_frames(source_frames.size(), &source_frames[0],
-				 mixed_frame);
+				 settings, mixed_frame);
     }
 }

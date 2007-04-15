@@ -27,8 +27,20 @@ class mixer
 public:
     // Identifiers to distinguish mixer's sources and sinks
     typedef unsigned source_id, sink_id;
+    static const unsigned invalid_id = -1;
     // Reference-counting pointer to a frame
     typedef std::tr1::shared_ptr<frame> frame_ptr;
+
+    // Settings for mixing/switching.  Rather simple at present. ;-)
+    // If and when we do real mixing, these will need to be preserved
+    // in a queue for the mixing thread(s) to apply before handing off
+    // to the sinks.
+    struct mix_settings
+    {
+	source_id video_source_id;
+	source_id audio_source_id;
+	bool cut_before;
+    };
 
     // Interface to sinks
     struct sink
@@ -48,6 +60,7 @@ public:
     {
 	virtual void put_frames(unsigned source_count,
 				const frame_ptr * source_frames,
+				mix_settings,
 				const frame_ptr & mixed_frame) = 0;
     };
 
@@ -94,17 +107,6 @@ private:
 	source_data() : is_live(true) {}
 	bool is_live;
 	ring_buffer<frame_ptr, full_queue_len> frames;
-    };
-
-    // Settings for mixing/switching.  Rather simple at present. ;-)
-    // If and when we do real mixing, these will need to be preserved
-    // in a queue for the mixing thread(s) to apply before handing off
-    // to the sinks.
-    struct mix_settings
-    {
-	source_id video_source_id;
-	source_id audio_source_id;
-	bool cut_before;
     };
 
     void start_clock(); // start the clock thread

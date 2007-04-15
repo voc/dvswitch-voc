@@ -33,6 +33,7 @@ private:
 
     virtual void put_frames(unsigned source_count,
 			    const mixer::frame_ptr * source_frames,
+			    mixer::mix_settings,
 			    const mixer::frame_ptr & mixed_frame);
 
     mixer & mixer_;
@@ -46,6 +47,7 @@ private:
     boost::mutex frame_mutex_; // controls access to the following
     std::vector<mixer::frame_ptr> source_frames_;
     mixer::source_id next_source_id_;
+    mixer::mix_settings mix_settings_;
     mixer::frame_ptr mixed_frame_;
 };
 

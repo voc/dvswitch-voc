@@ -7,7 +7,8 @@ mandir := $(sharedir)/man
 
 CFLAGS := -std=c99 -Wall -Wextra -O2 -g
 CXXFLAGS := -std=c++98 -Wall -Wextra -O2 -g
-CPPFLAGS := -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_POSIX_C_SOURCE
+CPPFLAGS := -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_POSIX_C_SOURCE \
+	-DSHAREDIR="\"$(sharedir)\""
 
 csources := dvsink-files.c dvsource-file.c dvsource-firewire.c config.c \
 	socket.c frame_timer.c
