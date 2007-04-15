@@ -90,6 +90,8 @@ public:
     // Mixer interface
     // Select the video source for output
     void set_video_source(source_id);
+    // Select the audio source for output
+    void set_audio_source(source_id);
     // Make a cut in the output as soon as possible, where appropriate
     // for the sink
     void cut();

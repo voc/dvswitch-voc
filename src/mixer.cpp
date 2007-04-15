@@ -138,9 +138,18 @@ void mixer::set_video_source(source_id id)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
     if (id < sources_.size())
-    settings_.video_source_id = id;
+	settings_.video_source_id = id;
     else
 	throw std::range_error("video source id out of range");
+}
+
+void mixer::set_audio_source(source_id id)
+{
+    boost::mutex::scoped_lock lock(source_mutex_);
+    if (id < sources_.size())
+	settings_.audio_source_id = id;
+    else
+	throw std::range_error("audio source id out of range");
 }
 
 void mixer::set_monitor(monitor * monitor)

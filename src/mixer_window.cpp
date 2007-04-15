@@ -48,8 +48,9 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 	return true;
     }
 
-    if (event->keyval >= '1' && event->keyval <= '9'
-	|| event->keyval >= GDK_KP_1 && event->keyval <= GDK_KP_9)
+    if ((event->keyval >= '1' && event->keyval <= '9'
+	 || event->keyval >= GDK_KP_1 && event->keyval <= GDK_KP_9)
+	&& !(event->state & (Gdk::SHIFT_MASK | Gdk::CONTROL_MASK)))
     {
 	mixer::source_id id;
 	if (event->keyval >= '1' && event->keyval <= '9')
@@ -58,7 +59,10 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 	    id = event->keyval - GDK_KP_1;
 	try
 	{
-	    mixer_.set_video_source(id);
+	    if (event->state & Gdk::MOD1_MASK) // Mod1 normally means Alt
+		mixer_.set_audio_source(id);
+	    else
+		mixer_.set_video_source(id);
 	}
 	catch (std::range_error &)
 	{
