@@ -3,6 +3,7 @@
  */
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +25,7 @@
 static struct option options[] = {
     {"host",   1, NULL, 'h'},
     {"port",   1, NULL, 'p'},
+    {"loop",   0, NULL, 'l'},
     {"help",   0, NULL, 'H'},
     {NULL,     0, NULL, 0}
 };
@@ -57,21 +59,40 @@ struct transfer_params {
     dv_decoder_t * decoder;
     int            file;
     int            sock;
+    bool           opt_loop;
 };
 
 static void transfer_frames(struct transfer_params * params)
 {
     dv_system_t last_frame_system = e_dv_system_none;
     static uint8_t buf[DIF_MAX_FRAME_SIZE];
-    ssize_t size;
     uint64_t frame_timestamp;
     unsigned frame_interval;
 
     frame_timer_init();
 
-    while ((size = read(params->file, buf, DIF_SEQUENCE_SIZE))
-	   == (ssize_t)DIF_SEQUENCE_SIZE)
+    for (;;)
     {
+	ssize_t size = read(params->file, buf, DIF_SEQUENCE_SIZE);
+	if (size == 0)
+	{
+	    // End of file; exit or loop
+	    if (!params->opt_loop)
+		return;
+	    if (lseek(params->file, 0, 0) == 0)
+		continue;
+	    perror("ERROR: lseek");
+	    exit(1);
+	}
+	if (size != (ssize_t)DIF_SEQUENCE_SIZE)
+	{
+	    if (size < 0)
+		perror("ERROR: read");
+	    else
+		fputs("ERROR: Failed to read complete frame\n", stderr);
+	    exit(1);
+	}
+
 	if (dv_parse_header(params->decoder, buf) < 0)
 	{
 	    fprintf(stderr, "ERROR: dv_parse_header failed\n");
@@ -88,11 +109,14 @@ static void transfer_frames(struct transfer_params * params)
 			      : frame_interval_ns_525_60);
 	}
 
-	if (read(params->file, buf + DIF_SEQUENCE_SIZE,
-		 params->decoder->frame_size - DIF_SEQUENCE_SIZE)
-	    != (ssize_t)(params->decoder->frame_size - DIF_SEQUENCE_SIZE))
+	size = read(params->file, buf + DIF_SEQUENCE_SIZE,
+		    params->decoder->frame_size - DIF_SEQUENCE_SIZE);
+	if (size != (ssize_t)(params->decoder->frame_size - DIF_SEQUENCE_SIZE))
 	{
-	    perror("ERROR: read");
+	    if (size < 0)
+		perror("ERROR: read");
+	    else
+		fputs("ERROR: Failed to read complete frame\n", stderr);
 	    exit(1);
 	}
 	if (write(params->sock, buf, params->decoder->frame_size)
@@ -105,12 +129,6 @@ static void transfer_frames(struct transfer_params * params)
 	frame_timestamp += frame_interval;
 	frame_timer_wait(frame_timestamp);
     }
-
-    if (size != 0)
-    {
-	perror("ERROR: read");
-	exit(1);
-    }
 }
 
 int main(int argc, char ** argv)
@@ -118,10 +136,13 @@ int main(int argc, char ** argv)
     /* Initialise settings from configuration files. */
     dvswitch_read_config(handle_config);
 
+    struct transfer_params params;
+    params.opt_loop = false;
+
     /* Parse arguments. */
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "h:p:", options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "h:p:l", options, NULL)) != -1)
     {
 	switch (opt)
 	{
@@ -132,6 +153,9 @@ int main(int argc, char ** argv)
 	case 'p':
 	    free(mixer_port);
 	    mixer_port = strdup(optarg);
+	    break;
+	case 'l':
+	    params.opt_loop = true;
 	    break;
 	case 'H': /* --help */
 	    usage(argv[0]);
@@ -169,7 +193,6 @@ int main(int argc, char ** argv)
 
     /* Prepare to read the file and connect a socket to the mixer. */
 
-    struct transfer_params params;
     dv_init(TRUE, TRUE);
     params.decoder = dv_decoder_new(0, TRUE, TRUE);
     if (!params.decoder)
