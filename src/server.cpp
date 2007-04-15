@@ -36,6 +36,8 @@ namespace
     };
 }
 
+// connection: base class for client connections
+
 class server::connection
 {
 public:
@@ -77,6 +79,8 @@ private:
     receive_buffer receive_buffer_;
 };
 
+// unknown_connection: connection where client type is unknown as yet
+
 class server::unknown_connection : public connection
 {
 public:
@@ -87,10 +91,10 @@ private:
     virtual connection * handle_complete_receive();
     virtual std::ostream & print_identity(std::ostream &);
 
-    receive_buffer identify_client_type();
-
     uint8_t greeting_[4];
 };
+
+// source_connection: connection from source
 
 class server::source_connection : public connection
 {
@@ -110,6 +114,8 @@ private:
 
     mixer::source_id source_id_;
 };
+
+// sink_connection: connection from sink
 
 class server::sink_connection : public connection, private mixer::sink
 {
@@ -135,6 +141,8 @@ private:
     ring_buffer<mixer::frame_ptr, 30> frames_;
     bool overflowed_;
 };
+
+// server implementation
 
 server::server(const std::string & host, const std::string & port,
 	       mixer & mixer)
@@ -290,6 +298,8 @@ void server::enable_output_polling(int fd)
 		  - sizeof(int));
 }
 
+// connection
+
 server::connection::connection(server & server, auto_fd socket)
     : server_(server),
       socket_(socket)
@@ -334,6 +344,116 @@ server::connection * server::connection::do_receive()
 
     return result;
 }
+
+// unknown_connection implementation
+
+server::unknown_connection::unknown_connection(server & server, auto_fd socket)
+    : connection(server, socket)
+{}
+
+server::connection::receive_buffer
+server::unknown_connection::get_receive_buffer()
+{
+    return receive_buffer(greeting_, sizeof(greeting_));
+}
+
+server::connection * server::unknown_connection::handle_complete_receive()
+{
+    enum {
+	client_type_unknown,
+	client_type_source,     // source which sends greeting (>= 0.3)
+	client_type_sink,       // sink which wants DIF with control headers
+	client_type_raw_sink,   // sink which wants raw DIF
+    } client_type;
+
+    if (std::memcmp(greeting_, GREETING_SOURCE, GREETING_SIZE) == 0)
+	client_type = client_type_source;
+    else if (std::memcmp(greeting_, GREETING_SINK, GREETING_SIZE)
+	     == 0)
+	client_type = client_type_sink;
+    else if (std::memcmp(greeting_, GREETING_RAW_SINK, GREETING_SIZE)
+	     == 0)
+	client_type = client_type_raw_sink;
+    else
+	client_type = client_type_unknown;
+
+    switch (client_type)
+    {
+    case client_type_source:
+	return new source_connection(server_, socket_);
+    case client_type_sink:
+    case client_type_raw_sink:
+	return new sink_connection(server_, socket_,
+				   client_type == client_type_raw_sink);
+    default:
+	return 0;
+    }
+}
+
+std::ostream & server::unknown_connection::print_identity(std::ostream & os)
+{
+    return os << "unknown client";
+}
+
+// source_connection implementation
+
+server::source_connection::source_connection(server & server, auto_fd socket)
+    : connection(server, socket),
+      decoder_(dv_decoder_new(0, true, true)),
+      frame_(server_.mixer_.allocate_frame()),
+      first_sequence_(true)
+{
+    if (!decoder_)
+	throw std::bad_alloc();
+    source_id_ = server_.mixer_.add_source();
+}
+
+server::source_connection::~source_connection()
+{
+    server_.mixer_.remove_source(source_id_);
+    dv_decoder_free(decoder_);
+}
+
+server::connection::receive_buffer
+server::source_connection::get_receive_buffer()
+{
+    if (first_sequence_)
+	return receive_buffer(frame_->buffer, DIF_SEQUENCE_SIZE);
+    else
+	return receive_buffer(frame_->buffer + DIF_SEQUENCE_SIZE,
+			      frame_->size - DIF_SEQUENCE_SIZE);
+}
+
+server::connection * server::source_connection::handle_complete_receive()
+{
+    if (first_sequence_)
+    {
+	if (dv_parse_header(decoder_, frame_->buffer) >= 0)
+	{
+	    frame_->system = decoder_->system;
+	    frame_->size = decoder_->frame_size;
+	    first_sequence_ = false;
+	    return this;
+	}
+    }
+    else // !first_sequence_
+    {
+	server_.mixer_.put_frame(source_id_, frame_);
+	frame_.reset();
+	frame_ = server_.mixer_.allocate_frame();
+	first_sequence_ = true;
+	return this;
+    }
+
+    return 0;
+}
+
+std::ostream & server::source_connection::print_identity(std::ostream & os)
+{
+    return os << "source " << 1 + source_id_;
+}
+
+// sink_connection implementation
 
 server::sink_connection::sink_connection(server & server, auto_fd socket,
 					 bool is_raw)
@@ -428,110 +548,6 @@ server::connection::send_status server::sink_connection::do_send()
     }
 
     return result;
-}
-
-server::unknown_connection::unknown_connection(server & server, auto_fd socket)
-    : connection(server, socket)
-{}
-
-server::connection::receive_buffer
-server::unknown_connection::get_receive_buffer()
-{
-    return receive_buffer(greeting_, sizeof(greeting_));
-}
-
-server::connection * server::unknown_connection::handle_complete_receive()
-{
-    enum {
-	client_type_unknown,
-	client_type_source,     // source which sends greeting (>= 0.3)
-	client_type_sink,       // sink which wants DIF with control headers
-	client_type_raw_sink,   // sink which wants raw DIF
-    } client_type;
-
-    if (std::memcmp(greeting_, GREETING_SOURCE, GREETING_SIZE) == 0)
-	client_type = client_type_source;
-    else if (std::memcmp(greeting_, GREETING_SINK, GREETING_SIZE)
-	     == 0)
-	client_type = client_type_sink;
-    else if (std::memcmp(greeting_, GREETING_RAW_SINK, GREETING_SIZE)
-	     == 0)
-	client_type = client_type_raw_sink;
-    else
-	client_type = client_type_unknown;
-
-    switch (client_type)
-    {
-    case client_type_source:
-	return new source_connection(server_, socket_);
-    case client_type_sink:
-    case client_type_raw_sink:
-	return new sink_connection(server_, socket_,
-				   client_type == client_type_raw_sink);
-    default:
-	return 0;
-    }
-}
-
-std::ostream & server::unknown_connection::print_identity(std::ostream & os)
-{
-    return os << "unknown client";
-}
-
-server::source_connection::source_connection(server & server, auto_fd socket)
-    : connection(server, socket),
-      decoder_(dv_decoder_new(0, true, true)),
-      frame_(server_.mixer_.allocate_frame()),
-      first_sequence_(true)
-{
-    if (!decoder_)
-	throw std::bad_alloc();
-    source_id_ = server_.mixer_.add_source();
-}
-
-server::source_connection::~source_connection()
-{
-    server_.mixer_.remove_source(source_id_);
-    dv_decoder_free(decoder_);
-}
-
-server::connection::receive_buffer
-server::source_connection::get_receive_buffer()
-{
-    if (first_sequence_)
-	return receive_buffer(frame_->buffer, DIF_SEQUENCE_SIZE);
-    else
-	return receive_buffer(frame_->buffer + DIF_SEQUENCE_SIZE,
-			      frame_->size - DIF_SEQUENCE_SIZE);
-}
-
-server::connection * server::source_connection::handle_complete_receive()
-{
-    if (first_sequence_)
-    {
-	if (dv_parse_header(decoder_, frame_->buffer) >= 0)
-	{
-	    frame_->system = decoder_->system;
-	    frame_->size = decoder_->frame_size;
-	    first_sequence_ = false;
-	    return this;
-	}
-    }
-    else // !first_sequence_
-    {
-	server_.mixer_.put_frame(source_id_, frame_);
-	frame_.reset();
-	frame_ = server_.mixer_.allocate_frame();
-	first_sequence_ = true;
-	return this;
-    }
-
-    return 0;
-}
-
-std::ostream & server::source_connection::print_identity(std::ostream & os)
-{
-    return os << "source " << 1 + source_id_;
 }
 
 server::connection::receive_buffer
