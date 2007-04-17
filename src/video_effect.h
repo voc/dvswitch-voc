@@ -11,6 +11,10 @@ extern "C" {
 #include "frame.h"
 
 void video_effect_show_title_safe(struct frame_decoded_ref dest);
+void video_effect_pic_in_pic(struct frame_decoded_ref dest,
+                             struct frame_decoded_ref source,
+			     unsigned left, unsigned top,
+			     unsigned right, unsigned bottom);
 
 #ifdef __cplusplus
 }
