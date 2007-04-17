@@ -3,6 +3,11 @@
 
 #include "video_effect.h"
 
+enum {
+    luma_bias = 16,   // black level (lower values are reserved for sync)
+    chroma_bias = 128 // neutral level (chroma components are signed)
+};
+
 void video_effect_show_title_safe(struct frame_decoded_ref dest)
 {
     // Darken the non-title-safe area
@@ -16,10 +21,9 @@ void video_effect_show_title_safe(struct frame_decoded_ref dest)
 	end = p + FRAME_BYTES_PER_PIXEL * border_horiz;
 	while (p != end)
 	{
-	    // Halve all components.  U and V are signed and biased
-	    // by 128 so take that into account.
-	    *p++ /= 2;
-	    *p++ = (*p + 128) / 2;
+	    // Halve all components
+	    *p = (*p + luma_bias) / 2, ++p;
+	    *p = (*p + chroma_bias) / 2, ++p;
 	}
 	end = p + FRAME_BYTES_PER_PIXEL * (FRAME_WIDTH - border_horiz);
 	if (y >= border_vert && y < dest.height - border_vert)
@@ -28,8 +32,9 @@ void video_effect_show_title_safe(struct frame_decoded_ref dest)
 	// else continue across top border or bottom border
 	while (p != end)
 	{
-	    *p++ /= 2;
-	    *p++ = (*p + 128) / 2;
+	    // Halve all components
+	    *p = (*p + luma_bias) / 2, ++p;
+	    *p = (*p + chroma_bias) / 2, ++p;
 	}
     }
 }
