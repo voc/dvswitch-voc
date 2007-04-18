@@ -32,9 +32,9 @@ private:
     bool update(Glib::IOCondition) throw();
 
     virtual void put_frames(unsigned source_count,
-			    const mixer::frame_ptr * source_frames,
+			    const mixer::dv_frame_ptr * source_frames,
 			    mixer::mix_settings,
-			    const mixer::frame_ptr & mixed_frame);
+			    const mixer::dv_frame_ptr & mixed_frame);
 
     mixer & mixer_;
 
@@ -45,10 +45,10 @@ private:
     auto_pipe wakeup_pipe_;
 
     boost::mutex frame_mutex_; // controls access to the following
-    std::vector<mixer::frame_ptr> source_frames_;
+    std::vector<mixer::dv_frame_ptr> source_frames_;
     mixer::source_id next_source_id_;
     mixer::mix_settings mix_settings_;
-    mixer::frame_ptr mixed_frame_;
+    mixer::dv_frame_ptr mixed_frame_;
 };
 
 #endif // !defined(DVSWITCH_MIXER_WINDOW_HPP)

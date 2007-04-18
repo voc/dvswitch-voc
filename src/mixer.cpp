@@ -43,21 +43,21 @@ mixer::~mixer()
 
 namespace
 {
-    boost::mutex frame_pool_mutex; // controls access to the following
-    boost::object_pool<frame> frame_pool(100);
+    boost::mutex dv_frame_pool_mutex; // controls access to the following
+    boost::object_pool<dv_frame> dv_frame_pool(100);
 
-    void free_frame(frame * frame)
+    void free_dv_frame(dv_frame * frame)
     {
-	boost::mutex::scoped_lock lock(frame_pool_mutex);
+	boost::mutex::scoped_lock lock(dv_frame_pool_mutex);
 	if (frame)
-	    frame_pool.free(frame);
+	    dv_frame_pool.free(frame);
     }
 }
 
-mixer::frame_ptr mixer::allocate_frame()
+mixer::dv_frame_ptr mixer::allocate_frame()
 {
-    boost::mutex::scoped_lock lock(frame_pool_mutex);
-    return frame_ptr(frame_pool.malloc(), free_frame);
+    boost::mutex::scoped_lock lock(dv_frame_pool_mutex);
+    return dv_frame_ptr(dv_frame_pool.malloc(), free_dv_frame);
 }
 
 mixer::source_id mixer::add_source()
@@ -82,7 +82,7 @@ void mixer::remove_source(source_id id)
     sources_.at(id).is_live = false;
 }
 
-void mixer::put_frame(source_id id, const frame_ptr & frame)
+void mixer::put_frame(source_id id, const dv_frame_ptr & frame)
 {
     bool was_full;
     bool should_notify_clock = false;
@@ -173,7 +173,7 @@ namespace
 	frame_timer_init();
     }
 
-    void dub_audio(frame & dest_frame, const frame & source_frame)
+    void dub_audio(dv_frame & dest_frame, const dv_frame & source_frame)
     {
 	// Copy AAUX blocks.  These are every 16th block in each DIF
 	// sequence, starting from block 6.
@@ -196,7 +196,7 @@ namespace
 	}
     }
 
-    void silence_audio(frame & dest_frame)
+    void silence_audio(dv_frame & dest_frame)
     {
 	unsigned seq_count = (dest_frame.system == e_dv_system_625_50
 			      ? 12 : 10);
@@ -282,9 +282,9 @@ namespace
 void mixer::run_clock()
 {
     dv_system_t audio_source_system = e_dv_system_none;
-    std::vector<frame_ptr> source_frames;
+    std::vector<dv_frame_ptr> source_frames;
     source_frames.reserve(5);
-    frame_ptr last_mixed_frame;
+    dv_frame_ptr last_mixed_frame;
     unsigned serial_num = 0;
 
     {
@@ -303,7 +303,7 @@ void mixer::run_clock()
 	 tick_timestamp += frame_interval, frame_timer_wait(tick_timestamp))
     {
 	mix_settings settings;
-	frame_ptr mixed_frame;
+	dv_frame_ptr mixed_frame;
 
 	// Select the mixer settings and source frame(s)
 	{
@@ -338,7 +338,7 @@ void mixer::run_clock()
 	// with the audio source matters more because audio
 	// discontinuities are even more annoying than dropped or
 	// repeated video frames.
-	if (frame * audio_source_frame =
+	if (dv_frame * audio_source_frame =
 	    source_frames[settings.audio_source_id].get())
 	{
 	    if (audio_source_system != audio_source_frame->system)
@@ -419,7 +419,8 @@ void mixer::run_clock()
 		mixed_frame = allocate_frame();
 		std::memcpy(mixed_frame.get(),
 			    last_mixed_frame.get(),
-			    offsetof(frame, buffer) + last_mixed_frame->size);
+			    offsetof(dv_frame, buffer)
+			    + last_mixed_frame->size);
 		mixed_frame->serial_num = serial_num;
 	    }
 

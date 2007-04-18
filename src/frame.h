@@ -14,7 +14,7 @@
 
 #include "dif.h"
 
-struct frame
+struct dv_frame
 {
     uint64_t timestamp;           // set by mixer
     unsigned serial_num;          // set by mixer
@@ -30,15 +30,15 @@ struct frame
 #define FRAME_HEIGHT_MAX      576
 
 #define FRAME_PIXEL_FORMAT    0x32595559 // 'YUY2'
-#define FRAME_BYTES_PER_PIXEL 2 // Y and alternately U or V
+#define FRAME_BYTES_PER_PIXEL 2 // Y' and alternately Cb or Cr
 
-struct frame_decoded
+struct raw_frame
 {
     dv_system_t system;
     uint8_t buffer[FRAME_BYTES_PER_PIXEL * FRAME_WIDTH * FRAME_HEIGHT_MAX];
 };
 
-struct frame_decoded_ref
+struct raw_frame_ref
 {
     uint8_t * pixels;
     unsigned pitch; // number of bytes per row; width is always FRAME_WIDTH

@@ -20,7 +20,7 @@ namespace boost
     class thread;
 }
 
-class frame;
+class dv_frame;
 
 class mixer
 {
@@ -29,7 +29,7 @@ public:
     typedef unsigned source_id, sink_id;
     static const unsigned invalid_id = -1;
     // Reference-counting pointer to a frame
-    typedef std::tr1::shared_ptr<frame> frame_ptr;
+    typedef std::tr1::shared_ptr<dv_frame> dv_frame_ptr;
 
     // Settings for mixing/switching.  Rather simple at present. ;-)
     // If and when we do real mixing, these will need to be preserved
@@ -52,16 +52,16 @@ public:
 	// if there are no new frames available.  The serial_num
 	// member of the frame can be used to check whether the
 	// frame is new.
-	virtual void put_frame(const frame_ptr &) = 0;
+	virtual void put_frame(const dv_frame_ptr &) = 0;
     };
 
     // Interface to monitor
     struct monitor
     {
 	virtual void put_frames(unsigned source_count,
-				const frame_ptr * source_frames,
+				const dv_frame_ptr * source_frames,
 				mix_settings,
-				const frame_ptr & mixed_frame) = 0;
+				const dv_frame_ptr & mixed_frame) = 0;
     };
 
     mixer();
@@ -73,11 +73,11 @@ public:
     void remove_source(source_id);
     // Allocate a frame buffer.  This uses a memory pool and should be
     // fast.
-    static frame_ptr allocate_frame();
+    static dv_frame_ptr allocate_frame();
     // Add a new frame from the given source.  This should be called at
     // appropriate intervals to avoid the need to drop or duplicate
     // frames.
-    void put_frame(source_id, const frame_ptr &);
+    void put_frame(source_id, const dv_frame_ptr &);
 
     // Interface for sinks
     // Register and unregister sinks
@@ -108,7 +108,7 @@ private:
     {
 	source_data() : is_live(true) {}
 	bool is_live;
-	ring_buffer<frame_ptr, full_queue_len> frames;
+	ring_buffer<dv_frame_ptr, full_queue_len> frames;
     };
 
     void start_clock(); // start the clock thread

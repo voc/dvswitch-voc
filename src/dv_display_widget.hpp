@@ -18,7 +18,7 @@ public:
     explicit dv_display_widget(int quality);
     ~dv_display_widget();
 
-    void put_frame(const mixer::frame_ptr &);
+    void put_frame(const mixer::dv_frame_ptr &);
 
 protected:
     typedef std::pair<uint8_t *, int> pixels_pitch;

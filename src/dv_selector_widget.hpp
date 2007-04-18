@@ -20,7 +20,7 @@ public:
     void set_video_source(mixer::source_id);
     void set_audio_source(mixer::source_id);
     void put_frame(mixer::source_id source_id,
-		   const mixer::frame_ptr & source_frame);
+		   const mixer::dv_frame_ptr & source_frame);
 
 private:
     Gtk::Image video_source_image_;

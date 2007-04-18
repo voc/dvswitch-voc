@@ -109,7 +109,7 @@ private:
 
     dv_decoder_t * decoder_;
 
-    mixer::frame_ptr frame_;
+    mixer::dv_frame_ptr frame_;
     bool first_sequence_;
 
     mixer::source_id source_id_;
@@ -129,7 +129,7 @@ private:
     virtual connection * handle_complete_receive();
     virtual std::ostream & print_identity(std::ostream &);
 
-    virtual void put_frame(const mixer::frame_ptr & frame);
+    virtual void put_frame(const mixer::dv_frame_ptr & frame);
 
     receive_buffer handle_unexpected_input();
 
@@ -138,7 +138,7 @@ private:
     std::size_t frame_pos_;
 
     boost::mutex mutex_; // controls access to the following
-    ring_buffer<mixer::frame_ptr, 30> frames_;
+    ring_buffer<mixer::dv_frame_ptr, 30> frames_;
     bool overflowed_;
 };
 
@@ -477,7 +477,7 @@ server::connection::send_status server::sink_connection::do_send()
 
     do
     {
-	mixer::frame_ptr frame;
+	mixer::dv_frame_ptr frame;
 	{
 	    boost::mutex::scoped_lock lock(mutex_);
 	    if (overflowed_)
@@ -567,7 +567,7 @@ std::ostream & server::sink_connection::print_identity(std::ostream & os)
     return os << "sink " << 1 + sink_id_;
 }
 
-void server::sink_connection::put_frame(const mixer::frame_ptr & frame)
+void server::sink_connection::put_frame(const mixer::dv_frame_ptr & frame)
 {
     bool was_empty = false;
     {

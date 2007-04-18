@@ -10,9 +10,9 @@ extern "C" {
 
 #include "frame.h"
 
-void video_effect_show_title_safe(struct frame_decoded_ref dest);
-void video_effect_pic_in_pic(struct frame_decoded_ref dest,
-                             struct frame_decoded_ref source,
+void video_effect_show_title_safe(struct raw_frame_ref dest);
+void video_effect_pic_in_pic(struct raw_frame_ref dest,
+                             struct raw_frame_ref source,
 			     unsigned left, unsigned top,
 			     unsigned right, unsigned bottom);
 

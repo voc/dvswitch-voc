@@ -85,7 +85,7 @@ dv_display_widget::~dv_display_widget()
     dv_decoder_free(decoder_);
 }
 
-void dv_display_widget::put_frame(const mixer::frame_ptr & dv_frame)
+void dv_display_widget::put_frame(const mixer::dv_frame_ptr & dv_frame)
 {
     if (!is_realized())
 	return;
@@ -261,7 +261,7 @@ void dv_full_display_widget::draw_frame(const drawing_context & context,
 					unsigned height)
 {
     XvImage * xv_image = static_cast<XvImage *>(xv_image_);
-    frame_decoded_ref frame_ref = {
+    raw_frame_ref frame_ref = {
 	reinterpret_cast<uint8_t *>(xv_image->data),
 	xv_image->pitches[0],
 	height
