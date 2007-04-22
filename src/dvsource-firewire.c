@@ -63,7 +63,7 @@ int main(int argc, char ** argv)
     /* Parse arguments. */
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "h:p:", options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "d:h:p:", options, NULL)) != -1)
     {
 	switch (opt)
 	{
