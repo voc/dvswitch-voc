@@ -21,6 +21,7 @@ namespace boost
 }
 
 class dv_frame;
+class raw_frame;
 
 class mixer
 {
@@ -28,13 +29,16 @@ public:
     // Identifiers to distinguish mixer's sources and sinks
     typedef unsigned source_id, sink_id;
     static const unsigned invalid_id = -1;
-    // Reference-counting pointer to a frame
+    // Reference-counting pointers to frames
     typedef std::tr1::shared_ptr<dv_frame> dv_frame_ptr;
+    typedef std::tr1::shared_ptr<raw_frame> raw_frame_ptr;
 
-    // Settings for mixing/switching.  Rather simple at present. ;-)
+    // Settings for mixing/switching
+    struct video_effect_settings;
     struct mix_settings
     {
 	source_id video_source_id;
+	std::tr1::shared_ptr<video_effect_settings> video_effect;
 	source_id audio_source_id;
 	bool cut_before;
     };
@@ -55,10 +59,34 @@ public:
     // Interface to monitor
     struct monitor
     {
+	// Display or otherwise use frames.
+	//
+	// source_count is the number of sources assigned, though some
+	// may no longer be registered.  source_dv points to an array,
+	// length source_count, of pointers to the frames clocked
+	// through from these sources.  Any or all of these pointers
+	// may be null if the sources are not producing frames.
+	// mix_settings is a copy of the settings used to select and
+	// mix these source frames.  mixed_dv is a pointer to the
+	// mixed frame that was sent to sinks.
+	//
+	// {video_{pri,sec}_source,mixed}_raw are pointers to decoded
+	// versions of the primary and secondary video sources and the
+	// mixed frame, if the mixer produced them in the course of
+	// its work; any or all may be null.
+	//
+	// All DV frames may be shared and must not be modified.  Raw
+	// frames may be modified by the monitor.  All references and
+	// pointers passed to the function are invalid once it
+	// returns; it must copy shared_ptrs to ensure that frames
+	// remain valid.
+	//
+	// This is called in the context of the mixer thread and should
+	// return quickly.
 	virtual void put_frames(unsigned source_count,
-				const dv_frame_ptr * source_frames,
+				const dv_frame_ptr * source_dv,
 				mix_settings,
-				const dv_frame_ptr & mixed_frame) = 0;
+				const dv_frame_ptr & mixed_dv) = 0;
     };
 
     mixer();
@@ -84,9 +112,23 @@ public:
     // Interface for monitors
     void set_monitor(monitor *);
 
+    static std::tr1::shared_ptr<video_effect_settings>
+    create_video_effect_pic_in_pic(source_id sec_source_id,
+				   unsigned left, unsigned top,
+				   unsigned right, unsigned bottom);
+    static std::tr1::shared_ptr<video_effect_settings>
+    null_video_effect()
+    {
+	return std::tr1::shared_ptr<video_effect_settings>();
+    }
+
     // Mixer interface
-    // Select the video source for output
+    // Select the primary video source for output (this cancels any
+    // video mixing effect)
     void set_video_source(source_id);
+    // Set the video mixing effect (or cancel it, if the argument is
+    // a null pointer)
+    void set_video_effect(std::tr1::shared_ptr<video_effect_settings>);
     // Select the audio source for output
     void set_audio_source(source_id);
     // Make a cut in the output as soon as possible, where appropriate

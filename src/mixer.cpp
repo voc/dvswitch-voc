@@ -15,8 +15,9 @@
 
 #include "frame.h"
 #include "frame_timer.h"
-#include "ring_buffer.hpp"
 #include "mixer.hpp"
+#include "ring_buffer.hpp"
+#include "video_effect.h"
 
 mixer::mixer()
     : clock_state_(run_state_wait),
@@ -59,6 +60,22 @@ namespace
 	boost::mutex::scoped_lock lock(dv_frame_pool_mutex);
 	if (frame)
 	    dv_frame_pool.free(frame);
+    }
+
+    boost::mutex raw_frame_pool_mutex; // controls access to the following
+    boost::object_pool<raw_frame> raw_frame_pool(10);
+
+    void free_raw_frame(raw_frame * frame)
+    {
+	boost::mutex::scoped_lock lock(raw_frame_pool_mutex);
+	if (frame)
+	    raw_frame_pool.free(frame);
+    }
+
+    mixer::raw_frame_ptr allocate_raw_frame()
+    {
+	boost::mutex::scoped_lock lock(raw_frame_pool_mutex);
+	return mixer::raw_frame_ptr(raw_frame_pool.malloc(), free_raw_frame);
     }
 }
 
@@ -142,13 +159,51 @@ void mixer::remove_sink(sink_id id)
     sinks_.at(id) = 0;
 }
 
+// Video effect settings.  In future this is likely to be an abstract
+// base class but for now the only effect we will have is picture-in-
+// picture.
+struct mixer::video_effect_settings
+{
+    source_id sec_source_id;
+    unsigned left, top;
+    unsigned right, bottom;
+};
+
+std::tr1::shared_ptr<mixer::video_effect_settings>
+mixer::create_video_effect_pic_in_pic(source_id sec_source_id,
+				      unsigned left, unsigned top,
+				      unsigned right, unsigned bottom)
+{
+    // XXX Need to validate parameters before they break anything
+    std::tr1::shared_ptr<video_effect_settings> result(
+	new video_effect_settings);
+    result->sec_source_id = sec_source_id;
+    result->left = left;
+    result->top = top;
+    result->right = right;
+    result->bottom = bottom;
+    return result;
+}
+
 void mixer::set_video_source(source_id id)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
     if (id < sources_.size())
+    {
 	settings_.video_source_id = id;
+	settings_.video_effect.reset();
+    }
     else
+    {
 	throw std::range_error("video source id out of range");
+    }
+}
+
+void mixer::set_video_effect(
+    std::tr1::shared_ptr<video_effect_settings> effect)
+{
+    boost::mutex::scoped_lock lock(source_mutex_);
+    settings_.video_effect = effect;
 }
 
 void mixer::set_audio_source(source_id id)
@@ -421,11 +476,42 @@ void mixer::run_clock()
     }
 }
 
+namespace
+{
+    raw_frame_ref make_raw_frame_ref(const mixer::raw_frame_ptr & frame)
+    {
+	raw_frame_ref result = {
+	    frame->buffer,
+	    FRAME_BYTES_PER_PIXEL * FRAME_WIDTH,
+	    (frame->system == e_dv_system_625_50)
+	    ? FRAME_HEIGHT_625_50 : FRAME_HEIGHT_525_60
+	};
+	return result;
+    }
+
+    mixer::raw_frame_ptr decode_video_frame(
+	dv_decoder_t * decoder, const mixer::dv_frame_ptr & dv_frame)
+    {
+	mixer::raw_frame_ptr result = allocate_raw_frame();
+	result->system = dv_frame->system;
+
+	uint8_t * pixels[1] = { result->buffer };
+	int pitches[1] = { FRAME_BYTES_PER_PIXEL * FRAME_WIDTH };	
+	dv_decode_full_frame(decoder,
+			     dv_frame->buffer,
+			     e_dv_color_yuv, pixels, pitches);
+	return result;
+    }
+}
+
 void mixer::run_mixer()
 {
-    dv_frame_ptr last_mixed_frame;
+    dv_frame_ptr last_mixed_dv;
     unsigned serial_num = 0;
     const mix_data * m = 0;
+    dv_decoder_t * decoder = dv_decoder_new(0, true, true);
+    dv_set_quality(decoder, DV_QUALITY_BEST);
+    dv_encoder_t * encoder = dv_encoder_new(false, true, true);
 
     for (;;)
     {
@@ -449,20 +535,84 @@ void mixer::run_mixer()
 	    if (m->source_frames[id])
 		m->source_frames[id]->serial_num = serial_num;
 
-	dv_frame_ptr mixed_frame;
+	const dv_frame_ptr & audio_source_dv =
+	    m->source_frames[m->settings.audio_source_id];
+	const dv_frame_ptr & video_pri_source_dv =
+	    m->source_frames[m->settings.video_source_id];
+
+	dv_frame_ptr mixed_dv;
+	raw_frame_ptr video_pri_source_raw;
+	raw_frame_ptr video_sec_source_raw;
+	raw_frame_ptr mixed_raw;
     
 	// If we have a single live source for both audio and video,
 	// use the source frame unchanged.
-	if (m->source_frames[m->settings.audio_source_id]
-	    && m->settings.video_source_id == m->settings.audio_source_id)
+	if (audio_source_dv
+	    && m->settings.video_source_id == m->settings.audio_source_id
+	    && !m->settings.video_effect)
 	{
-	    mixed_frame = m->source_frames[m->settings.audio_source_id];
+	    mixed_dv = audio_source_dv;
 	}
 	else
 	{
-	    if (m->source_frames[m->settings.video_source_id])
+	    if (video_pri_source_dv)
 	    {
-		mixed_frame = m->source_frames[m->settings.video_source_id];
+		if (m->settings.video_effect
+		    && m->source_frames[m->settings.video_effect
+					->sec_source_id])
+		{
+		    const dv_frame_ptr video_sec_source_dv =
+			m->source_frames[m->settings.video_effect
+					 ->sec_source_id];
+
+		    // Decode primary (with metadata)
+		    dv_parse_header(decoder, video_pri_source_dv->buffer);
+		    tm pri_source_timestamp;
+		    dv_get_recording_datetime_tm(decoder,
+						 &pri_source_timestamp);
+		    bool pri_source_is16x9 = dv_format_wide(decoder);
+		    mixed_raw =
+			decode_video_frame(decoder, video_pri_source_dv);
+
+		    // Decode secondary
+		    dv_parse_header(decoder, video_pri_source_dv->buffer);
+		    video_sec_source_raw =
+			decode_video_frame(decoder, video_sec_source_dv);
+
+		    // Mix raw video
+		    video_effect_pic_in_pic(
+			make_raw_frame_ref(mixed_raw),
+			make_raw_frame_ref(video_sec_source_raw),
+			m->settings.video_effect->left,
+			m->settings.video_effect->top,
+			m->settings.video_effect->right,
+			m->settings.video_effect->bottom);
+
+		    // Encode mixed video
+		    mixed_dv = allocate_frame();
+		    mixed_dv->serial_num = serial_num;
+		    mixed_dv->system = video_pri_source_dv->system;
+		    mixed_dv->size = video_pri_source_dv->size;
+		    // I LOVE THIS API
+		    encoder->isPAL = mixed_dv->system == e_dv_system_625_50;
+		    encoder->is16x9 = pri_source_is16x9;
+		    time_t pri_source_time = mktime(&pri_source_timestamp);
+		    dv_encode_metadata(mixed_dv->buffer,
+				       encoder->isPAL,
+				       encoder->is16x9,
+				       &pri_source_time,
+				       serial_num);
+		    uint8_t * mixed_raw_pixels[1] = { mixed_raw->buffer };
+		    dv_encode_full_frame(encoder,
+					 mixed_raw_pixels,
+					 e_dv_color_yuv,
+					 mixed_dv->buffer);
+		    // audio and timecode are handled below
+		}
+		else
+		{
+		    mixed_dv = video_pri_source_dv;
+		}
 	    }
 	    else
 	    {
@@ -472,30 +622,25 @@ void mixer::run_mixer()
 		// Make a copy of the last mixed frame so we can
 		// replace the audio.  (We can't modify the last frame
 		// because sinks may still be reading from it.)
-		mixed_frame = allocate_frame();
-		std::memcpy(mixed_frame.get(),
-			    last_mixed_frame.get(),
-			    offsetof(dv_frame, buffer)
-			    + last_mixed_frame->size);
-		mixed_frame->serial_num = serial_num;
+		mixed_dv = allocate_frame();
+		std::memcpy(mixed_dv.get(),
+			    last_mixed_dv.get(),
+			    offsetof(dv_frame, buffer) + last_mixed_dv->size);
+		mixed_dv->serial_num = serial_num;
 	    }
 
-	    if (m->source_frames[m->settings.audio_source_id]
-		&& (m->source_frames[m->settings.audio_source_id]->system
-		    == mixed_frame->system))
-	    {
-		dub_audio(*mixed_frame,
-			  *m->source_frames[m->settings.audio_source_id]);
-	    }
+	    if (audio_source_dv && audio_source_dv->system == mixed_dv->system)
+		dub_audio(*mixed_dv, *audio_source_dv);
 	    else
-	    {
-		silence_audio(*mixed_frame);
-	    }
+		silence_audio(*mixed_dv);
 	}
 
-	mixed_frame->cut_before = m->settings.cut_before;
+	dv_encode_timecode(mixed_dv->buffer,
+			   mixed_dv->system == e_dv_system_625_50,
+			   mixed_dv->serial_num);
+	mixed_dv->cut_before = m->settings.cut_before;
 
-	last_mixed_frame = mixed_frame;
+	last_mixed_dv = mixed_dv;
 	++serial_num;
 
 	// Sink the frame
@@ -503,10 +648,13 @@ void mixer::run_mixer()
 	    boost::mutex::scoped_lock lock(sink_mutex_);
 	    for (sink_id id = 0; id != sinks_.size(); ++id)
 		if (sinks_[id])
-		    sinks_[id]->put_frame(mixed_frame);
+		    sinks_[id]->put_frame(mixed_dv);
 	}
 	if (monitor_)
 	    monitor_->put_frames(m->source_frames.size(), &m->source_frames[0],
-				 m->settings, mixed_frame);
+				 m->settings, mixed_dv);
     }
+
+    dv_encoder_free(encoder);
+    dv_decoder_free(decoder);
 }
