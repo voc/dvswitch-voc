@@ -19,8 +19,10 @@
 #include "mixer.hpp"
 
 mixer::mixer()
-    : clock_state_(clock_state_wait),
+    : clock_state_(run_state_wait),
       clock_thread_(boost::bind(&mixer::run_clock, this)),
+      mixer_state_(run_state_wait),
+      mixer_thread_(boost::bind(&mixer::run_mixer, this)),
       monitor_(0)
 {
     sources_.reserve(5);
@@ -31,11 +33,17 @@ mixer::~mixer()
 {
     {
 	boost::mutex::scoped_lock lock(source_mutex_);
-	clock_state_ = clock_state_stop;
+	clock_state_ = run_state_stop;
 	clock_state_cond_.notify_one(); // in case it's still waiting
+    }
+    {
+	boost::mutex::scoped_lock lock(mixer_mutex_);
+	mixer_state_ = run_state_stop;
+	mixer_state_cond_.notify_one();
     }
 
     clock_thread_.join();
+    mixer_thread_.join();
 }
 
 // Memory pool for frame buffers.  This should make frame
@@ -100,13 +108,13 @@ void mixer::put_frame(source_id id, const dv_frame_ptr & frame)
 
 	    // Start clock ticking once one source has reached the
 	    // target queue length
-	    if (clock_state_ == clock_state_wait
+	    if (clock_state_ == run_state_wait
 		&& source.frames.size() == target_queue_len)
 	    {
 		settings_.video_source_id = id;
 		settings_.audio_source_id = id;
 		settings_.cut_before = false;
-		clock_state_ = clock_state_run;
+		clock_state_ = run_state_run;
 		should_notify_clock = true; // after we unlock the mutex
 	    }
 	}
@@ -282,14 +290,10 @@ namespace
 void mixer::run_clock()
 {
     dv_system_t audio_source_system = e_dv_system_none;
-    std::vector<dv_frame_ptr> source_frames;
-    source_frames.reserve(5);
-    dv_frame_ptr last_mixed_frame;
-    unsigned serial_num = 0;
 
     {
 	boost::mutex::scoped_lock lock(source_mutex_);
-	while (clock_state_ == clock_state_wait)
+	while (clock_state_ == run_state_wait)
 	    clock_state_cond_.wait(lock);
     }
 
@@ -302,44 +306,42 @@ void mixer::run_clock()
 	 ;
 	 tick_timestamp += frame_interval, frame_timer_wait(tick_timestamp))
     {
-	mix_settings settings;
-	dv_frame_ptr mixed_frame;
+	mix_data m;
 
 	// Select the mixer settings and source frame(s)
 	{
 	    boost::mutex::scoped_lock lock(source_mutex_);
 
-	    if (clock_state_ == clock_state_stop)
+	    if (clock_state_ == run_state_stop)
 		break;
 
-	    settings = settings_;
+	    m.settings = settings_;
 	    settings_.cut_before = false;
 
-	    source_frames.resize(sources_.size());
+	    m.source_frames.resize(sources_.size());
 	    for (source_id id = 0; id != sources_.size(); ++id)
 	    {
 		if (sources_[id].frames.empty())
 		{
-		    source_frames[id].reset();
+		    m.source_frames[id].reset();
 		}
 		else
 		{
-		    source_frames[id] = sources_[id].frames.front();
-		    source_frames[id]->serial_num = serial_num;
+		    m.source_frames[id] = sources_[id].frames.front();
 		    sources_[id].frames.pop();
 		}
 	    }
 	}
 
-	assert(settings.audio_source_id < source_frames.size()
-	       && settings.video_source_id < source_frames.size());
+	assert(m.settings.audio_source_id < m.source_frames.size()
+	       && m.settings.video_source_id < m.source_frames.size());
 
 	// Frame timer is based on the audio source.  Synchronisation
 	// with the audio source matters more because audio
 	// discontinuities are even more annoying than dropped or
 	// repeated video frames.
 	if (dv_frame * audio_source_frame =
-	    source_frames[settings.audio_source_id].get())
+	    m.source_frames[m.settings.audio_source_id].get())
 	{
 	    if (audio_source_system != audio_source_frame->system)
 	    {
@@ -395,23 +397,77 @@ void mixer::run_clock()
 	    }
 	}
 
-	// If we have a single live source for both audio and video,
-	// use the source frame unchanged.
-	if (source_frames[settings.audio_source_id]
-	    && settings.video_source_id == settings.audio_source_id)
+	std::size_t free_len;
+
 	{
-	    mixed_frame = source_frames[settings.audio_source_id];
+	    boost::mutex::scoped_lock lock(mixer_mutex_);
+	    free_len = mixer_queue_.capacity() - mixer_queue_.size();
+	    if (free_len != 0)
+	    {
+		mixer_queue_.push(m); // really want to move m here
+		mixer_state_ = run_state_run;
+	    }
+	}
+
+	if (free_len != 0)
+	{
+	    mixer_state_cond_.notify_one();
 	}
 	else
 	{
-	    if (source_frames[settings.video_source_id])
+	    std::cerr << "ERROR: Dropped source frames due to"
+		" full mixer queue\n";
+	}
+    }
+}
+
+void mixer::run_mixer()
+{
+    dv_frame_ptr last_mixed_frame;
+    unsigned serial_num = 0;
+    const mix_data * m = 0;
+
+    for (;;)
+    {
+	// Get the next set of source frames and mix settings (or stop
+	// if requested)
+	{
+	    boost::mutex::scoped_lock lock(mixer_mutex_);
+
+	    if (m)
+		mixer_queue_.pop();
+
+	    while (mixer_state_ != run_state_stop && mixer_queue_.empty())
+		mixer_state_cond_.wait(lock);
+	    if (mixer_state_ == run_state_stop)
+		break;
+
+	    m = &mixer_queue_.front();
+	}
+
+	for (unsigned id = 0; id != m->source_frames.size(); ++id)
+	    if (m->source_frames[id])
+		m->source_frames[id]->serial_num = serial_num;
+
+	dv_frame_ptr mixed_frame;
+    
+	// If we have a single live source for both audio and video,
+	// use the source frame unchanged.
+	if (m->source_frames[m->settings.audio_source_id]
+	    && m->settings.video_source_id == m->settings.audio_source_id)
+	{
+	    mixed_frame = m->source_frames[m->settings.audio_source_id];
+	}
+	else
+	{
+	    if (m->source_frames[m->settings.video_source_id])
 	    {
-		mixed_frame = source_frames[settings.video_source_id];
+		mixed_frame = m->source_frames[m->settings.video_source_id];
 	    }
 	    else
 	    {
 		std::cerr << "WARN: Repeating frame due to empty queue"
-		    " for source " << 1 + settings.video_source_id << "\n";
+		    " for source " << 1 + m->settings.video_source_id << "\n";
 
 		// Make a copy of the last mixed frame so we can
 		// replace the audio.  (We can't modify the last frame
@@ -424,11 +480,12 @@ void mixer::run_clock()
 		mixed_frame->serial_num = serial_num;
 	    }
 
-	    if (source_frames[settings.audio_source_id]
-		&& mixed_frame->system == audio_source_system)
+	    if (m->source_frames[m->settings.audio_source_id]
+		&& (m->source_frames[m->settings.audio_source_id]->system
+		    == mixed_frame->system))
 	    {
 		dub_audio(*mixed_frame,
-			  *source_frames[settings.audio_source_id]);
+			  *m->source_frames[m->settings.audio_source_id]);
 	    }
 	    else
 	    {
@@ -436,7 +493,7 @@ void mixer::run_clock()
 	    }
 	}
 
-	mixed_frame->cut_before = settings.cut_before;
+	mixed_frame->cut_before = m->settings.cut_before;
 
 	last_mixed_frame = mixed_frame;
 	++serial_num;
@@ -449,7 +506,7 @@ void mixer::run_clock()
 		    sinks_[id]->put_frame(mixed_frame);
 	}
 	if (monitor_)
-	    monitor_->put_frames(source_frames.size(), &source_frames[0],
-				 settings, mixed_frame);
+	    monitor_->put_frames(m->source_frames.size(), &m->source_frames[0],
+				 m->settings, mixed_frame);
     }
 }

@@ -32,9 +32,6 @@ public:
     typedef std::tr1::shared_ptr<dv_frame> dv_frame_ptr;
 
     // Settings for mixing/switching.  Rather simple at present. ;-)
-    // If and when we do real mixing, these will need to be preserved
-    // in a queue for the mixing thread(s) to apply before handing off
-    // to the sinks.
     struct mix_settings
     {
 	source_id video_source_id;
@@ -111,17 +108,35 @@ private:
 	ring_buffer<dv_frame_ptr, full_queue_len> frames;
     };
 
-    void start_clock(); // start the clock thread
-    void stop_clock();  // stop the clock thread
+    struct mix_data
+    {
+	std::vector<dv_frame_ptr> source_frames;
+	mix_settings settings;
+    };
+
+    enum run_state {
+	run_state_wait,
+	run_state_run,
+	run_state_stop
+    };
+
     void run_clock();   // clock thread function
+    void run_mixer();   // mixer thread function
 
     boost::mutex source_mutex_; // controls access to the following
     mix_settings settings_;
     std::vector<source_data> sources_;
-    enum { clock_state_wait, clock_state_run, clock_state_stop } clock_state_;
+    run_state clock_state_;
     boost::condition clock_state_cond_;
 
     boost::thread clock_thread_;
+
+    boost::mutex mixer_mutex_; // controls access to the following
+    ring_buffer<mix_data, 3> mixer_queue_;
+    run_state mixer_state_;
+    boost::condition mixer_state_cond_;
+
+    boost::thread mixer_thread_;
 
     boost::mutex sink_mutex_; // controls access to the following
     std::vector<sink *> sinks_;
