@@ -1,35 +1,131 @@
-dvswitch 0.4
+dvswitch: a basic video mixer for live DV streams
+=================================================
 
-This is barely ready for use.
+Introduction
+------------
 
-You can configure the mixer's host and port using the -h and -p
-options to any of the commands, or configure them for all commands by
-setting MIXER_HOST=<hostname> and MIXER_PORT=<port> in ~/.dvswitchrc.
+dvswitch is a basic video mixer designed for the needs of DebConf.  It
+may suit the needs of other conferences that require live mixing for
+streams and/or recording.
 
-Run dvswitch and you will see a rather bare mixing window.  This only
-supports keyboard commands:
+Currently dvswitch can only select between multiple source video and
+audio streams.  It cannot mix streams but it can combine audio from
+one source with video from another.  It works solely with the DV
+format since almost all camcorders support this and it allows for low
+latency display and cutting.
+
+Since DV cameras must be connected to computers via Firewire cables of
+limited length, dvswitch is divided into several different programs
+that can run on different computers on a TCP/IP network:
+
+- dvswitch: the mixer GUI and network server
+- dvsource-firewire: source that connects to a DV camera via Firewire
+- dvsource-file: source that reads a raw DV (DIF) file
+- dvsink-files: sink that writes the mixed stream to raw DV files
+- dvsink-command: sink that runs a command with the mixed stream as
+  its standard input
+
+System requirements
+-------------------
+
+dvswitch is developed and tested under Linux 2.6, and may not work on
+earlier versions of Linux or other Unix-like systems.  In particular,
+dvsource-firewire uses dvgrab which only runs on Linux.
+
+The sources and sinks have low processor and memory requirements.  The
+dvswitch mixer should be able to run on an x86 or x86-64 processor
+with a 1 GHz or faster clock, but will need a somewhat faster
+processor to update the display at full frame rate.  On other
+architectures it is less efficient as the DV decoder only has
+optimisations for these two architectures.  It currently requires
+about 40 MB memory in addition to whatever the underlying operating
+system requires.
+
+The dvswitch mixer requires an X display of at least 1024x768 pixels
+that supports the X video extension (aka XVideo or Xv).  XVideo is
+available in most modern X display drivers but was not implemented in
+older versions of fglrx.
+
+A DV stream has a fixed bandwidth of about 36 Mbit/s and it is
+doubtful that current wireless networks can reliably provide this
+bandwidth.  We recommend use of a 100 or 1000 Mbit/s switched Ethernet
+network between the hosts running the dvswitch system.
+
+Operating system configuration
+------------------------------
+
+CPU frequency scaling should be disabled on the host running the mixer
+because it seems to make the mixer's timing irregular, leading to
+dropped and duplicated frames.
+
+Socket buffers should be allowed to grow to at least one DV frame
+size (144000 or 120000 bytes depending on the video system).  On
+Linux 2.6 this happens automatically.
+
+Configuration
+-------------
+
+All programs read the configuration files /etc/dvswitchrc and
+~/.dvswitchrc.  These files can specify the following options:
+
+MIXER_HOST - the hostname (or IP address) on which the mixer listens
+             (no default)
+MIXER_PORT - the port on which the mixer listens (no default)
+FIREWIRE_DEVICE - a dv1394 device that dvsource-firewire should read
+                  from (default: use /dev/raw1394, not dv1394)
+
+The mixer hostname and port can also be specified using the -h and
+-p command-line options.  A dv1394 device for dvsource-firewire
+can be specified using the -d option.
+
+Starting the mixer
+------------------
+
+Run dvswitch, and you will initially see an empty window.  You then
+need to connect some sources to it (see below).
+
+Once sources are connected, you will see the mixed output at full
+resolution (slightly higher, in fact, since the video pixels are not
+square).  Below it, you will see all the sources at lower resolution
+in greyscale.  (This allows dvswitch to display many sources without
+requiring a very fast processor.)  Each is numbered and the active
+sources for video and audio are indicated with a film strip and
+speaker symbol respectively.
+
+In the main display, a 10% border on each side of the frame is shaded.
+This indicates approximately the area of the picture that may not be
+visible on a TV.  Everything that viewers need to see should be framed
+within these borders (the "title-safe" area).
+
+There are currently a small number of commands, available only through
+keystrokes:
 
 1 to 9          select the video source
 Alt-1 to Alt-9  select the audio source
 C               cut the output (where meaningful)
 Ctrl-Q          quit
 
-Now run dvsource-file to feed a file as a source and/or
-dvsource-firewire to capture over Firewire.
+Connecting sources and sinks
+----------------------------
 
-Run dvsink-files to save the output to files.  It takes a filename
-pattern which may include formatting sequences as used by strftime(3)
-so that files are named according to the time when they are created.
-It will open a new file every time you press C in the mixing window.
-If the name pattern does not end with the suffix ".dv", this will be
-added.  Finally, a hyphen and a number will be added before the ".dv"
-if necessary to avoid filename collisions.
+Run dvsource-file to stream a DV file to the mixer.  It takes a single
+filename.  Normally it plays the file once and then exits.  You can
+enable looping of the file with the -l option.
 
-Run dvsink-command to send the output to the standard input of a
-command.  For example, to send a downscaled Theora stream over
+Run dvsource-firewire to stream from a DV camera over Firewire to the
+mixer.
+
+Run dvsink-files to save the mixer's output to files.  It takes a
+filename pattern which may include formatting sequences as used by
+strftime(3) so that files are named according to the time when they
+are created.  It will open a new file every time you press C in the
+mixing window.  If the name pattern does not end with the suffix
+".dv", this will be added.  Finally, a hyphen and a number will be
+added before the ".dv" if necessary to avoid filename collisions.
+
+Run dvsink-command to send the mixer's output to the standard input of
+a command.  For example, to send a downscaled Theora stream over
 Icecast, run:
     dvsink-command -- \
     ffmpeg2theora -o - -f dv -x 320 -y 240 --aspect 4:3 --deinterlace - \
     | oggfwd <icecast-hostname> <icecast-port> <password> <path>
-
-That's all for now.
