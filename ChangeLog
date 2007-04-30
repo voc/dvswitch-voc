@@ -1,3 +1,9 @@
+dvswitch (0.5) unstable; urgency=low
+
+  * Added indicator of title-safe area
+
+ --
+
 dvswitch (0.4) unstable; urgency=low
 
   * Implemented a command-spawning sink
