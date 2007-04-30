@@ -51,7 +51,7 @@ static void usage(const char * progname)
 {
     fprintf(stderr,
 	    "\
-Usage: %s [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT] FILE\n",
+Usage: %s [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT] [-l] FILE\n",
 	    progname);
 }
 
