@@ -9,18 +9,18 @@ Package: dvswitch
 Architecture: any
 Depends: ${shlibs:Depends}
 Suggests: dvsink, dvsource
-Description: basic video mixer for DV streams
- dvswitch is a very basic video mixer that receives DV streams over a
- network and stores the currently selected stream to a file.  The
- sources may be cameras or files.  It has a graphical interface in
- which all source streams can be viewed and selected from.
+Description: basic video mixer for live DV streams
+ dvswitch is a very basic video mixer that receives DV streams from
+ sources and sends a DV stream to sinks over a TCP/IP network.  It has
+ a graphical interface in which all source streams can be viewed and
+ selected from.
  .
  It is intended to be used for live editing at DebConf.
 
 Package: dvsource
 Architecture: any
 Depends: ${shlibs:Depends}, dvgrab
-Description: programs to provide source frames for dvswitch
+Description: programs to provide source streams for dvswitch
  This package provides two sources for dvswitch:
  .
  dvsource-file reads DV frames from a file and sends them at the
@@ -32,7 +32,7 @@ Description: programs to provide source frames for dvswitch
 Package: dvsink
 Architecture: any
 Depends: ${shlibs:Depends}
-Description: programs to sink frames from dvswitch
+Description: programs to sink streams from dvswitch
  This packages provides two sinks for dvswitch:
  .
  dvsink-command runs a command with the DV stream on its standard input.
