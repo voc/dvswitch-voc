@@ -36,8 +36,8 @@ clean :
 
 .objs/dvswitch.% .objs/mixer_window.% .objs/dv_display_widget.% \
 .objs/dv_selector_widget.% .objs/server.% : \
-	CXXFLAGS += $(shell pkg-config --cflags gtkmm-2.0)
-.objs/dvswitch : LDFLAGS += $(shell pkg-config --libs gtkmm-2.0)
+	CXXFLAGS += $(shell pkg-config --cflags gtkmm-2.4)
+.objs/dvswitch : LDFLAGS += $(shell pkg-config --libs gtkmm-2.4)
 
 .objs/dvswitch : LDFLAGS += -lboost_thread
 

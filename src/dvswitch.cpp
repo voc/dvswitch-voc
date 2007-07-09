@@ -11,6 +11,7 @@
 #include <getopt.h>
 
 #include <gtkmm/main.h>
+#include <sigc++/functors/slot.h>
 
 #include <libdv/dv.h>
 
@@ -103,7 +104,7 @@ int main(int argc, char **argv)
 	the_window.reset(new mixer_window(the_mixer));
 	the_mixer.set_monitor(the_window.get());
 	the_window->show();
-	the_window->signal_hide().connect(SigC::slot(&Gtk::Main::quit));
+	the_window->signal_hide().connect(sigc::ptr_fun(&Gtk::Main::quit));
 	Gtk::Main::run();
 	return EXIT_SUCCESS;
     }

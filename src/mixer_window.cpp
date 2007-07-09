@@ -23,7 +23,7 @@ mixer_window::mixer_window(mixer & mixer)
     Glib::RefPtr<Glib::IOSource> pipe_io_source(
 	Glib::IOSource::create(wakeup_pipe_.reader.get(), Glib::IO_IN));
     pipe_io_source->set_priority(Glib::PRIORITY_DEFAULT_IDLE);
-    pipe_io_source->connect(SigC::slot(*this, &mixer_window::update));
+    pipe_io_source->connect(sigc::mem_fun(this, &mixer_window::update));
     pipe_io_source->attach();
 
     add(box_);
