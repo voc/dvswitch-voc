@@ -19,9 +19,12 @@
 
 namespace
 {
-    // Assume 4:3 frame ratio for now.
-    const unsigned display_width_full = FRAME_HEIGHT_MAX * 4 / 3;
-    const unsigned display_height_full = FRAME_HEIGHT_MAX;
+    // Assume 4:3 picture ratio for now.
+    // Note that the 4:3 ratio applies to the central 702x576 or
+    // 711x486 pixels, not the digital frame of 720x576 or 720x480.
+    // See <http://lipas.uwasa.fi/~f76998/video/conversion/>.
+    const unsigned display_width_full = 788;
+    const unsigned display_height_full = 576;
     const unsigned display_width_thumb = display_width_full / 4;
     const unsigned display_height_thumb = display_height_full / 4;
 
