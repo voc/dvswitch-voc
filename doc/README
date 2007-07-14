@@ -71,12 +71,13 @@ All programs read the configuration files /etc/dvswitchrc and
 MIXER_HOST - the hostname (or IP address) on which the mixer listens
              (no default)
 MIXER_PORT - the port on which the mixer listens (no default)
-FIREWIRE_DEVICE - a dv1394 device that dvsource-firewire should read
-                  from (default: use /dev/raw1394, not dv1394)
+FIREWIRE_CARD - number of the Firewire card that dvsource-firewire
+                should read through (default: use first which appears
+                to have a camera attached)
 
 The mixer hostname and port can also be specified using the -h and
--p command-line options.  A dv1394 device for dvsource-firewire
-can be specified using the -d option.
+-p command-line options.  A Firewire card number for dvsource-firewire
+can be specified using the -c option.
 
 Starting the mixer
 ------------------

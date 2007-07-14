@@ -1,3 +1,15 @@
+dvswitch (0.5.1-1) unstable; urgency=low
+
+  * New upstream version
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 10 Jun 2007 21:41:21 +0100
+
+dvswitch (0.5.0-1) etch-backports; urgency=low
+
+  * New upstream version
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Mon, 30 Apr 2007 02:23:43 +0100
+
 dvswitch (0.4-1) etch-backports; urgency=low
 
   * New upstream version

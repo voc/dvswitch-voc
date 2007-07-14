@@ -16,23 +16,23 @@
 #include "socket.h"
 
 static struct option options[] = {
-    {"device", 1, NULL, 'd'},
+    {"card",   1, NULL, 'c'},
     {"host",   1, NULL, 'h'},
     {"port",   1, NULL, 'p'},
     {"help",   0, NULL, 'H'},
     {NULL,     0, NULL, 0}
 };
 
-static char * firewire_device = NULL;
+static char * firewire_card = NULL;
 static char * mixer_host = NULL;
 static char * mixer_port = NULL;
 
 static void handle_config(const char * name, const char * value)
 {
-    if (strcmp(name, "FIREWIRE_DEVICE") == 0)
+    if (strcmp(name, "FIREWIRE_CARD") == 0)
     {
-	free(firewire_device);
-	firewire_device = strdup(value);
+	free(firewire_card);
+	firewire_card = strdup(value);
     }
     else if (strcmp(name, "MIXER_HOST") == 0)
     {
@@ -50,7 +50,7 @@ static void usage(const char * progname)
 {
     fprintf(stderr,
 	    "\
-Usage: %s [{-d|--device} FIREWIRE-DEVICE \\\n\
+Usage: %s [{-c|--card} FIREWIRE-CARD \\\n\
            [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT]\n",
 	    progname);
 }
@@ -63,13 +63,13 @@ int main(int argc, char ** argv)
     /* Parse arguments. */
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "d:h:p:", options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "c:h:p:", options, NULL)) != -1)
     {
 	switch (opt)
 	{
-	case 'd':
-	    free(firewire_device);
-	    firewire_device = strdup(optarg);
+	case 'c':
+	    free(firewire_card);
+	    firewire_card = strdup(optarg);
 	    break;
 	case 'h':
 	    free(mixer_host);
@@ -105,8 +105,10 @@ int main(int argc, char ** argv)
 
     /* Connect to the mixer, set that as stdout, and run dvgrab. */
 
-    printf("INFO: Reading from %s\n",
-	   firewire_device ? firewire_device : "/dev/raw1394");
+    if (firewire_card)
+	printf("INFO: Reading from Firewire card %s\n", firewire_card);
+    else
+	printf("INFO: Reading from first Firewire card with camera\n");
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);
     int sock = create_connected_socket(mixer_host, mixer_port);
     assert(sock >= 0); /* create_connected_socket() should handle errors */
@@ -121,10 +123,12 @@ int main(int argc, char ** argv)
 	return 1;
     }
     close(sock);
-    if (firewire_device)
-	execlp("dvgrab", "--dv1394", firewire_device, "--noavc", "-", NULL);
+    if (firewire_card)
+	execlp("dvgrab",
+	       "dvgrab", "--card", firewire_card, "--noavc", "-", NULL);
     else
-	execlp("dvgrab", "--noavc", "-", NULL);
+	execlp("dvgrab",
+	       "dvgrab", "--noavc", "-", NULL);
     perror("ERROR: execvp");
     return 1;
 }
