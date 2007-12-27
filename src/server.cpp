@@ -124,6 +124,12 @@ public:
     virtual ~sink_connection();
 
 private:
+    struct queue_elem
+    {
+	mixer::dv_frame_ptr frame;
+	bool overflow_before;
+    };
+
     virtual send_status do_send();
     virtual receive_buffer get_receive_buffer();
     virtual connection * handle_complete_receive();
@@ -138,7 +144,7 @@ private:
     std::size_t frame_pos_;
 
     boost::mutex mutex_; // controls access to the following
-    ring_buffer<mixer::dv_frame_ptr, 30> frames_;
+    ring_buffer<queue_elem, 30> queue_;
     bool overflowed_;
 };
 
@@ -477,34 +483,32 @@ server::connection::send_status server::sink_connection::do_send()
 
     do
     {
-	mixer::dv_frame_ptr frame;
+	struct queue_elem elem;
 	{
 	    boost::mutex::scoped_lock lock(mutex_);
-	    if (overflowed_)
-		break;
 	    if (finished_frame)
 	    {
-		frames_.pop();
+		queue_.pop();
 		finished_frame = false;
 	    }
-	    if (frames_.empty())
+	    if (queue_.empty())
 	    {
 		result = sent_all;
 		break;
 	    }
-	    frame = frames_.front();
+	    elem = queue_.front();
 	}
 
 	uint8_t frame_header[SINK_FRAME_HEADER_SIZE] = {};
 	if (!is_raw_)
 	{
 	    frame_header[SINK_FRAME_CUT_FLAG_POS] =
-		frame->cut_before ? 'C' : 0;
+		elem.overflow_before ? 'O' : elem.frame->cut_before ? 'C' : 0;
 	    // rest of header left as zero for expansion
 	}
 	iovec io_vector[2] = {
 	    { frame_header,  SINK_FRAME_HEADER_SIZE },
-	    { frame->buffer, frame->size }
+	    { elem.frame->buffer, elem.frame->size }
 	};
 	int done_count = is_raw_ ? 1 : 0;
 	std::size_t rel_pos = frame_pos_;
@@ -524,7 +528,7 @@ server::connection::send_status server::sink_connection::do_send()
 	{
 	    frame_pos_ += sent_size;
 	    if (frame_pos_
-		== (is_raw_ ? 0 : SINK_FRAME_HEADER_SIZE) + frame->size)
+		== (is_raw_ ? 0 : SINK_FRAME_HEADER_SIZE) + elem.frame->size)
 	    {
 		finished_frame = true;
 		frame_pos_ = 0;
@@ -572,15 +576,27 @@ void server::sink_connection::put_frame(const mixer::dv_frame_ptr & frame)
     bool was_empty = false;
     {
 	boost::mutex::scoped_lock lock(mutex_);
-	if (frames_.full())
+	if (queue_.full())
 	{
-	    overflowed_ = true;
+	    if (!overflowed_)
+	    {
+		std::cerr << "WARN: ";
+		print_identity(std::cerr) << " overflowed\n";
+		overflowed_ = true;
+	    }
 	}
 	else
 	{
-	    if (frames_.empty())
+	    struct queue_elem elem = { frame, overflowed_ };
+	    if (overflowed_)
+	    {
+		std::cout << "INFO: ";
+		print_identity(std::cout) << " recovered\n";
+		overflowed_ = false;
+	    }
+	    if (queue_.empty())
 		was_empty = true;
-	    frames_.push(frame);
+	    queue_.push(elem);
 	}
     }
     if (was_empty)

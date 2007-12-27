@@ -4,6 +4,9 @@ dvswitch (0.6) unstable; urgency=low
     picture-in-picture mixing
   * Switched from gtkmm 2.0/2.2 to 2.4+
   * Corrected small error in video display width
+  * Changed the server to indicate overflow in output to sinks rather
+    than disconnecting sinks that have overflowed; the file sink will
+    create a new file after each overflow
 
  -- 
 
