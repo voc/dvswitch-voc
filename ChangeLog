@@ -1,3 +1,12 @@
+dvswitch (0.6) unstable; urgency=low
+
+  * Added some infrastructure for video effects including
+    picture-in-picture mixing
+  * Switched from gtkmm 2.0/2.2 to 2.4+
+  * Corrected small error in video display width
+
+ -- 
+
 dvswitch (0.5.1) unstable; urgency=low
 
   * Replaced FIREWIRE_DEVICE and --device option to dvsource-firewire
