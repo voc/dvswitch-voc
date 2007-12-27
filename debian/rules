@@ -32,6 +32,7 @@ binary-arch : install-stamp
 	dh_fixperms -a
 	dh_installdeb -a
 	dh_gencontrol -a
+	dh_md5sums -a
 	dh_builddeb -a
 
 binary-indep : install-stamp
@@ -41,6 +42,7 @@ binary-indep : install-stamp
 	dh_fixperms -i
 	dh_installdeb -i
 	dh_gencontrol -i
+	dh_md5sums -i
 	dh_builddeb -i	
 
 clean :
