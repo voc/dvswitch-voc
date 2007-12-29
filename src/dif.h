@@ -1,4 +1,4 @@
-// Copyright 2007 Ben Hutchings and Tore Sinding Bekkedal.
+// Copyright 2007 Ben Hutchings.
 // See the file "COPYING" for licence details.
 
 #ifndef DVSWITCH_DIF_H
