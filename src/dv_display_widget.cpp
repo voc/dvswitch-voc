@@ -19,14 +19,12 @@
 
 namespace
 {
-    // Assume 4:3 picture ratio for now.
-    // Note that the 4:3 ratio applies to the central 702x576 or
-    // 711x486 pixels, not the digital frame of 720x576 or 720x480.
-    // See <http://lipas.uwasa.fi/~f76998/video/conversion/>.
-    const unsigned display_width_full = 788;
-    const unsigned display_height_full = 576;
-    const unsigned display_width_thumb = display_width_full / 4;
-    const unsigned display_height_thumb = display_height_full / 4;
+    unsigned div_round_nearest(unsigned numer, unsigned denom)
+    {
+	return (numer + denom / 2) / denom;
+    }
+
+    const unsigned thumb_scale_denom = 4;
 
     const uint32_t invalid_xv_port = uint32_t(-1);
 
@@ -74,6 +72,13 @@ struct dv_display_widget::drawing_context
     GC x_gc;
 };
 
+struct dv_display_widget::rectangle
+{
+    unsigned left, top;
+    unsigned width, height;
+    unsigned pixel_width, pixel_height;
+};
+
 dv_display_widget::dv_display_widget(int quality)
     : decoder_(dv_decoder_new(0, true, true)),
       decoded_serial_num_(-1)
@@ -111,8 +116,32 @@ void dv_display_widget::put_frame(const mixer::dv_frame_ptr & dv_frame)
 		get_x_window(*this),
 		gdk_x11_gc_get_xgc(gc->gobj())
 	    };
+
+	    rectangle source_rect;
+	    source_rect.top = 0;
+	    source_rect.height = decoder_->height;
 	    assert(decoder_->width == FRAME_WIDTH);
-	    draw_frame(context, decoder_->height);
+	    if (dv_is_PAL(decoder_))
+	    {
+		source_rect.left = 9;
+		source_rect.width = 702;
+		source_rect.pixel_width = 59;
+		source_rect.pixel_height = 54;
+	    }
+	    else
+	    {
+		source_rect.left = 4;
+		source_rect.width = 712;
+		source_rect.pixel_width = 10;
+		source_rect.pixel_height = 11;
+	    }
+	    if (dv_format_wide(decoder_))
+	    {
+		source_rect.pixel_width *= 4;
+		source_rect.pixel_height *= 3;
+	    }
+
+	    draw_frame(context, source_rect);
 	}
     }
 }
@@ -125,7 +154,10 @@ dv_full_display_widget::dv_full_display_widget()
       xv_image_(0),
       xv_shm_info_(0)
 {
-    set_size_request(display_width_full, display_height_full);
+    // We don't know what the frame format will be, but assume "PAL"
+    // 4:3 frames and therefore an active image size of 702x576 and
+    // pixel aspect ratio of 59:54.
+    set_size_request(767, 576);
 }
 
 void dv_full_display_widget::on_realize() throw()
@@ -261,21 +293,42 @@ dv_display_widget::pixels_pitch dv_full_display_widget::get_frame_buffer()
 }
 
 void dv_full_display_widget::draw_frame(const drawing_context & context,
-					unsigned height)
+					const rectangle & source_rect)
 {
     XvImage * xv_image = static_cast<XvImage *>(xv_image_);
     raw_frame_ref frame_ref = {
 	reinterpret_cast<uint8_t *>(xv_image->data),
 	xv_image->pitches[0],
-	height
+	source_rect.height
     };
     video_effect_show_title_safe(frame_ref);
-	    
+
+    unsigned dest_width, dest_height;
+    if (source_rect.pixel_width > source_rect.pixel_height)
+    {
+	dest_height = source_rect.height;
+	dest_width = div_round_nearest(source_rect.width
+				       * source_rect.pixel_width,
+				       source_rect.pixel_height);
+    }
+    else
+    {
+	dest_width = source_rect.width;
+	dest_height = div_round_nearest(source_rect.height
+					* source_rect.pixel_height,
+					source_rect.pixel_width);
+    }
+    // XXX Whenever these dimensions change it will invalidate our
+    // painting right after we do it!
+    set_size_request(dest_width, dest_height);
+
     // XXX should use get_window()->get_internal_paint_info()
     XvShmPutImage(context.x_display, xv_port_, context.x_window, context.x_gc,
 		  static_cast<XvImage *>(xv_image_),
-		  0, 0, FRAME_WIDTH, height,
-		  0, 0, display_width_full, display_height_full,
+		  source_rect.left, source_rect.top,
+		  source_rect.width, source_rect.height,
+		  0, 0,
+		  dest_width, dest_height,
 		  False);
     XFlush(context.x_display);
 }
@@ -289,7 +342,10 @@ dv_thumb_display_widget::dv_thumb_display_widget()
       x_image_(0),
       x_shm_info_(0)
 {
-    set_size_request(display_width_thumb, display_height_thumb);
+    // We don't know what the frame format will be, but assume "PAL"
+    // 4:3 frames and therefore an active image size of 702x576 and
+    // pixel aspect ratio of 59:54.
+    set_size_request(192, 144);
 }
 
 dv_thumb_display_widget::~dv_thumb_display_widget()
@@ -310,7 +366,13 @@ void dv_thumb_display_widget::on_realize() throw()
 	{
 	    if (XImage * x_image = XShmCreateImage(
 		    x_display, visual_info.visual, 24, ZPixmap,
-		    0, x_shm_info, display_width_thumb, display_height_thumb))
+		    0, x_shm_info,
+		    // Calculate maximum dimensions assuming widest pixel
+		    // ratio and full frame (slightly over-conservative).
+		    div_round_nearest(FRAME_WIDTH * 118,
+				      81 * thumb_scale_denom),
+		    div_round_nearest(FRAME_HEIGHT_MAX,
+				      thumb_scale_denom)))
 	    {
 		if ((x_image->data = allocate_x_shm(
 			 x_display, x_shm_info,
@@ -352,9 +414,19 @@ dv_display_widget::pixels_pitch dv_thumb_display_widget::get_frame_buffer()
 }
 
 void dv_thumb_display_widget::draw_frame(const drawing_context & context,
-					 unsigned height)
+					 const rectangle & source_rect)
 {
     XImage * x_image = static_cast<XImage *>(x_image_);
+
+    unsigned dest_width = div_round_nearest(source_rect.width
+					    * source_rect.pixel_width,
+					    source_rect.pixel_height
+					    * thumb_scale_denom);
+    unsigned dest_height = div_round_nearest(source_rect.height,
+					     thumb_scale_denom);
+    // XXX Whenever these dimensions change it will invalidate our
+    // painting right after we do it!
+    set_size_request(dest_width, dest_height);
 
     // Scale the image down.  Actually this is scaling up because the
     // decoded frame is really blocks of 8x8 pixels anyway, so we can
@@ -363,55 +435,59 @@ void dv_thumb_display_widget::draw_frame(const drawing_context & context,
     assert(x_image->bits_per_pixel == 24 || x_image->bits_per_pixel == 32);
 
     static const unsigned block_size = 8;
-    static const unsigned width_blocks = FRAME_WIDTH / block_size;
-    const unsigned height_blocks = height / block_size;
-    assert(width_blocks <= display_width_thumb);
-    assert(height_blocks <= display_height_thumb);
-    unsigned y_in = 0, y_out = 0, y_error = height_blocks / 2;
+    static const unsigned source_width_blocks = source_rect.width / block_size;
+    const unsigned source_height_blocks = source_rect.height / block_size;
+    assert(source_width_blocks <= dest_width);
+    assert(source_height_blocks <= dest_height);
+    unsigned source_y = source_rect.top, dest_y = 0;
+    unsigned error_y = source_height_blocks / 2;
     do
     {
-	const uint8_t * in =
-	    frame_buffer_ + FRAME_BYTES_PER_PIXEL * FRAME_WIDTH * y_in;
-	uint8_t * out = reinterpret_cast<uint8_t *>(
-	    x_image->data + x_image->bytes_per_line * y_out);
-	uint8_t * out_row_end =
-	    out + x_image->bits_per_pixel / 8 * display_width_thumb;
-	unsigned x_error = width_blocks / 2;
-	uint8_t in_value = *in; // read first Y component
+	const uint8_t * source =
+	    frame_buffer_
+	    + FRAME_BYTES_PER_PIXEL
+	    * (FRAME_WIDTH * source_y + source_rect.left + block_size / 2);
+	uint8_t * dest = reinterpret_cast<uint8_t *>(
+	    x_image->data + x_image->bytes_per_line * dest_y);
+	uint8_t * dest_row_end =
+	    dest + x_image->bits_per_pixel / 8 * dest_width;
+	unsigned error_x = source_width_blocks / 2;
+	uint8_t source_value = *source; // read first Y component
 	do
 	{
 	    // Write Y component to each byte of the pixel
-	    *out++ = in_value;
-	    *out++ = in_value;
-	    *out++ = in_value;
+	    *dest++ = source_value;
+	    *dest++ = source_value;
+	    *dest++ = source_value;
 	    if (x_image->bits_per_pixel == 32)
-		*out++ = in_value;
+		*dest++ = source_value;
 
-	    x_error += width_blocks;
-	    if (x_error >= display_width_thumb)
+	    error_x += source_width_blocks;
+	    if (error_x >= dest_width)
 	    {
-		in += FRAME_BYTES_PER_PIXEL * block_size; // next block
-		in_value = *in; // read first Y component
-		x_error -= display_width_thumb;
+		source += FRAME_BYTES_PER_PIXEL * block_size; // next block
+		source_value = *source; // read first Y component
+		error_x -= dest_width;
 	    }
 	}
-	while (out != out_row_end);
+	while (dest != dest_row_end);
 	
-	y_error += height_blocks;
-	if (y_error >= display_height_thumb)
+	error_y += source_height_blocks;
+	if (error_y >= dest_height)
 	{
-	    y_in += block_size;
-	    y_error -= display_height_thumb;
+	    source_y += block_size;
+	    error_y -= dest_height;
 	}
-	++y_out;
+	++dest_y;
     }
-    while (y_out != display_height_thumb);
+    while (dest_y != dest_height);
 
     // XXX should use get_window()->get_internal_paint_info()
     XShmPutImage(context.x_display, context.x_window, context.x_gc,
 		 x_image,
 		 0, 0,
-		 0, 0, display_width_thumb, display_height_thumb,
+		 0, 0,
+		 dest_width, dest_height,
 		 False);
     XFlush(context.x_display);
 }
