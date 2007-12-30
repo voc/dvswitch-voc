@@ -139,6 +139,7 @@ static void transfer_frames(struct transfer_params * params)
 		exit(1);
 	    }
 	    printf("INFO: Created file %s\n", name_buf);
+	    fflush(stdout);
 	}
 
 	if (dv_parse_header(params->decoder, buf + SINK_FRAME_HEADER_SIZE) < 0)
@@ -241,6 +242,7 @@ int main(int argc, char ** argv)
 	exit(1);
     }
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);
+    fflush(stdout);
     params.sock = create_connected_socket(mixer_host, mixer_port);
     assert(params.sock >= 0); // create_connected_socket() should handle errors
     if (write(params.sock, GREETING_SINK, GREETING_SIZE) != GREETING_SIZE)
