@@ -6,7 +6,9 @@
 
 #include <vector>
 
+#include <gtkmm/accelgroup.h>
 #include <gtkmm/image.h>
+#include <gtkmm/radiobutton.h>
 #include <gtkmm/table.h>
 
 #include "dv_display_widget.hpp"
@@ -16,17 +18,29 @@ class dv_selector_widget : public Gtk::Table
 public:
     dv_selector_widget();
 
+    void set_accel_group(const Glib::RefPtr<Gtk::AccelGroup> & accel_group);
+
     void set_source_count(unsigned);
-    void set_video_source(mixer::source_id);
-    void set_audio_source(mixer::source_id);
     void put_frame(mixer::source_id source_id,
 		   const mixer::dv_frame_ptr & source_frame);
 
+    sigc::signal1<void, mixer::source_id> & signal_video_selected();
+    sigc::signal1<void, mixer::source_id> & signal_audio_selected();
+
 private:
-    Gtk::Image video_source_image_;
-    mixer::source_id last_video_source_id_;
-    Gtk::Image audio_source_image_;
-    mixer::source_id last_audio_source_id_;
+    Gtk::RadioButton * create_radio_button(
+	Gtk::RadioButtonGroup & group,
+	const Glib::RefPtr<Gdk::Pixbuf> & pixbuf);
+    void on_video_selected(mixer::source_id);
+    void on_audio_selected(mixer::source_id);
+
+    Glib::RefPtr<Gtk::AccelGroup> accel_group_;
+    Glib::RefPtr<Gdk::Pixbuf> video_source_pixbuf_;
+    Gtk::RadioButtonGroup video_button_group_;
+    sigc::signal1<void, mixer::source_id> video_selected_signal_;
+    Glib::RefPtr<Gdk::Pixbuf> audio_source_pixbuf_;
+    Gtk::RadioButtonGroup audio_button_group_;
+    sigc::signal1<void, mixer::source_id> audio_selected_signal_;
     std::vector<dv_thumb_display_widget *> thumbnails_;
 };
 

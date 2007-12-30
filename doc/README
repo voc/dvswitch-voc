@@ -98,13 +98,16 @@ This indicates approximately the area of the picture that may not be
 visible on a TV.  Everything that viewers need to see should be framed
 within these borders (the "title-safe" area).
 
-There are currently a small number of commands, available only through
+There are currently a small number of commands, available through
 keystrokes:
 
 1 to 9          select the video source
 Alt-1 to Alt-9  select the audio source
 C               cut the output (where meaningful)
 Ctrl-Q          quit
+
+Video and audio sources can also be selected using the buttons beneath
+their thumbnails.
 
 Connecting sources and sinks
 ----------------------------

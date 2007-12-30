@@ -26,6 +26,14 @@ mixer_window::mixer_window(mixer & mixer)
     pipe_io_source->connect(sigc::mem_fun(this, &mixer_window::update));
     pipe_io_source->attach();
 
+    set_mnemonic_modifier(Gdk::ModifierType(0));
+
+    selector_.set_accel_group(get_accel_group());
+    selector_.signal_video_selected().connect(
+	sigc::mem_fun(mixer_, &mixer::set_video_source));
+    selector_.signal_audio_selected().connect(
+	sigc::mem_fun(mixer_, &mixer::set_audio_source));
+
     add(box_);
     box_.add(display_);
     display_.show();
@@ -48,30 +56,7 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 	return true;
     }
 
-    if ((event->keyval >= '1' && event->keyval <= '9'
-	 || event->keyval >= GDK_KP_1 && event->keyval <= GDK_KP_9)
-	&& !(event->state & (Gdk::SHIFT_MASK | Gdk::CONTROL_MASK)))
-    {
-	mixer::source_id id;
-	if (event->keyval >= '1' && event->keyval <= '9')
-	    id = event->keyval - '1';
-	else
-	    id = event->keyval - GDK_KP_1;
-	try
-	{
-	    if (event->state & Gdk::MOD1_MASK) // Mod1 normally means Alt
-		mixer_.set_audio_source(id);
-	    else
-		mixer_.set_video_source(id);
-	}
-	catch (std::range_error &)
-	{
-	    // never mind
-	}
-	return true;
-    }
-
-    return false;
+    return Gtk::Window::on_key_press_event(event);
 }
 
 void mixer_window::put_frames(unsigned source_count,
@@ -114,8 +99,6 @@ bool mixer_window::update(Glib::IOCondition) throw()
 	    display_.put_frame(mixed_frame);
 
 	selector_.set_source_count(source_frames.size());
-	selector_.set_video_source(mix_settings_.video_source_id);
-	selector_.set_audio_source(mix_settings_.audio_source_id);
 
 	// Update the thumbnail displays of sources.  If a new mixed frame
 	// arrives while we were doing this, return to the event loop.
