@@ -10,6 +10,7 @@
 
 #include <glibmm/refptr.h>
 #include <gtkmm/box.h>
+#include <gtkmm/togglebutton.h>
 #include <gtkmm/window.h>
 
 #include "auto_pipe.hpp"
@@ -29,6 +30,7 @@ public:
 
 private:
     virtual bool on_key_press_event(GdkEventKey *) throw();
+    void toggle_record() throw();
     bool update(Glib::IOCondition) throw();
 
     virtual void put_frames(unsigned source_count,
@@ -38,7 +40,11 @@ private:
 
     mixer & mixer_;
 
-    Gtk::VBox box_;
+    Gtk::VBox main_box_;
+    Gtk::HBox upper_box_;
+    Gtk::VBox command_box_;
+    Gtk::ToggleButton record_button_;
+    Gtk::Button cut_button_;
     dv_full_display_widget display_;
     dv_selector_widget selector_;
 

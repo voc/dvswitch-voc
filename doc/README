@@ -103,7 +103,8 @@ keystrokes:
 
 1 to 9          select the video source
 Alt-1 to Alt-9  select the audio source
-C               cut the output (where meaningful)
+R               start/stop recording (in English locales)
+T               cut recording (in English locales)
 Ctrl-Q          quit
 
 Video and audio sources can also be selected using the buttons beneath
@@ -122,10 +123,11 @@ mixer.
 Run dvsink-files to save the mixer's output to files.  It takes a
 filename pattern which may include formatting sequences as used by
 strftime(3) so that files are named according to the time when they
-are created.  It will open a new file every time you press C in the
-mixing window.  If the name pattern does not end with the suffix
-".dv", this will be added.  Finally, a hyphen and a number will be
-added before the ".dv" if necessary to avoid filename collisions.
+are created.  It will open a new file every time you start recording
+and every time you cut in the mixing window.  If the name pattern does
+not end with the suffix ".dv", this will be added.  Finally, a hyphen
+and a number will be added before the ".dv" if necessary to avoid
+filename collisions.
 
 Run dvsink-command to send the mixer's output to the standard input of
 a command.  For example, to send a downscaled Theora stream over
@@ -133,3 +135,6 @@ Icecast, run:
     dvsink-command -- \
     ffmpeg2theora -o - -f dv -x 320 -y 240 --aspect 4:3 --deinterlace - \
     | oggfwd <icecast-hostname> <icecast-port> <password> <path>
+
+dvsink-command provides a continuous stream which is not affected by
+the recording commands.

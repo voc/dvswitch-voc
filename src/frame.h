@@ -18,6 +18,7 @@ struct dv_frame
 {
     uint64_t timestamp;           // set by mixer
     unsigned serial_num;          // set by mixer
+    bool do_record;               // set by mixer
     bool cut_before;              // set by mixer
     dv_system_t system;           // set by source
     size_t size;                  // set by source

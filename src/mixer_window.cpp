@@ -11,6 +11,8 @@
 
 #include <gdk/gdkkeysyms.h>
 #include <gtkmm/main.h>
+#include <gtkmm/stock.h>
+#include <gtkmm/stockid.h>
 
 #include "gui.hpp"
 #include "mixer.hpp"
@@ -18,8 +20,10 @@
 
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
+      record_button_(Gtk::StockID(Gtk::Stock::MEDIA_RECORD)),
+      cut_button_(Gtk::StockID(Gtk::Stock::CUT)),
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
-      next_source_id_(0)
+      next_source_id_(0)      
 {
     Glib::RefPtr<Glib::IOSource> pipe_io_source(
 	Glib::IOSource::create(wakeup_pipe_.reader.get(), Glib::IO_IN));
@@ -30,29 +34,43 @@ mixer_window::mixer_window(mixer & mixer)
     set_border_width(gui_standard_spacing);
     set_mnemonic_modifier(Gdk::ModifierType(0));
 
+    record_button_.set_active(true);
+    record_button_.set_mode(/*draw_indicator=*/false);
+    record_button_.signal_toggled().connect(
+	sigc::mem_fun(*this, &mixer_window::toggle_record));
+    record_button_.show();
+
+    cut_button_.signal_pressed().connect(sigc::mem_fun(mixer_, &mixer::cut));
+    cut_button_.show();
+
+    display_.show();
+
     selector_.set_accel_group(get_accel_group());
     selector_.signal_video_selected().connect(
 	sigc::mem_fun(mixer_, &mixer::set_video_source));
     selector_.signal_audio_selected().connect(
 	sigc::mem_fun(mixer_, &mixer::set_audio_source));
-
-    add(box_);
-    box_.set_spacing(gui_standard_spacing);
-    box_.add(display_);
-    display_.show();
-    box_.add(selector_);
     selector_.show();
-    box_.show();
+
+    command_box_.set_spacing(gui_standard_spacing);
+    command_box_.pack_start(record_button_, Gtk::PACK_SHRINK);
+    command_box_.pack_start(cut_button_, Gtk::PACK_SHRINK);
+    command_box_.show();
+
+    upper_box_.set_spacing(gui_standard_spacing);
+    upper_box_.add(command_box_);
+    upper_box_.add(display_);
+    upper_box_.show();
+
+    main_box_.set_spacing(gui_standard_spacing);
+    main_box_.add(upper_box_);
+    main_box_.add(selector_);
+    main_box_.show();
+    add(main_box_);
 }
 
 bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 {
-    if (event->keyval == 'c')
-    {
-	mixer_.cut();
-	return true;
-    }
-
     if (event->keyval == 'q' && event->state & Gdk::CONTROL_MASK)
     {
 	Gtk::Main::quit();
@@ -60,6 +78,13 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
     }
 
     return Gtk::Window::on_key_press_event(event);
+}
+
+void mixer_window::toggle_record() throw()
+{
+    bool flag = record_button_.get_active();
+    mixer_.enable_record(flag);
+    cut_button_.set_sensitive(flag);
 }
 
 void mixer_window::put_frames(unsigned source_count,

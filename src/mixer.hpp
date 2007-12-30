@@ -40,6 +40,7 @@ public:
 	source_id video_source_id;
 	std::tr1::shared_ptr<video_effect_settings> video_effect;
 	source_id audio_source_id;
+	bool do_record;
 	bool cut_before;
     };
 
@@ -134,6 +135,8 @@ public:
     // Make a cut in the output as soon as possible, where appropriate
     // for the sink
     void cut();
+    // Enable/disable recording
+    void enable_record(bool);
 
 private:
     // Source data.  We want to allow a bit of leeway in the input

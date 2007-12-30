@@ -120,7 +120,7 @@ private:
 class server::sink_connection : public connection, private mixer::sink
 {
 public:
-    sink_connection(server &, auto_fd socket, bool is_raw);
+    sink_connection(server &, auto_fd socket, bool is_raw, bool will_record);
     virtual ~sink_connection();
 
 private:
@@ -140,6 +140,8 @@ private:
     receive_buffer handle_unexpected_input();
 
     bool is_raw_;
+    bool will_record_;
+    bool is_recording_;
     mixer::sink_id sink_id_;
     std::size_t frame_pos_;
 
@@ -370,6 +372,8 @@ server::connection * server::unknown_connection::handle_complete_receive()
 	client_type_source,     // source which sends greeting (>= 0.3)
 	client_type_sink,       // sink which wants DIF with control headers
 	client_type_raw_sink,   // sink which wants raw DIF
+	client_type_rec_sink,   // sink which wants DIF with control headers
+	                        // and is recording
     } client_type;
 
     if (std::memcmp(greeting_, GREETING_SOURCE, GREETING_SIZE) == 0)
@@ -380,6 +384,9 @@ server::connection * server::unknown_connection::handle_complete_receive()
     else if (std::memcmp(greeting_, GREETING_RAW_SINK, GREETING_SIZE)
 	     == 0)
 	client_type = client_type_raw_sink;
+    else if (std::memcmp(greeting_, GREETING_REC_SINK, GREETING_SIZE)
+	     == 0)
+	client_type = client_type_rec_sink;
     else
 	client_type = client_type_unknown;
 
@@ -389,8 +396,10 @@ server::connection * server::unknown_connection::handle_complete_receive()
 	return new source_connection(server_, socket_);
     case client_type_sink:
     case client_type_raw_sink:
+    case client_type_rec_sink:
 	return new sink_connection(server_, socket_,
-				   client_type == client_type_raw_sink);
+				   client_type == client_type_raw_sink,
+				   client_type == client_type_rec_sink);
     default:
 	return 0;
     }
@@ -462,9 +471,11 @@ std::ostream & server::source_connection::print_identity(std::ostream & os)
 // sink_connection implementation
 
 server::sink_connection::sink_connection(server & server, auto_fd socket,
-					 bool is_raw)
+					 bool is_raw, bool will_record)
     : connection(server, socket),
       is_raw_(is_raw),
+      will_record_(will_record),
+      is_recording_(false),
       frame_pos_(0),
       overflowed_(false)
 {
@@ -488,6 +499,8 @@ server::connection::send_status server::sink_connection::do_send()
 	    boost::mutex::scoped_lock lock(mutex_);
 	    if (finished_frame)
 	    {
+		if (will_record_)
+		    is_recording_ = queue_.front().frame->do_record;
 		queue_.pop();
 		finished_frame = false;
 	    }
@@ -499,36 +512,64 @@ server::connection::send_status server::sink_connection::do_send()
 	    elem = queue_.front();
 	}
 
+	if (!is_recording_ && !elem.frame->do_record)
+	{
+	    finished_frame = true;
+	    continue;
+	}
+
 	uint8_t frame_header[SINK_FRAME_HEADER_SIZE] = {};
-	if (!is_raw_)
+	iovec vector[2];
+	int vector_size;
+	std::size_t frame_size;
+
+	if (is_raw_)
 	{
-	    frame_header[SINK_FRAME_CUT_FLAG_POS] =
-		elem.overflow_before ? 'O' : elem.frame->cut_before ? 'C' : 0;
+	    vector_size = 0;
+	    frame_size = 0;
+	}
+	else
+	{
+	    uint8_t & flag = frame_header[SINK_FRAME_CUT_FLAG_POS];
+	    if (is_recording_ && !elem.frame->do_record)
+		flag = 'S'; // stop indicator (frame itself will not be sent)
+	    else if (elem.overflow_before)
+		flag = 'O';
+	    else if (elem.frame->cut_before)
+		flag = 'C';
+	    else
+		flag = 0;
 	    // rest of header left as zero for expansion
+
+	    vector[0].iov_base = frame_header;
+	    vector[0].iov_len = SINK_FRAME_HEADER_SIZE;
+	    vector_size = 1;
+	    frame_size = SINK_FRAME_HEADER_SIZE;
 	}
-	iovec io_vector[2] = {
-	    { frame_header,  SINK_FRAME_HEADER_SIZE },
-	    { elem.frame->buffer, elem.frame->size }
-	};
-	int done_count = is_raw_ ? 1 : 0;
-	std::size_t rel_pos = frame_pos_;
-	while (rel_pos >= io_vector[done_count].iov_len)
+
+	if (!will_record_ || elem.frame->do_record)
 	{
-	    rel_pos -= io_vector[done_count].iov_len;
-	    ++done_count;
+	    vector[vector_size].iov_base = elem.frame->buffer;
+	    vector[vector_size].iov_len = elem.frame->size;
+	    ++vector_size;
+	    frame_size += elem.frame->size;
 	}
-	io_vector[done_count].iov_base =
-	    static_cast<char *>(io_vector[done_count].iov_base) + rel_pos;
-	io_vector[done_count].iov_len -= rel_pos;
+
+	int vector_pos = 0;
+	std::size_t rel_pos = frame_pos_;
+	while (rel_pos >= vector[vector_pos].iov_len)
+	    rel_pos -= vector[vector_pos++].iov_len;
+	vector[vector_pos].iov_base =
+	    static_cast<char *>(vector[vector_pos].iov_base) + rel_pos;
+	vector[vector_pos].iov_len -= rel_pos;
 	  
 	ssize_t sent_size = writev(socket_.get(),
-				   io_vector + done_count,
-				   2 - done_count);
+				   vector + vector_pos,
+				   vector_size - vector_pos);
 	if (sent_size > 0)
 	{
 	    frame_pos_ += sent_size;
-	    if (frame_pos_
-		== (is_raw_ ? 0 : SINK_FRAME_HEADER_SIZE) + elem.frame->size)
+	    if (frame_pos_ == frame_size)
 	    {
 		finished_frame = true;
 		frame_pos_ = 0;

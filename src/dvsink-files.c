@@ -96,7 +96,7 @@ static void transfer_frames(struct transfer_params * params)
 
     for (;;)
     {
-	size_t wanted_size = SINK_FRAME_HEADER_SIZE + DIF_SEQUENCE_SIZE;
+	size_t wanted_size = SINK_FRAME_HEADER_SIZE;
 	size_t buf_pos = 0;
 	do
 	{
@@ -108,11 +108,22 @@ static void transfer_frames(struct transfer_params * params)
 	}
 	while (buf_pos != wanted_size);
 
-	// Open a new file if necessary
+	// Open/close files as necessary
 	if (buf[SINK_FRAME_CUT_FLAG_POS] || file < 0)
 	{
 	    if (file >= 0)
+	    {
 		close(file);
+		file = -1;
+	    }
+
+	    // Check for stop indicator
+	    if (buf[SINK_FRAME_CUT_FLAG_POS] == 'S')
+	    {
+		printf("INFO: Stopped recording\n");
+		fflush(stdout);
+		continue;
+	    }
 
 	    now = time(0);
 	    localtime_r(&now, &now_local);
@@ -141,6 +152,17 @@ static void transfer_frames(struct transfer_params * params)
 	    printf("INFO: Created file %s\n", name_buf);
 	    fflush(stdout);
 	}
+
+	wanted_size = SINK_FRAME_HEADER_SIZE + DIF_SEQUENCE_SIZE;
+	do
+	{
+	    read_size = read(params->sock, buf + buf_pos,
+			     wanted_size - buf_pos);
+	    if (read_size <= 0)
+		goto read_failed;
+	    buf_pos += read_size;
+	}
+	while (buf_pos != wanted_size);
 
 	if (dv_parse_header(params->decoder, buf + SINK_FRAME_HEADER_SIZE) < 0)
 	{
@@ -245,7 +267,7 @@ int main(int argc, char ** argv)
     fflush(stdout);
     params.sock = create_connected_socket(mixer_host, mixer_port);
     assert(params.sock >= 0); // create_connected_socket() should handle errors
-    if (write(params.sock, GREETING_SINK, GREETING_SIZE) != GREETING_SIZE)
+    if (write(params.sock, GREETING_REC_SINK, GREETING_SIZE) != GREETING_SIZE)
     {
 	perror("ERROR: write");
 	exit(1);

@@ -221,6 +221,12 @@ void mixer::set_monitor(monitor * monitor)
     monitor_ = monitor;
 }
 
+void mixer::enable_record(bool flag)
+{
+    boost::mutex::scoped_lock lock(source_mutex_);
+    settings_.do_record = flag;
+}
+
 void mixer::cut()
 {
     boost::mutex::scoped_lock lock(source_mutex_);
@@ -638,6 +644,7 @@ void mixer::run_mixer()
 	dv_encode_timecode(mixed_dv->buffer,
 			   mixed_dv->system == e_dv_system_625_50,
 			   mixed_dv->serial_num);
+	mixed_dv->do_record = m->settings.do_record;
 	mixed_dv->cut_before = m->settings.cut_before;
 
 	last_mixed_dv = mixed_dv;
