@@ -137,6 +137,12 @@ void dv_selector_widget::set_source_count(unsigned count)
 						  GDK_KP_1 + i,
 						  Gdk::ModifierType(0),
 						  Gtk::AccelFlags(0));
+		    video_button->signal_activate().connect(
+			sigc::bind(
+			    sigc::mem_fun(
+				*this,
+				&dv_selector_widget::on_video_selected),
+			    i));
 		    audio_button->add_accelerator("activate",
 						  accel_group_,
 						  '1' + i,
@@ -147,6 +153,12 @@ void dv_selector_widget::set_source_count(unsigned count)
 						  GDK_KP_1 + i,
 						  Gdk::MOD1_MASK,
 						  Gtk::AccelFlags(0));
+		    audio_button->signal_activate().connect(
+			sigc::bind(
+			    sigc::mem_fun(
+				*this,
+				&dv_selector_widget::on_audio_selected),
+			    i));
 		}
 	    }
 	}
