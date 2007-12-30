@@ -8,6 +8,7 @@
 #include <gtkmm/label.h>
 
 #include "dv_selector_widget.hpp"
+#include "gui.hpp"
 
 namespace
 {
@@ -23,7 +24,6 @@ namespace
 	column_audio_button,
 	column_multiplier
     };
-    const unsigned padding_standard = 6;
 }
 
 dv_selector_widget::dv_selector_widget()
@@ -31,7 +31,10 @@ dv_selector_widget::dv_selector_widget()
 	  Gdk::Pixbuf::create_from_file(SHAREDIR "/dvswitch/video-source.png")),
       audio_source_pixbuf_(
 	  Gdk::Pixbuf::create_from_file(SHAREDIR "/dvswitch/audio-source.png"))
-{}
+{
+    set_col_spacings(gui_standard_spacing);
+    set_row_spacings(gui_standard_spacing);
+}
 
 Gtk::RadioButton * dv_selector_widget::create_radio_button(
     Gtk::RadioButtonGroup & group,
@@ -79,7 +82,7 @@ void dv_selector_widget::set_source_count(unsigned count)
 		       column, column + column_multiplier,
 		       row + row_display, row + row_display + 1,
 		       Gtk::FILL, Gtk::FILL,
-		       padding_standard, padding_standard);
+		       0, 0);
 		thumbnails_[i] = thumb;
 
 		char label_text[4];
@@ -93,7 +96,7 @@ void dv_selector_widget::set_source_count(unsigned count)
 		       column + column_text_label + 1,
 		       row + row_labels, row + row_labels + 1,
 		       Gtk::FILL, Gtk::FILL,
-		       padding_standard, padding_standard);
+		       0, 0);
 
 		Gtk::RadioButton * video_button =
 		    create_radio_button(video_button_group_,
@@ -109,7 +112,7 @@ void dv_selector_widget::set_source_count(unsigned count)
 		       column + column_video_button + 1,
 		       row + row_labels, row + row_labels + 1,
 		       Gtk::FILL, Gtk::FILL,
-		       padding_standard, padding_standard);
+		       0, 0);
 
 		Gtk::RadioButton * audio_button =
 		    create_radio_button(audio_button_group_,
@@ -125,7 +128,7 @@ void dv_selector_widget::set_source_count(unsigned count)
 		       column + column_audio_button + 1,
 		       row + row_labels, row + row_labels + 1,
 		       Gtk::FILL, Gtk::FILL,
-		       padding_standard, padding_standard);
+		       0, 0);
 
 		if (i < 9)
 		{

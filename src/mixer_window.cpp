@@ -12,6 +12,7 @@
 #include <gdk/gdkkeysyms.h>
 #include <gtkmm/main.h>
 
+#include "gui.hpp"
 #include "mixer.hpp"
 #include "mixer_window.hpp"
 
@@ -26,6 +27,7 @@ mixer_window::mixer_window(mixer & mixer)
     pipe_io_source->connect(sigc::mem_fun(this, &mixer_window::update));
     pipe_io_source->attach();
 
+    set_border_width(gui_standard_spacing);
     set_mnemonic_modifier(Gdk::ModifierType(0));
 
     selector_.set_accel_group(get_accel_group());
@@ -35,6 +37,7 @@ mixer_window::mixer_window(mixer & mixer)
 	sigc::mem_fun(mixer_, &mixer::set_audio_source));
 
     add(box_);
+    box_.set_spacing(gui_standard_spacing);
     box_.add(display_);
     display_.show();
     box_.add(selector_);
