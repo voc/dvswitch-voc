@@ -22,12 +22,16 @@ public:
 
 protected:
     typedef std::pair<uint8_t *, int> pixels_pitch;
-    struct drawing_context;
-    struct rectangle;
+    struct rectangle
+    {
+	unsigned left, top;
+	unsigned width, height;
+	unsigned pixel_width, pixel_height;
+    };
 
 private:
     virtual pixels_pitch get_frame_buffer() = 0;
-    virtual void draw_frame(const drawing_context &, const rectangle &) = 0;
+    virtual void put_frame_buffer(const rectangle &) = 0;
 
     dv_decoder_t * decoder_;
     unsigned decoded_serial_num_;
@@ -42,14 +46,17 @@ public:
 
 private:
     virtual pixels_pitch get_frame_buffer();
-    virtual void draw_frame(const drawing_context &, const rectangle &);
+    virtual void put_frame_buffer(const rectangle &);
 
+    virtual bool on_expose_event(GdkEventExpose *) throw();
     virtual void on_realize() throw();
     virtual void on_unrealize() throw();
 
     uint32_t xv_port_;
     void * xv_image_;
     void * xv_shm_info_;
+    rectangle source_rect_;
+    unsigned dest_width_, dest_height_;
 };
 
 class dv_thumb_display_widget : public dv_display_widget
@@ -60,14 +67,16 @@ public:
 
 private:
     virtual pixels_pitch get_frame_buffer();
-    virtual void draw_frame(const drawing_context &, const rectangle &);
+    virtual void put_frame_buffer(const rectangle &);
 
+    virtual bool on_expose_event(GdkEventExpose *) throw();
     virtual void on_realize() throw();
     virtual void on_unrealize() throw();
 
     uint8_t * frame_buffer_;
     void * x_image_;
     void * x_shm_info_;
+    unsigned dest_width_, dest_height_;
 };
 
 #endif // !defined(DVSWITCH_DV_DISPLAY_WIDGET_HPP)

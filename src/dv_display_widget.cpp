@@ -28,18 +28,28 @@ namespace
 
     const uint32_t invalid_xv_port = uint32_t(-1);
 
+    Display * get_x_display(const Glib::RefPtr<Gdk::Drawable> & drawable)
+    {
+	return gdk_x11_drawable_get_xdisplay(drawable->gobj());
+    }
+
     Display * get_x_display(Gtk::Widget & widget)
     {
-	Glib::RefPtr<Gdk::Window> window(widget.get_window());
+	Glib::RefPtr<Gdk::Drawable> window(widget.get_window());
 	assert(window);
-	return gdk_x11_drawable_get_xdisplay(window->gobj());
+	return get_x_display(window);
+    }
+
+    Window get_x_window(const Glib::RefPtr<Gdk::Drawable> & drawable)
+    {
+	return gdk_x11_drawable_get_xid(drawable->gobj());
     }
 
     Window get_x_window(Gtk::Widget & widget)
     {
-	Glib::RefPtr<Gdk::Window> window(widget.get_window());
+	Glib::RefPtr<Gdk::Drawable> window(widget.get_window());
 	assert(window);
-	return gdk_x11_drawable_get_xid(window->gobj());
+	return get_x_window(window);
     }
 
     char * allocate_x_shm(Display * x_display, XShmSegmentInfo * info,
@@ -64,20 +74,6 @@ namespace
 }
 
 // dv_display_widget
-
-struct dv_display_widget::drawing_context
-{
-    Display * x_display;
-    Window x_window;
-    GC x_gc;
-};
-
-struct dv_display_widget::rectangle
-{
-    unsigned left, top;
-    unsigned width, height;
-    unsigned pixel_width, pixel_height;
-};
 
 dv_display_widget::dv_display_widget(int quality)
     : decoder_(dv_decoder_new(0, true, true)),
@@ -109,40 +105,32 @@ void dv_display_widget::put_frame(const mixer::dv_frame_ptr & dv_frame)
 			     e_dv_color_yuv, &buffer.first, &buffer.second);
 	decoded_serial_num_ = dv_frame->serial_num;
 
-	if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(get_window()))
+	rectangle source_rect;
+	source_rect.top = 0;
+	source_rect.height = decoder_->height;
+	assert(decoder_->width == FRAME_WIDTH);
+	if (dv_is_PAL(decoder_))
 	{
-	    drawing_context context = {
-		get_x_display(*this),
-		get_x_window(*this),
-		gdk_x11_gc_get_xgc(gc->gobj())
-	    };
-
-	    rectangle source_rect;
-	    source_rect.top = 0;
-	    source_rect.height = decoder_->height;
-	    assert(decoder_->width == FRAME_WIDTH);
-	    if (dv_is_PAL(decoder_))
-	    {
-		source_rect.left = 9;
-		source_rect.width = 702;
-		source_rect.pixel_width = 59;
-		source_rect.pixel_height = 54;
-	    }
-	    else
-	    {
-		source_rect.left = 4;
-		source_rect.width = 712;
-		source_rect.pixel_width = 10;
-		source_rect.pixel_height = 11;
-	    }
-	    if (dv_format_wide(decoder_))
-	    {
-		source_rect.pixel_width *= 4;
-		source_rect.pixel_height *= 3;
-	    }
-
-	    draw_frame(context, source_rect);
+	    source_rect.left = 9;
+	    source_rect.width = 702;
+	    source_rect.pixel_width = 59;
+	    source_rect.pixel_height = 54;
 	}
+	else
+	{
+	    source_rect.left = 4;
+	    source_rect.width = 712;
+	    source_rect.pixel_width = 10;
+	    source_rect.pixel_height = 11;
+	}
+	if (dv_format_wide(decoder_))
+	{
+	    source_rect.pixel_width *= 4;
+	    source_rect.pixel_height *= 3;
+	}
+
+	put_frame_buffer(source_rect);
+	queue_draw();
     }
 }
 
@@ -292,8 +280,7 @@ dv_display_widget::pixels_pitch dv_full_display_widget::get_frame_buffer()
     }
 }
 
-void dv_full_display_widget::draw_frame(const drawing_context & context,
-					const rectangle & source_rect)
+void dv_full_display_widget::put_frame_buffer(const rectangle & source_rect)
 {
     XvImage * xv_image = static_cast<XvImage *>(xv_image_);
     raw_frame_ref frame_ref = {
@@ -303,34 +290,47 @@ void dv_full_display_widget::draw_frame(const drawing_context & context,
     };
     video_effect_show_title_safe(frame_ref);
 
-    unsigned dest_width, dest_height;
     if (source_rect.pixel_width > source_rect.pixel_height)
     {
-	dest_height = source_rect.height;
-	dest_width = div_round_nearest(source_rect.width
+	dest_height_ = source_rect.height;
+	dest_width_ = div_round_nearest(source_rect.width
 				       * source_rect.pixel_width,
 				       source_rect.pixel_height);
     }
     else
     {
-	dest_width = source_rect.width;
-	dest_height = div_round_nearest(source_rect.height
+	dest_width_ = source_rect.width;
+	dest_height_ = div_round_nearest(source_rect.height
 					* source_rect.pixel_height,
 					source_rect.pixel_width);
     }
-    // XXX Whenever these dimensions change it will invalidate our
-    // painting right after we do it!
-    set_size_request(dest_width, dest_height);
+    source_rect_ = source_rect;
+    set_size_request(dest_width_, dest_height_);
+}
 
-    // XXX should use get_window()->get_internal_paint_info()
-    XvShmPutImage(context.x_display, xv_port_, context.x_window, context.x_gc,
-		  static_cast<XvImage *>(xv_image_),
-		  source_rect.left, source_rect.top,
-		  source_rect.width, source_rect.height,
-		  0, 0,
-		  dest_width, dest_height,
-		  False);
-    XFlush(context.x_display);
+bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
+{
+    Glib::RefPtr<Gdk::Drawable> drawable;
+    int dest_x, dest_y;
+    get_window()->get_internal_paint_info(drawable, dest_x, dest_y);
+    drawable->reference(); // get_internal_paint_info() doesn't do this!
+
+    if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(drawable))
+    {
+	Display * x_display = get_x_display(drawable);
+	XvShmPutImage(x_display, xv_port_,
+		      get_x_window(drawable),
+		      gdk_x11_gc_get_xgc(gc->gobj()),
+		      static_cast<XvImage *>(xv_image_),
+		      source_rect_.left, source_rect_.top,
+		      source_rect_.width, source_rect_.height,
+		      dest_x, dest_y,
+		      dest_width_, dest_height_,
+		      False);
+	XFlush(x_display);
+    }
+
+    return true;
 }
 
 // dv_thumb_display_widget
@@ -413,20 +413,16 @@ dv_display_widget::pixels_pitch dv_thumb_display_widget::get_frame_buffer()
     return pixels_pitch(frame_buffer_, FRAME_BYTES_PER_PIXEL * FRAME_WIDTH);
 }
 
-void dv_thumb_display_widget::draw_frame(const drawing_context & context,
-					 const rectangle & source_rect)
+void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
 {
     XImage * x_image = static_cast<XImage *>(x_image_);
 
-    unsigned dest_width = div_round_nearest(source_rect.width
-					    * source_rect.pixel_width,
-					    source_rect.pixel_height
-					    * thumb_scale_denom);
-    unsigned dest_height = div_round_nearest(source_rect.height,
-					     thumb_scale_denom);
-    // XXX Whenever these dimensions change it will invalidate our
-    // painting right after we do it!
-    set_size_request(dest_width, dest_height);
+    dest_width_ = div_round_nearest(source_rect.width
+				    * source_rect.pixel_width,
+				    source_rect.pixel_height
+				    * thumb_scale_denom);
+    dest_height_ = div_round_nearest(source_rect.height,
+				     thumb_scale_denom);
 
     // Scale the image down.  Actually this is scaling up because the
     // decoded frame is really blocks of 8x8 pixels anyway, so we can
@@ -437,8 +433,8 @@ void dv_thumb_display_widget::draw_frame(const drawing_context & context,
     static const unsigned block_size = 8;
     static const unsigned source_width_blocks = source_rect.width / block_size;
     const unsigned source_height_blocks = source_rect.height / block_size;
-    assert(source_width_blocks <= dest_width);
-    assert(source_height_blocks <= dest_height);
+    assert(source_width_blocks <= dest_width_);
+    assert(source_height_blocks <= dest_height_);
     unsigned source_y = source_rect.top, dest_y = 0;
     unsigned error_y = source_height_blocks / 2;
     do
@@ -450,7 +446,7 @@ void dv_thumb_display_widget::draw_frame(const drawing_context & context,
 	uint8_t * dest = reinterpret_cast<uint8_t *>(
 	    x_image->data + x_image->bytes_per_line * dest_y);
 	uint8_t * dest_row_end =
-	    dest + x_image->bits_per_pixel / 8 * dest_width;
+	    dest + x_image->bits_per_pixel / 8 * dest_width_;
 	unsigned error_x = source_width_blocks / 2;
 	uint8_t source_value = *source; // read first Y component
 	do
@@ -463,31 +459,48 @@ void dv_thumb_display_widget::draw_frame(const drawing_context & context,
 		*dest++ = source_value;
 
 	    error_x += source_width_blocks;
-	    if (error_x >= dest_width)
+	    if (error_x >= dest_width_)
 	    {
 		source += FRAME_BYTES_PER_PIXEL * block_size; // next block
 		source_value = *source; // read first Y component
-		error_x -= dest_width;
+		error_x -= dest_width_;
 	    }
 	}
 	while (dest != dest_row_end);
 	
 	error_y += source_height_blocks;
-	if (error_y >= dest_height)
+	if (error_y >= dest_height_)
 	{
 	    source_y += block_size;
-	    error_y -= dest_height;
+	    error_y -= dest_height_;
 	}
 	++dest_y;
     }
-    while (dest_y != dest_height);
+    while (dest_y != dest_height_);
 
-    // XXX should use get_window()->get_internal_paint_info()
-    XShmPutImage(context.x_display, context.x_window, context.x_gc,
-		 x_image,
-		 0, 0,
-		 0, 0,
-		 dest_width, dest_height,
-		 False);
-    XFlush(context.x_display);
+    set_size_request(dest_width_, dest_height_);
+}
+
+bool dv_thumb_display_widget::on_expose_event(GdkEventExpose *) throw()
+{
+    Glib::RefPtr<Gdk::Drawable> drawable;
+    int dest_x, dest_y;
+    get_window()->get_internal_paint_info(drawable, dest_x, dest_y);
+    g_object_ref(drawable->gobj());
+
+    if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(drawable))
+    {
+	Display * x_display = get_x_display(drawable);
+	XShmPutImage(x_display,
+		     get_x_window(drawable),
+		     gdk_x11_gc_get_xgc(gc->gobj()),
+		     static_cast<XImage *>(x_image_),
+		     0, 0,
+		     dest_x, dest_y,
+		     dest_width_, dest_height_,
+		     False);
+	XFlush(x_display);
+    }
+
+    return true;
 }
