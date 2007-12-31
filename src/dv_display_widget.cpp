@@ -486,7 +486,7 @@ bool dv_thumb_display_widget::on_expose_event(GdkEventExpose *) throw()
     Glib::RefPtr<Gdk::Drawable> drawable;
     int dest_x, dest_y;
     get_window()->get_internal_paint_info(drawable, dest_x, dest_y);
-    g_object_ref(drawable->gobj());
+    drawable->reference(); // get_internal_paint_info() doesn't do this!
 
     if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(drawable))
     {
