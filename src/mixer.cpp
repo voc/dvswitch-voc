@@ -517,7 +517,7 @@ void mixer::run_mixer()
     const mix_data * m = 0;
     dv_decoder_t * decoder = dv_decoder_new(0, true, true);
     dv_set_quality(decoder, DV_QUALITY_BEST);
-    dv_encoder_t * encoder = dv_encoder_new(false, true, true);
+    dv_encoder_t * encoder = dv_encoder_new(false, false, false);
 
     for (;;)
     {
