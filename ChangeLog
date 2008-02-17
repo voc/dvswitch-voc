@@ -7,6 +7,13 @@ dvswitch (0.6) unstable; urgency=low
   * Changed the server to indicate overflow in output to sinks rather
     than disconnecting sinks that have overflowed; the file sink will
     create a new file after each overflow
+  * Implemented dynamic display sizing, adding support for 16:9 frames
+  * Turned source selection images into radio buttons
+  * Fixed labelling of sources numbered above 9
+  * Added support for starting and stopping recording while leaving
+    any stream running
+  * Added control buttons for recording and changed to default
+    mnemonic for Cut
 
  -- 
 
