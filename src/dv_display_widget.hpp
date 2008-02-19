@@ -42,8 +42,6 @@ class dv_full_display_widget : public dv_display_widget
 public:
     dv_full_display_widget();
 
-    void set_xv_port(uint32_t);
-
 private:
     virtual pixels_pitch get_frame_buffer();
     virtual void put_frame_buffer(const rectangle &);
