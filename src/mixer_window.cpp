@@ -20,11 +20,14 @@
 
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
-      record_button_(Gtk::StockID(Gtk::Stock::MEDIA_RECORD)),
-      cut_button_(Gtk::StockID(Gtk::Stock::CUT)),
+      record_button_("gtk-media-record"),
+      cut_button_("gtk-cut"),
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)      
 {
+    record_button_.set_use_stock();
+    cut_button_.set_use_stock();
+	
     Glib::RefPtr<Glib::IOSource> pipe_io_source(
 	Glib::IOSource::create(wakeup_pipe_.reader.get(), Glib::IO_IN));
     pipe_io_source->set_priority(Glib::PRIORITY_DEFAULT_IDLE);
