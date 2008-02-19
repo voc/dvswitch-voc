@@ -15,7 +15,7 @@ dvswitch (0.6) unstable; urgency=low
   * Added control buttons for recording and changed to default
     mnemonic for Cut
 
- -- 
+ -- Ben Hutchings <ben@decadent.org.uk>  Tue, 19 Feb 2008 09:37:22 +0000
 
 dvswitch (0.5.1) unstable; urgency=low
 
