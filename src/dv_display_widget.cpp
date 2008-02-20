@@ -198,7 +198,7 @@ end_adaptor_loop:
 	unsigned j;
 	for (j = 0; j != adaptor_info[i].num_ports; ++j)
 	{
-	    XvPortID port = adaptor_info[i].base_id + i;
+	    XvPortID port = adaptor_info[i].base_id + j;
 	    if (XvGrabPort(x_display, port, CurrentTime) == Success)
 	    {
 		xv_port_ = port;
@@ -358,14 +358,21 @@ void dv_thumb_display_widget::on_realize() throw()
     dv_display_widget::on_realize();
 
     Display * x_display = get_x_display(*this);
-    int screen = 0; // XXX should use gdk_x11_screen_get_screen_number
-    XVisualInfo visual_info;
-    if (XMatchVisualInfo(x_display, screen, 24, DirectColor, &visual_info))
+
+    Glib::RefPtr<Gdk::Drawable> drawable;
+    int dest_x, dest_y;
+    get_window()->get_internal_paint_info(drawable, dest_x, dest_y);
+    Visual * visual =
+	gdk_x11_visual_get_xvisual(drawable->get_visual()->gobj());
+    int depth = drawable->get_depth();
+
+    if ((visual->c_class == TrueColor || visual->c_class == DirectColor)
+	&& (depth == 24 || depth == 32))
     {
 	if (XShmSegmentInfo * x_shm_info = new (std::nothrow) XShmSegmentInfo)
 	{
 	    if (XImage * x_image = XShmCreateImage(
-		    x_display, visual_info.visual, 24, ZPixmap,
+		    x_display, visual, depth, ZPixmap,
 		    0, x_shm_info,
 		    // Calculate maximum dimensions assuming widest pixel
 		    // ratio and full frame (slightly over-conservative).
