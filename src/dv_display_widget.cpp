@@ -238,6 +238,9 @@ end_adaptor_loop:
 	    delete xv_shm_info;
 	}
     }
+
+    if (!xv_image_)
+	std::cerr << "ERROR: Could not create Xv image\n";
 }
 
 void dv_full_display_widget::on_unrealize() throw()
@@ -310,6 +313,9 @@ void dv_full_display_widget::put_frame_buffer(const rectangle & source_rect)
 
 bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
 {
+    if (!xv_image_)
+	return true;
+
     Glib::RefPtr<Gdk::Drawable> drawable;
     int dest_x, dest_y;
     get_window()->get_internal_paint_info(drawable, dest_x, dest_y);
@@ -396,6 +402,13 @@ void dv_thumb_display_widget::on_realize() throw()
 	    if (!x_shm_info_)
 		delete x_shm_info;
 	}
+
+	if (!x_image_)
+	    std::cerr << "ERROR: Could not create Xshm image\n";
+    }
+    else
+    {
+	std::cerr << "ERROR: Window does not support 24- or 32-bit colour\n";
     }
 }
 
@@ -417,7 +430,10 @@ void dv_thumb_display_widget::on_unrealize() throw()
 
 dv_display_widget::pixels_pitch dv_thumb_display_widget::get_frame_buffer()
 {
-    return pixels_pitch(frame_buffer_, FRAME_BYTES_PER_PIXEL * FRAME_WIDTH);
+    if (x_image_)
+	return pixels_pitch(frame_buffer_, FRAME_BYTES_PER_PIXEL * FRAME_WIDTH);
+    else
+	return pixels_pitch(0, 0);
 }
 
 void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
@@ -490,6 +506,9 @@ void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
 
 bool dv_thumb_display_widget::on_expose_event(GdkEventExpose *) throw()
 {
+    if (!x_image_)
+	return true;
+
     Glib::RefPtr<Gdk::Drawable> drawable;
     int dest_x, dest_y;
     get_window()->get_internal_paint_info(drawable, dest_x, dest_y);
