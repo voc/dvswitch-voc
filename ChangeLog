@@ -1,3 +1,14 @@
+dvswitch (0.6.1) unstable; urgency=low
+
+  * Improved X driver compatibility:
+    - Fixed calculation of Xv port numbers
+    - Changed selection of visual class and depth for images to match the
+      window
+    - Added error messages and later checks for failure of image creation,
+      where previously dvswitch could crash
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Thu, 21 Feb 2008 22:17:32 +0000
+
 dvswitch (0.6) unstable; urgency=low
 
   * Added some infrastructure for video effects including
