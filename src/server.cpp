@@ -512,7 +512,7 @@ server::connection::send_status server::sink_connection::do_send()
 	    elem = queue_.front();
 	}
 
-	if (!is_recording_ && !elem.frame->do_record)
+	if (will_record_ && !is_recording_ && !elem.frame->do_record)
 	{
 	    finished_frame = true;
 	    continue;
