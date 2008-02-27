@@ -346,7 +346,9 @@ dv_thumb_display_widget::dv_thumb_display_widget()
       frame_buffer_(new uint8_t[FRAME_BYTES_PER_PIXEL * FRAME_WIDTH
 				* FRAME_HEIGHT_MAX]),
       x_image_(0),
-      x_shm_info_(0)
+      x_shm_info_(0),
+      dest_width_(0),
+      dest_height_(0)
 {
     // We don't know what the frame format will be, but assume "PAL"
     // 4:3 frames and therefore an active image size of 702x576 and
@@ -422,7 +424,7 @@ void dv_thumb_display_widget::on_unrealize() throw()
 	delete x_shm_info;
 	x_shm_info_ = 0;
 	free(x_image);
-	x_image = 0;
+	x_image_ = 0;
     }
 
     dv_display_widget::on_unrealize();
@@ -506,7 +508,7 @@ void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
 
 bool dv_thumb_display_widget::on_expose_event(GdkEventExpose *) throw()
 {
-    if (!x_image_)
+    if (!x_image_ || !dest_width_ || !dest_height_)
 	return true;
 
     Glib::RefPtr<Gdk::Drawable> drawable;
