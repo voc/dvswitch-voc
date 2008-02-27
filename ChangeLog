@@ -1,3 +1,12 @@
+dvswitch (0.6.2) unstable; urgency=low
+
+  * Fixed bug in thumbnail image size initialisation that could result
+    in a fatal BadValue error from X
+  * Fixed minor bug in thumbnail image cleanup
+  * Fixed bug that caused all sinks to be disabled when not recording
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 24 Feb 2008 10:55:41 +0100
+
 dvswitch (0.6.1) unstable; urgency=low
 
   * Improved X driver compatibility:
