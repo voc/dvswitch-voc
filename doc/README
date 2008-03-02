@@ -25,6 +25,19 @@ that can run on different computers on a TCP/IP network:
 - dvsink-command: sink that runs a command with the mixed stream as
   its standard input
 
+Home page
+---------
+
+The project home page is <http://alioth.debian.org/projects/dvswitch/>.
+Source tarballs are available from there.  There is a public
+subversion repository at <svn://svn.debian.org/dvswitch/trunk>.
+
+Bugs
+----
+
+Report bugs to the debconf-video mailing list,
+debconf-video@lists.debconf.org.
+
 System requirements
 -------------------
 
