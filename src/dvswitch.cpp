@@ -113,4 +113,9 @@ int main(int argc, char **argv)
 	std::cerr << "ERROR: " << e.what() << "\n";
 	return EXIT_FAILURE;
     }
+    catch (Glib::Exception & e)
+    {
+       std::cerr << "ERROR: " << e.what() << "\n";
+       return EXIT_FAILURE;
+    }
 }
