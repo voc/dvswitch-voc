@@ -615,7 +615,7 @@ void mixer::run_mixer()
 	    mixed_dv = video_pri_source_dv;
 	}
 
-	if (m->settings.video_source_id != m->settings.audio_source_id)
+	if (mixed_dv != audio_source_dv)
 	    if (audio_source_dv && audio_source_dv->system == mixed_dv->system)
 		dub_audio(*mixed_dv, *audio_source_dv);
 	    else
