@@ -550,96 +550,76 @@ void mixer::run_mixer()
 	raw_frame_ptr video_pri_source_raw;
 	raw_frame_ptr video_sec_source_raw;
 	raw_frame_ptr mixed_raw;
-    
-	// If we have a single live source for both audio and video,
-	// use the source frame unchanged.
-	if (audio_source_dv
-	    && m->settings.video_source_id == m->settings.audio_source_id
-	    && !m->settings.video_effect)
+
+	if (!video_pri_source_dv)
 	{
-	    mixed_dv = audio_source_dv;
+	    std::cerr << "WARN: Repeating frame due to empty queue"
+		" for source " << 1 + m->settings.video_source_id << "\n";
+
+	    // Make a copy of the last mixed frame so we can
+	    // replace the audio.  (We can't modify the last frame
+	    // because sinks may still be reading from it.)
+	    mixed_dv = allocate_frame();
+	    std::memcpy(mixed_dv.get(),
+			last_mixed_dv.get(),
+			offsetof(dv_frame, buffer) + last_mixed_dv->size);
+	    mixed_dv->serial_num = serial_num;
+	}
+	else if (m->settings.video_effect
+		 && m->source_frames[m->settings.video_effect->sec_source_id])
+	{
+	    const dv_frame_ptr video_sec_source_dv =
+		m->source_frames[m->settings.video_effect->sec_source_id];
+
+	    // Decode primary (with metadata)
+	    dv_parse_header(decoder, video_pri_source_dv->buffer);
+	    tm pri_source_timestamp;
+	    dv_get_recording_datetime_tm(decoder,
+					 &pri_source_timestamp);
+	    bool pri_source_is16x9 = dv_format_wide(decoder);
+	    mixed_raw = decode_video_frame(decoder, video_pri_source_dv);
+
+	    // Decode secondary
+	    dv_parse_header(decoder, video_pri_source_dv->buffer);
+	    video_sec_source_raw =
+		decode_video_frame(decoder, video_sec_source_dv);
+
+	    // Mix raw video
+	    video_effect_pic_in_pic(
+		make_raw_frame_ref(mixed_raw),
+		make_raw_frame_ref(video_sec_source_raw),
+		m->settings.video_effect->left,
+		m->settings.video_effect->top,
+		m->settings.video_effect->right,
+		m->settings.video_effect->bottom);
+
+	    // Encode mixed video
+	    mixed_dv = allocate_frame();
+	    mixed_dv->serial_num = serial_num;
+	    mixed_dv->system = video_pri_source_dv->system;
+	    mixed_dv->size = video_pri_source_dv->size;
+	    // I LOVE THIS API
+	    encoder->isPAL = mixed_dv->system == e_dv_system_625_50;
+	    encoder->is16x9 = pri_source_is16x9;
+	    time_t pri_source_time = mktime(&pri_source_timestamp);
+	    dv_encode_metadata(mixed_dv->buffer,
+			       encoder->isPAL, encoder->is16x9,
+			       &pri_source_time, serial_num);
+	    uint8_t * mixed_raw_pixels[1] = { mixed_raw->buffer };
+	    dv_encode_full_frame(encoder,
+				 mixed_raw_pixels, e_dv_color_yuv,
+				 mixed_dv->buffer);
 	}
 	else
 	{
-	    if (video_pri_source_dv)
-	    {
-		if (m->settings.video_effect
-		    && m->source_frames[m->settings.video_effect
-					->sec_source_id])
-		{
-		    const dv_frame_ptr video_sec_source_dv =
-			m->source_frames[m->settings.video_effect
-					 ->sec_source_id];
+	    mixed_dv = video_pri_source_dv;
+	}
 
-		    // Decode primary (with metadata)
-		    dv_parse_header(decoder, video_pri_source_dv->buffer);
-		    tm pri_source_timestamp;
-		    dv_get_recording_datetime_tm(decoder,
-						 &pri_source_timestamp);
-		    bool pri_source_is16x9 = dv_format_wide(decoder);
-		    mixed_raw =
-			decode_video_frame(decoder, video_pri_source_dv);
-
-		    // Decode secondary
-		    dv_parse_header(decoder, video_pri_source_dv->buffer);
-		    video_sec_source_raw =
-			decode_video_frame(decoder, video_sec_source_dv);
-
-		    // Mix raw video
-		    video_effect_pic_in_pic(
-			make_raw_frame_ref(mixed_raw),
-			make_raw_frame_ref(video_sec_source_raw),
-			m->settings.video_effect->left,
-			m->settings.video_effect->top,
-			m->settings.video_effect->right,
-			m->settings.video_effect->bottom);
-
-		    // Encode mixed video
-		    mixed_dv = allocate_frame();
-		    mixed_dv->serial_num = serial_num;
-		    mixed_dv->system = video_pri_source_dv->system;
-		    mixed_dv->size = video_pri_source_dv->size;
-		    // I LOVE THIS API
-		    encoder->isPAL = mixed_dv->system == e_dv_system_625_50;
-		    encoder->is16x9 = pri_source_is16x9;
-		    time_t pri_source_time = mktime(&pri_source_timestamp);
-		    dv_encode_metadata(mixed_dv->buffer,
-				       encoder->isPAL,
-				       encoder->is16x9,
-				       &pri_source_time,
-				       serial_num);
-		    uint8_t * mixed_raw_pixels[1] = { mixed_raw->buffer };
-		    dv_encode_full_frame(encoder,
-					 mixed_raw_pixels,
-					 e_dv_color_yuv,
-					 mixed_dv->buffer);
-		    // audio and timecode are handled below
-		}
-		else
-		{
-		    mixed_dv = video_pri_source_dv;
-		}
-	    }
-	    else
-	    {
-		std::cerr << "WARN: Repeating frame due to empty queue"
-		    " for source " << 1 + m->settings.video_source_id << "\n";
-
-		// Make a copy of the last mixed frame so we can
-		// replace the audio.  (We can't modify the last frame
-		// because sinks may still be reading from it.)
-		mixed_dv = allocate_frame();
-		std::memcpy(mixed_dv.get(),
-			    last_mixed_dv.get(),
-			    offsetof(dv_frame, buffer) + last_mixed_dv->size);
-		mixed_dv->serial_num = serial_num;
-	    }
-
+	if (m->settings.video_source_id != m->settings.audio_source_id)
 	    if (audio_source_dv && audio_source_dv->system == mixed_dv->system)
 		dub_audio(*mixed_dv, *audio_source_dv);
 	    else
 		silence_audio(*mixed_dv);
-	}
 
 	dv_encode_timecode(mixed_dv->buffer,
 			   mixed_dv->system == e_dv_system_625_50,
