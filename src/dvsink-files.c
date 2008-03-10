@@ -7,13 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <fcntl.h>
 #include <getopt.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#include <libdv/dv.h>
 
 #include "config.h"
 #include "dif.h"
@@ -59,13 +58,13 @@ Usage: %s [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT] [NAME-FORMAT]\n",
 }
 
 struct transfer_params {
-    dv_decoder_t * decoder;
     int            sock;
 };
 
 static void transfer_frames(struct transfer_params * params)
 {
     static uint8_t buf[SINK_FRAME_HEADER_SIZE + DIF_MAX_FRAME_SIZE];
+    const struct dv_system * system;
 
     time_t now;
     struct tm now_local;
@@ -164,13 +163,8 @@ static void transfer_frames(struct transfer_params * params)
 	}
 	while (buf_pos != wanted_size);
 
-	if (dv_parse_header(params->decoder, buf + SINK_FRAME_HEADER_SIZE) < 0)
-	{
-	    fprintf(stderr, "ERROR: dv_parse_header failed\n");
-	    exit(1);
-	}
-
-	wanted_size = SINK_FRAME_HEADER_SIZE + params->decoder->frame_size;
+	system = dv_buffer_system(buf + SINK_FRAME_HEADER_SIZE);
+	wanted_size = SINK_FRAME_HEADER_SIZE + system->size;
 	do
 	{
 	    read_size = read(params->sock, buf + buf_pos,
@@ -181,9 +175,8 @@ static void transfer_frames(struct transfer_params * params)
 	}
 	while (buf_pos != wanted_size);
 
-	if (write(file, buf + SINK_FRAME_HEADER_SIZE,
-		  params->decoder->frame_size)
-	    != (ssize_t)params->decoder->frame_size)
+	if (write(file, buf + SINK_FRAME_HEADER_SIZE, system->size)
+	    != (ssize_t)system->size)
 	{
 	    perror("ERROR: write");
 	    exit(1);
@@ -256,13 +249,6 @@ int main(int argc, char ** argv)
     }
 
     struct transfer_params params;
-    dv_init(TRUE, TRUE);
-    params.decoder = dv_decoder_new(0, TRUE, TRUE);
-    if (!params.decoder)
-    {
-	fprintf(stderr, "ERROR: dv_decoder_new failed\n");
-	exit(1);
-    }
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);
     fflush(stdout);
     params.sock = create_connected_socket(mixer_host, mixer_port);
@@ -276,8 +262,6 @@ int main(int argc, char ** argv)
     transfer_frames(&params);
 
     close(params.sock);
-    dv_decoder_free(params.decoder);
-    dv_cleanup();
 
     return 0;
 }

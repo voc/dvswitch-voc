@@ -19,8 +19,6 @@
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 
-#include <libdv/dv.h>
-
 #include "frame.h"
 #include "mixer.hpp"
 #include "os_error.hpp"
@@ -106,8 +104,6 @@ private:
     virtual receive_buffer get_receive_buffer();
     virtual connection * handle_complete_receive();
     virtual std::ostream & print_identity(std::ostream &);
-
-    dv_decoder_t * decoder_;
 
     mixer::dv_frame_ptr frame_;
     bool first_sequence_;
@@ -414,19 +410,15 @@ std::ostream & server::unknown_connection::print_identity(std::ostream & os)
 
 server::source_connection::source_connection(server & server, auto_fd socket)
     : connection(server, socket),
-      decoder_(dv_decoder_new(0, true, true)),
       frame_(server_.mixer_.allocate_frame()),
       first_sequence_(true)
 {
-    if (!decoder_)
-	throw std::bad_alloc();
     source_id_ = server_.mixer_.add_source();
 }
 
 server::source_connection::~source_connection()
 {
     server_.mixer_.remove_source(source_id_);
-    dv_decoder_free(decoder_);
 }
 
 server::connection::receive_buffer
@@ -436,31 +428,21 @@ server::source_connection::get_receive_buffer()
 	return receive_buffer(frame_->buffer, DIF_SEQUENCE_SIZE);
     else
 	return receive_buffer(frame_->buffer + DIF_SEQUENCE_SIZE,
-			      frame_->size - DIF_SEQUENCE_SIZE);
+			      dv_frame_system(frame_.get())->size
+			      - DIF_SEQUENCE_SIZE);
 }
 
 server::connection * server::source_connection::handle_complete_receive()
 {
-    if (first_sequence_)
+    if (!first_sequence_)
     {
-	if (dv_parse_header(decoder_, frame_->buffer) >= 0)
-	{
-	    frame_->system = decoder_->system;
-	    frame_->size = decoder_->frame_size;
-	    first_sequence_ = false;
-	    return this;
-	}
-    }
-    else // !first_sequence_
-    {
-	server_.mixer_.put_frame(source_id_, frame_);
-	frame_.reset();
-	frame_ = server_.mixer_.allocate_frame();
-	first_sequence_ = true;
-	return this;
+ 	server_.mixer_.put_frame(source_id_, frame_);
+ 	frame_.reset();
+ 	frame_ = server_.mixer_.allocate_frame();
     }
 
-    return 0;
+    first_sequence_ = !first_sequence_;
+    return this;
 }
 
 std::ostream & server::source_connection::print_identity(std::ostream & os)
@@ -550,9 +532,10 @@ server::connection::send_status server::sink_connection::do_send()
 	if (!will_record_ || elem.frame->do_record)
 	{
 	    vector[vector_size].iov_base = elem.frame->buffer;
-	    vector[vector_size].iov_len = elem.frame->size;
+	    vector[vector_size].iov_len =
+		dv_frame_system(elem.frame.get())->size;
 	    ++vector_size;
-	    frame_size += elem.frame->size;
+	    frame_size += dv_frame_system(elem.frame.get())->size;
 	}
 
 	int vector_pos = 0;

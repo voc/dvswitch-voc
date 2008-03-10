@@ -14,8 +14,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <libdv/dv.h>
-
 #include "config.h"
 #include "dif.h"
 #include "frame_timer.h"
@@ -56,7 +54,6 @@ Usage: %s [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT] [-l] FILE\n",
 }
 
 struct transfer_params {
-    dv_decoder_t * decoder;
     int            file;
     int            sock;
     bool           opt_loop;
@@ -64,7 +61,7 @@ struct transfer_params {
 
 static void transfer_frames(struct transfer_params * params)
 {
-    dv_system_t last_frame_system = e_dv_system_none;
+    const struct dv_system * last_system = 0, * system;
     static uint8_t buf[DIF_MAX_FRAME_SIZE];
     uint64_t frame_timestamp;
     unsigned frame_interval;
@@ -93,25 +90,20 @@ static void transfer_frames(struct transfer_params * params)
 	    exit(1);
 	}
 
-	if (dv_parse_header(params->decoder, buf) < 0)
-	{
-	    fprintf(stderr, "ERROR: dv_parse_header failed\n");
-	    exit(1);
-	}
+	system = dv_buffer_system(buf);
 
 	/* (Re)set the timer according to this frame's video system. */
-	if (params->decoder->system != last_frame_system)
+	if (system != last_system)
 	{
-	    last_frame_system = params->decoder->system;
+	    last_system = system;
 	    frame_timestamp = frame_timer_get();
-	    frame_interval = (params->decoder->system == e_dv_system_625_50
-			      ? frame_interval_ns_625_50
-			      : frame_interval_ns_525_60);
+	    frame_interval = (1000000000 / system->frame_rate_numer
+			      * system->frame_rate_denom);
 	}
 
 	size = read(params->file, buf + DIF_SEQUENCE_SIZE,
-		    params->decoder->frame_size - DIF_SEQUENCE_SIZE);
-	if (size != (ssize_t)(params->decoder->frame_size - DIF_SEQUENCE_SIZE))
+		    system->size - DIF_SEQUENCE_SIZE);
+	if (size != (ssize_t)(system->size - DIF_SEQUENCE_SIZE))
 	{
 	    if (size < 0)
 		perror("ERROR: read");
@@ -119,8 +111,7 @@ static void transfer_frames(struct transfer_params * params)
 		fputs("ERROR: Failed to read complete frame\n", stderr);
 	    exit(1);
 	}
-	if (write(params->sock, buf, params->decoder->frame_size)
-	    != (ssize_t)params->decoder->frame_size)
+	if (write(params->sock, buf, system->size) != (ssize_t)system->size)
 	{
 	    perror("ERROR: write");
 	    exit(1);
@@ -193,13 +184,6 @@ int main(int argc, char ** argv)
 
     /* Prepare to read the file and connect a socket to the mixer. */
 
-    dv_init(TRUE, TRUE);
-    params.decoder = dv_decoder_new(0, TRUE, TRUE);
-    if (!params.decoder)
-    {
-	fprintf(stderr, "ERROR: dv_decoder_new failed\n");
-	exit(1);
-    }
     printf("INFO: Reading from %s\n", filename);
     params.file = open(filename, O_RDONLY, 0);
     if (params.file < 0)
@@ -220,8 +204,6 @@ int main(int argc, char ** argv)
 
     close(params.sock);
     close(params.file);
-    dv_decoder_free(params.decoder);
-    dv_cleanup();
 
     return 0;
 }

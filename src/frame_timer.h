@@ -23,10 +23,6 @@ uint64_t frame_timer_get(void);
 // timestamp.
 void frame_timer_wait(uint64_t timestamp);
 
-// Normal frame intervals for "PAL" (625/50) and "NTSC" (525/60).
-static const unsigned frame_interval_ns_625_50 = 1000000000 / 25;
-static const unsigned frame_interval_ns_525_60 = 1001000000 / 30;
-
 #ifdef __cplusplus
 }
 #endif

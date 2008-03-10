@@ -11,10 +11,10 @@ CPPFLAGS := -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_POSIX_C_SOURCE \
 	-DSHAREDIR="\"$(sharedir)\""
 
 csources := dvsink-files.c dvsource-file.c dvsource-firewire.c config.c \
-	socket.c frame_timer.c
+	dif.c socket.c frame_timer.c
 cxxsources := dvswitch.cpp mixer.cpp mixer_window.cpp dv_display_widget.cpp \
 	dv_selector_widget.cpp server.cpp
-common_objects := .objs/config.o .objs/socket.o
+common_objects := .objs/config.o .objs/dif.o .objs/socket.o
 
 all : .objs/dvsink-command .objs/dvsink-files .objs/dvsource-file \
 	.objs/dvsource-firewire .objs/dvswitch
@@ -29,8 +29,7 @@ clean :
 	rm -rf .objs
 
 .objs/% : CFLAGS += $(shell pkg-config --cflags libdv)
-.objs/dvsink-files .objs/dvsource-file .objs/dvswitch : \
-	LDFLAGS += $(shell pkg-config --libs libdv)
+.objs/dvswitch : LDFLAGS += $(shell pkg-config --libs libdv)
 
 .objs/dvsource-file .objs/dvswitch : LDFLAGS += -lpthread -lrt
 

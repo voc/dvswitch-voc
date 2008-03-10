@@ -247,11 +247,10 @@ namespace
 	// Copy AAUX blocks.  These are every 16th block in each DIF
 	// sequence, starting from block 6.
 
-	unsigned seq_count = (source_frame.system == e_dv_system_625_50
-			      ? 12 : 10);
-	assert(dest_frame.system == source_frame.system);
+	const dv_system * system = dv_frame_system(&dest_frame);
+	assert(dv_frame_system(&source_frame) == system);
 
-	for (unsigned seq_num = 0; seq_num != seq_count; ++seq_num)
+	for (unsigned seq_num = 0; seq_num != system->seq_count; ++seq_num)
 	{
 	    for (unsigned block_num = 0; block_num != 9; ++block_num)
 	    {
@@ -267,26 +266,27 @@ namespace
 
     void silence_audio(dv_frame & dest_frame)
     {
-	unsigned seq_count = (dest_frame.system == e_dv_system_625_50
-			      ? 12 : 10);
-	static const unsigned frequency = 48000;
+	const dv_system * system = dv_frame_system(&dest_frame);
+	static const unsigned sample_rate = 48000;
+	static const dv_sample_rate sample_rate_code = dv_sample_rate_48k;
+	unsigned sample_count = (sample_rate * system->frame_rate_denom
+				 / system->frame_rate_numer);
 
-	// Each audio block has a 3-byte block header, a 5-byte AAUX
-	// header, and 72 bytes of samples.  Audio block 3 in each
-	// sequence has an AS (audio source) header, audio block 4
-	// has an ASC (audio source control) header, and the other
-	// headers seem to be optional.
-	static const uint8_t aaux_blank_header[DIF_AAUX_HEADER_SIZE] = {
+	// Each audio block has a 3-byte block id, a 5-byte AAUX
+	// pack, and 72 bytes of samples.  Audio block 3 in each
+	// sequence has an AS (audio source) pack, audio block 4
+	// has an ASC (audio source control) pack, and the other
+	// packs seem to be optional.
+	static const uint8_t aaux_blank_pack[DIF_PACK_SIZE] = {
 	    0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 	};
-	uint8_t aaux_as_header[DIF_AAUX_HEADER_SIZE] = {
-	    // block type; 0x50 for AAUX source
+	uint8_t aaux_as_pack[DIF_PACK_SIZE] = {
+	    // pack id; 0x50 for AAUX source
 	    0x50,
 	    // bits 0-5: number of samples in frame minus minimum value
 	    // bit 6: flag "should be 1"
 	    // bit 7: flag for unlocked audio sampling
-	    (dest_frame.system == e_dv_system_625_50
-	     ? (frequency / 25 - 1896) : (frequency * 1001 / 30000 - 1580))
+	    (sample_count - system->sample_limits[sample_rate_code].min_count)
 	    | (1 << 6) | (1 << 7),
 	    // bits 0-3: audio mode
 	    // bit 4: flag for independent channels
@@ -297,15 +297,15 @@ namespace
 	    // bit 5: frame rate; 0 for 29.97 fps, 1 for 25 fps
 	    // bit 6: flag for multi-language audio
 	    // bit 7: ?
-	    (dest_frame.system == e_dv_system_625_50) << 5,
+	    (dv_frame_system_code(&dest_frame) == e_dv_system_625_50) << 5,
 	    // bits 0-2: quantisation; 0 for 16-bit LPCM
-	    // bits 3-5: sample frequency; 0 for 48 kHz
+	    // bits 3-5: sample rate code
 	    // bit 6: time constant of emphasis; must be 1
 	    // bit 7: flag for no emphasis
-	    (1 << 6) | (1 << 7)
+	    (sample_rate_code << 3) | (1 << 6) | (1 << 7)
 	};
-	static const uint8_t aaux_asc_header[DIF_AAUX_HEADER_SIZE] = {
-	    // block type; 0x51 for AAUX source control
+	static const uint8_t aaux_asc_pack[DIF_PACK_SIZE] = {
+	    // pack id; 0x51 for AAUX source control
 	    0x51,
 	    // bits 0-1: emphasis flag and ?
 	    // bits 2-3: compression level; 0 for once
@@ -325,7 +325,7 @@ namespace
 	    0x7F
 	};
 
-	for (unsigned seq_num = 0; seq_num != seq_count; ++seq_num)
+	for (unsigned seq_num = 0; seq_num != system->seq_count; ++seq_num)
 	{
 	    for (unsigned block_num = 0; block_num != 9; ++block_num)
 	    {
@@ -333,16 +333,16 @@ namespace
 		    DIF_SEQUENCE_SIZE * seq_num
 		    + DIF_BLOCK_SIZE * (6 + block_num * 16);
 		std::memcpy(dest_frame.buffer + block_pos
-			    + DIF_BLOCK_HEADER_SIZE,
-			    block_num == 3 ? aaux_as_header
-			    : block_num == 4 ? aaux_asc_header
-			    : aaux_blank_header,
-			    DIF_AAUX_HEADER_SIZE);
+			    + DIF_BLOCK_ID_SIZE,
+			    block_num == 3 ? aaux_as_pack
+			    : block_num == 4 ? aaux_asc_pack
+			    : aaux_blank_pack,
+			    DIF_PACK_SIZE);
 		std::memset(dest_frame.buffer + block_pos
-			    + DIF_BLOCK_HEADER_SIZE + DIF_AAUX_HEADER_SIZE,
+			    + DIF_BLOCK_ID_SIZE + DIF_PACK_SIZE,
 			    0,
-			    DIF_BLOCK_SIZE - DIF_BLOCK_HEADER_SIZE
-			    - DIF_AAUX_HEADER_SIZE);
+			    DIF_BLOCK_SIZE - DIF_BLOCK_ID_SIZE
+			    - DIF_PACK_SIZE);
 	    }
 	}
     }
@@ -350,7 +350,7 @@ namespace
 
 void mixer::run_clock()
 {
-    dv_system_t audio_source_system = e_dv_system_none;
+    const struct dv_system * audio_source_system = 0;
 
     {
 	boost::mutex::scoped_lock lock(source_mutex_);
@@ -404,14 +404,14 @@ void mixer::run_clock()
 	if (dv_frame * audio_source_frame =
 	    m.source_frames[m.settings.audio_source_id].get())
 	{
-	    if (audio_source_system != audio_source_frame->system)
+	    if (audio_source_system != dv_frame_system(audio_source_frame))
 	    {
-		audio_source_system = audio_source_frame->system;
+		audio_source_system = dv_frame_system(audio_source_frame);
 
 		// Use standard frame timing initially.
-		frame_interval = (audio_source_system == e_dv_system_625_50
-				  ? frame_interval_ns_625_50
-				  : frame_interval_ns_525_60);
+		frame_interval = (1000000000
+				  / audio_source_system->frame_rate_numer
+				  * audio_source_system->frame_rate_denom);
 		average_frame_interval = frame_interval;
 	    }
 	    else
@@ -489,8 +489,7 @@ namespace
 	raw_frame_ref result = {
 	    frame->buffer,
 	    FRAME_BYTES_PER_PIXEL * FRAME_WIDTH,
-	    (frame->system == e_dv_system_625_50)
-	    ? FRAME_HEIGHT_625_50 : FRAME_HEIGHT_525_60
+	    frame->system->frame_height
 	};
 	return result;
     }
@@ -499,7 +498,7 @@ namespace
 	dv_decoder_t * decoder, const mixer::dv_frame_ptr & dv_frame)
     {
 	mixer::raw_frame_ptr result = allocate_raw_frame();
-	result->system = dv_frame->system;
+	result->system = dv_frame_system(dv_frame.get());
 
 	uint8_t * pixels[1] = { result->buffer };
 	int pitches[1] = { FRAME_BYTES_PER_PIXEL * FRAME_WIDTH };	
@@ -562,7 +561,8 @@ void mixer::run_mixer()
 	    mixed_dv = allocate_frame();
 	    std::memcpy(mixed_dv.get(),
 			last_mixed_dv.get(),
-			offsetof(dv_frame, buffer) + last_mixed_dv->size);
+			offsetof(dv_frame, buffer)
+			+ dv_frame_system(last_mixed_dv.get())->size);
 	    mixed_dv->serial_num = serial_num;
 	}
 	else if (m->settings.video_effect
@@ -596,10 +596,9 @@ void mixer::run_mixer()
 	    // Encode mixed video
 	    mixed_dv = allocate_frame();
 	    mixed_dv->serial_num = serial_num;
-	    mixed_dv->system = video_pri_source_dv->system;
-	    mixed_dv->size = video_pri_source_dv->size;
 	    // I LOVE THIS API
-	    encoder->isPAL = mixed_dv->system == e_dv_system_625_50;
+	    encoder->isPAL =
+		dv_frame_system_code(mixed_dv.get()) == e_dv_system_625_50;
 	    encoder->is16x9 = pri_source_is16x9;
 	    time_t pri_source_time = mktime(&pri_source_timestamp);
 	    dv_encode_metadata(mixed_dv->buffer,
@@ -616,13 +615,16 @@ void mixer::run_mixer()
 	}
 
 	if (mixed_dv != audio_source_dv)
-	    if (audio_source_dv && audio_source_dv->system == mixed_dv->system)
+	    if (audio_source_dv
+		&& dv_frame_system(audio_source_dv.get())
+		== dv_frame_system(mixed_dv.get()))
 		dub_audio(*mixed_dv, *audio_source_dv);
 	    else
 		silence_audio(*mixed_dv);
 
 	dv_encode_timecode(mixed_dv->buffer,
-			   mixed_dv->system == e_dv_system_625_50,
+			   dv_frame_system_code(mixed_dv.get())
+			   == e_dv_system_625_50,
 			   mixed_dv->serial_num);
 	mixed_dv->do_record = m->settings.do_record;
 	mixed_dv->cut_before = m->settings.cut_before;

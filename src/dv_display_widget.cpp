@@ -105,28 +105,23 @@ void dv_display_widget::put_frame(const mixer::dv_frame_ptr & dv_frame)
 			     e_dv_color_yuv, &buffer.first, &buffer.second);
 	decoded_serial_num_ = dv_frame->serial_num;
 
+	const struct dv_system * system = dv_frame_system(dv_frame.get());
 	rectangle source_rect;
+
+	source_rect.left = (system->frame_width - system->frame_width_used) / 2;
 	source_rect.top = 0;
-	source_rect.height = decoder_->height;
-	assert(decoder_->width == FRAME_WIDTH);
-	if (dv_is_PAL(decoder_))
+	source_rect.width = system->frame_width_used;
+	source_rect.height = system->frame_height;
+
+	if (dv_format_wide(decoder_))
 	{
-	    source_rect.left = 9;
-	    source_rect.width = 702;
-	    source_rect.pixel_width = 59;
-	    source_rect.pixel_height = 54;
+	    source_rect.pixel_width = system->pixel_aspect_wide.width;
+	    source_rect.pixel_height = system->pixel_aspect_wide.height;
 	}
 	else
 	{
-	    source_rect.left = 4;
-	    source_rect.width = 712;
-	    source_rect.pixel_width = 10;
-	    source_rect.pixel_height = 11;
-	}
-	if (dv_format_wide(decoder_))
-	{
-	    source_rect.pixel_width *= 4;
-	    source_rect.pixel_height *= 3;
+	    source_rect.pixel_width = system->pixel_aspect_normal.width;
+	    source_rect.pixel_height = system->pixel_aspect_normal.height;
 	}
 
 	put_frame_buffer(source_rect);

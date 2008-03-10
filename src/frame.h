@@ -20,14 +20,22 @@ struct dv_frame
     unsigned serial_num;          // set by mixer
     bool do_record;               // set by mixer
     bool cut_before;              // set by mixer
-    dv_system_t system;           // set by source
-    size_t size;                  // set by source
     uint8_t buffer[DIF_MAX_FRAME_SIZE];
 };
 
+static inline
+const struct dv_system * dv_frame_system(const struct dv_frame * frame)
+{
+    return dv_buffer_system(frame->buffer);
+}
+
+static inline
+dv_system_t dv_frame_system_code(const struct dv_frame * frame)
+{
+    return (frame->buffer[3] & 0x80) ? e_dv_system_625_50 : e_dv_system_525_60;
+}
+
 #define FRAME_WIDTH           720
-#define FRAME_HEIGHT_625_50   576
-#define FRAME_HEIGHT_525_60   480
 #define FRAME_HEIGHT_MAX      576
 
 #define FRAME_PIXEL_FORMAT    0x32595559 // 'YUY2'
@@ -35,7 +43,7 @@ struct dv_frame
 
 struct raw_frame
 {
-    dv_system_t system;
+    const struct dv_system * system;
     uint8_t buffer[FRAME_BYTES_PER_PIXEL * FRAME_WIDTH * FRAME_HEIGHT_MAX];
 };
 
