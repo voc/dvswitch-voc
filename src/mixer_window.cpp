@@ -43,7 +43,7 @@ mixer_window::mixer_window(mixer & mixer)
 	sigc::mem_fun(*this, &mixer_window::toggle_record));
     record_button_.show();
 
-    cut_button_.signal_pressed().connect(sigc::mem_fun(mixer_, &mixer::cut));
+    cut_button_.signal_clicked().connect(sigc::mem_fun(mixer_, &mixer::cut));
     cut_button_.show();
 
     display_.show();
