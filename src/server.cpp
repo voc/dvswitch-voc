@@ -105,7 +105,7 @@ private:
     virtual connection * handle_complete_receive();
     virtual std::ostream & print_identity(std::ostream &);
 
-    mixer::dv_frame_ptr frame_;
+    dv_frame_ptr frame_;
     bool first_sequence_;
 
     mixer::source_id source_id_;
@@ -122,7 +122,7 @@ public:
 private:
     struct queue_elem
     {
-	mixer::dv_frame_ptr frame;
+	dv_frame_ptr frame;
 	bool overflow_before;
     };
 
@@ -131,7 +131,7 @@ private:
     virtual connection * handle_complete_receive();
     virtual std::ostream & print_identity(std::ostream &);
 
-    virtual void put_frame(const mixer::dv_frame_ptr & frame);
+    virtual void put_frame(const dv_frame_ptr & frame);
 
     receive_buffer handle_unexpected_input();
 
@@ -410,7 +410,7 @@ std::ostream & server::unknown_connection::print_identity(std::ostream & os)
 
 server::source_connection::source_connection(server & server, auto_fd socket)
     : connection(server, socket),
-      frame_(server_.mixer_.allocate_frame()),
+      frame_(allocate_dv_frame()),
       first_sequence_(true)
 {
     source_id_ = server_.mixer_.add_source();
@@ -438,7 +438,7 @@ server::connection * server::source_connection::handle_complete_receive()
     {
  	server_.mixer_.put_frame(source_id_, frame_);
  	frame_.reset();
- 	frame_ = server_.mixer_.allocate_frame();
+ 	frame_ = allocate_dv_frame();
     }
 
     first_sequence_ = !first_sequence_;
@@ -595,7 +595,7 @@ std::ostream & server::sink_connection::print_identity(std::ostream & os)
     return os << "sink " << 1 + sink_id_;
 }
 
-void server::sink_connection::put_frame(const mixer::dv_frame_ptr & frame)
+void server::sink_connection::put_frame(const dv_frame_ptr & frame)
 {
     bool was_empty = false;
     {

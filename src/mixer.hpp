@@ -13,6 +13,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 
+#include "frame_pool.hpp"
 #include "ring_buffer.hpp"
 
 namespace boost
@@ -20,18 +21,12 @@ namespace boost
     class thread;
 }
 
-class dv_frame;
-class raw_frame;
-
 class mixer
 {
 public:
     // Identifiers to distinguish mixer's sources and sinks
     typedef unsigned source_id, sink_id;
     static const unsigned invalid_id = -1;
-    // Reference-counting pointers to frames
-    typedef std::tr1::shared_ptr<dv_frame> dv_frame_ptr;
-    typedef std::tr1::shared_ptr<raw_frame> raw_frame_ptr;
 
     // Settings for mixing/switching
     struct video_effect_settings;
@@ -97,9 +92,6 @@ public:
     // Register and unregister sources
     source_id add_source();
     void remove_source(source_id);
-    // Allocate a frame buffer.  This uses a memory pool and should be
-    // fast.
-    static dv_frame_ptr allocate_frame();
     // Add a new frame from the given source.  This should be called at
     // appropriate intervals to avoid the need to drop or duplicate
     // frames.

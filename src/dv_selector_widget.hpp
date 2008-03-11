@@ -12,6 +12,7 @@
 #include <gtkmm/table.h>
 
 #include "dv_display_widget.hpp"
+#include "mixer.hpp"
 
 class dv_selector_widget : public Gtk::Table
 {
@@ -22,7 +23,7 @@ public:
 
     void set_source_count(unsigned);
     void put_frame(mixer::source_id source_id,
-		   const mixer::dv_frame_ptr & source_frame);
+		   const dv_frame_ptr & source_frame);
 
     sigc::signal1<void, mixer::source_id> & signal_video_selected();
     sigc::signal1<void, mixer::source_id> & signal_audio_selected();

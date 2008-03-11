@@ -176,7 +176,7 @@ void dv_selector_widget::set_source_count(unsigned count)
 }
 
 void dv_selector_widget::put_frame(mixer::source_id source_id,
-				   const mixer::dv_frame_ptr & source_frame)
+				   const dv_frame_ptr & source_frame)
 {
     if (source_id < thumbnails_.size())
 	thumbnails_[source_id]->put_frame(source_frame);

@@ -13,7 +13,7 @@ CPPFLAGS := -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_POSIX_C_SOURCE \
 csources := dvsink-files.c dvsource-file.c dvsource-firewire.c config.c \
 	dif.c socket.c frame_timer.c
 cxxsources := dvswitch.cpp mixer.cpp mixer_window.cpp dv_display_widget.cpp \
-	dv_selector_widget.cpp server.cpp
+	dv_selector_widget.cpp server.cpp frame_pool.cpp
 common_objects := .objs/config.o .objs/dif.o .objs/socket.o
 
 all : .objs/dvsink-command .objs/dvsink-files .objs/dvsource-file \
@@ -54,7 +54,8 @@ clean :
 .objs/dvswitch : .objs/dvswitch.o .objs/mixer.o .objs/frame_timer.o \
 	.objs/mixer_window.o .objs/dv_display_widget.o \
         .objs/dv_selector_widget.o .objs/server.o $(common_objects) \
-	.objs/auto_pipe.o .objs/os_error.o .objs/video_effect.o
+	.objs/auto_pipe.o .objs/os_error.o .objs/video_effect.o \
+	.objs/frame_pool.o
 
 .PHONY : all install clean
 

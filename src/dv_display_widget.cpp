@@ -1,6 +1,7 @@
 // Copyright 2007 Ben Hutchings.
 // See the file "COPYING" for licence details.
 
+#include <cassert>
 #include <iostream>
 #include <memory>
 #include <ostream>
@@ -89,7 +90,7 @@ dv_display_widget::~dv_display_widget()
     dv_decoder_free(decoder_);
 }
 
-void dv_display_widget::put_frame(const mixer::dv_frame_ptr & dv_frame)
+void dv_display_widget::put_frame(const dv_frame_ptr & dv_frame)
 {
     if (!is_realized())
 	return;

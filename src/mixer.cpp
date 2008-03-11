@@ -8,7 +8,6 @@
 #include <stdexcept>
 
 #include <boost/bind.hpp>
-#include <boost/pool/object_pool.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <libdv/dv.h>
@@ -45,44 +44,6 @@ mixer::~mixer()
 
     clock_thread_.join();
     mixer_thread_.join();
-}
-
-// Memory pool for frame buffers.  This should make frame
-// (de)allocation relatively cheap.
-
-namespace
-{
-    boost::mutex dv_frame_pool_mutex; // controls access to the following
-    boost::object_pool<dv_frame> dv_frame_pool(100);
-
-    void free_dv_frame(dv_frame * frame)
-    {
-	boost::mutex::scoped_lock lock(dv_frame_pool_mutex);
-	if (frame)
-	    dv_frame_pool.free(frame);
-    }
-
-    boost::mutex raw_frame_pool_mutex; // controls access to the following
-    boost::object_pool<raw_frame> raw_frame_pool(10);
-
-    void free_raw_frame(raw_frame * frame)
-    {
-	boost::mutex::scoped_lock lock(raw_frame_pool_mutex);
-	if (frame)
-	    raw_frame_pool.free(frame);
-    }
-
-    mixer::raw_frame_ptr allocate_raw_frame()
-    {
-	boost::mutex::scoped_lock lock(raw_frame_pool_mutex);
-	return mixer::raw_frame_ptr(raw_frame_pool.malloc(), free_raw_frame);
-    }
-}
-
-mixer::dv_frame_ptr mixer::allocate_frame()
-{
-    boost::mutex::scoped_lock lock(dv_frame_pool_mutex);
-    return dv_frame_ptr(dv_frame_pool.malloc(), free_dv_frame);
 }
 
 mixer::source_id mixer::add_source()
@@ -484,7 +445,7 @@ void mixer::run_clock()
 
 namespace
 {
-    raw_frame_ref make_raw_frame_ref(const mixer::raw_frame_ptr & frame)
+    raw_frame_ref make_raw_frame_ref(const raw_frame_ptr & frame)
     {
 	raw_frame_ref result = {
 	    frame->buffer,
@@ -494,10 +455,10 @@ namespace
 	return result;
     }
 
-    mixer::raw_frame_ptr decode_video_frame(
-	dv_decoder_t * decoder, const mixer::dv_frame_ptr & dv_frame)
+    raw_frame_ptr decode_video_frame(
+	dv_decoder_t * decoder, const dv_frame_ptr & dv_frame)
     {
-	mixer::raw_frame_ptr result = allocate_raw_frame();
+	raw_frame_ptr result = allocate_raw_frame();
 	result->system = dv_frame_system(dv_frame.get());
 
 	uint8_t * pixels[1] = { result->buffer };
@@ -558,7 +519,7 @@ void mixer::run_mixer()
 	    // Make a copy of the last mixed frame so we can
 	    // replace the audio.  (We can't modify the last frame
 	    // because sinks may still be reading from it.)
-	    mixed_dv = allocate_frame();
+	    mixed_dv = allocate_dv_frame();
 	    std::memcpy(mixed_dv.get(),
 			last_mixed_dv.get(),
 			offsetof(dv_frame, buffer)
@@ -594,7 +555,7 @@ void mixer::run_mixer()
 		m->settings.video_effect->bottom);
 
 	    // Encode mixed video
-	    mixed_dv = allocate_frame();
+	    mixed_dv = allocate_dv_frame();
 	    mixed_dv->serial_num = serial_num;
 	    // I LOVE THIS API
 	    encoder->isPAL =

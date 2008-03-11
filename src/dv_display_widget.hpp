@@ -10,7 +10,7 @@
 
 #include <libdv/dv.h>
 
-#include "mixer.hpp"
+#include "frame_pool.hpp"
 
 class dv_display_widget : public Gtk::DrawingArea
 {
@@ -18,7 +18,7 @@ public:
     explicit dv_display_widget(int quality);
     ~dv_display_widget();
 
-    void put_frame(const mixer::dv_frame_ptr &);
+    void put_frame(const dv_frame_ptr &);
 
 protected:
     typedef std::pair<uint8_t *, int> pixels_pitch;

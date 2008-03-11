@@ -91,9 +91,9 @@ void mixer_window::toggle_record() throw()
 }
 
 void mixer_window::put_frames(unsigned source_count,
-			      const mixer::dv_frame_ptr * source_frames,
+			      const dv_frame_ptr * source_frames,
 			      mixer::mix_settings mix_settings,
-			      const mixer::dv_frame_ptr & mixed_frame)
+			      const dv_frame_ptr & mixed_frame)
 {
     {
 	boost::mutex::scoped_lock lock(frame_mutex_);
@@ -116,8 +116,8 @@ bool mixer_window::update(Glib::IOCondition) throw()
 
     try
     {
-	mixer::dv_frame_ptr mixed_frame;
-	std::vector<mixer::dv_frame_ptr> source_frames;
+	dv_frame_ptr mixed_frame;
+	std::vector<dv_frame_ptr> source_frames;
 	{
 	    boost::mutex::scoped_lock lock(frame_mutex_);
 	    mixed_frame = mixed_frame_;
