@@ -13,7 +13,7 @@
 #include <gtkmm/main.h>
 #include <sigc++/functors/slot.h>
 
-#include <libdv/dv.h>
+#include <avcodec.h>
 
 #include "config.h"
 #include "mixer.hpp"
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
 	    return 2;
 	}
 
-	dv_init(true, true);
+	avcodec_init();
 
 	// The mixer must be created before the window, since we pass
 	// a reference to the mixer into the window's constructor to

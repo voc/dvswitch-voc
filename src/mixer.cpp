@@ -10,11 +10,11 @@
 #include <boost/bind.hpp>
 #include <boost/thread/thread.hpp>
 
-#include <libdv/dv.h>
-
+#include "auto_codec.hpp"
 #include "frame.h"
 #include "frame_timer.h"
 #include "mixer.hpp"
+#include "os_error.hpp"
 #include "ring_buffer.hpp"
 #include "video_effect.h"
 
@@ -258,7 +258,7 @@ namespace
 	    // bit 5: frame rate; 0 for 29.97 fps, 1 for 25 fps
 	    // bit 6: flag for multi-language audio
 	    // bit 7: ?
-	    (dv_frame_system_code(&dest_frame) == e_dv_system_625_50) << 5,
+	    dv_frame_system_code(&dest_frame) << 5,
 	    // bits 0-2: quantisation; 0 for 16-bit LPCM
 	    // bits 3-5: sample rate code
 	    // bit 6: time constant of emphasis; must be 1
@@ -447,26 +447,195 @@ namespace
 {
     raw_frame_ref make_raw_frame_ref(const raw_frame_ptr & frame)
     {
-	raw_frame_ref result = {
-	    frame->buffer,
-	    FRAME_BYTES_PER_PIXEL * FRAME_WIDTH,
-	    frame->system->frame_height
-	};
+	struct raw_frame_ref result;
+	for (int i = 0; i != 4; ++i)
+	{
+	    result.planes.data[i] = frame->header.data[i];
+	    result.planes.linesize[i] = frame->header.linesize[i];
+	}
+	result.pix_fmt = frame->pix_fmt;
+	result.height = raw_frame_system(frame.get())->frame_height;
 	return result;
     }
 
     raw_frame_ptr decode_video_frame(
-	dv_decoder_t * decoder, const dv_frame_ptr & dv_frame)
+ 	const auto_codec & decoder, const dv_frame_ptr & dv_frame)
     {
+	const struct dv_system * system = dv_frame_system(dv_frame.get());
 	raw_frame_ptr result = allocate_raw_frame();
-	result->system = dv_frame_system(dv_frame.get());
-
-	uint8_t * pixels[1] = { result->buffer };
-	int pitches[1] = { FRAME_BYTES_PER_PIXEL * FRAME_WIDTH };	
-	dv_decode_full_frame(decoder,
-			     dv_frame->buffer,
-			     e_dv_color_yuv, pixels, pitches);
+	int got_frame;
+	decoder.get()->opaque = result.get();
+	int used_size = avcodec_decode_video(decoder.get(),
+					     &result->header, &got_frame,
+					     dv_frame->buffer, system->size);
+	assert(got_frame && size_t(used_size) == system->size);
+	result->header.opaque =
+	    const_cast<void *>(static_cast<const void *>(system));
 	return result;
+    }
+
+    inline unsigned bcd(unsigned v)
+    {
+	assert(v < 100);
+	return ((v / 10) << 4) + v % 10;
+    }
+  
+    void set_times(dv_frame & dv_frame)
+    {
+	// XXX We should work this out in the clock loop.
+	time_t now;
+	time(&now);
+	tm now_tm;
+	localtime_r(&now, &now_tm);
+
+	// Generate nominal frame count and frame rate.
+	unsigned frame_num = dv_frame.serial_num;
+	unsigned frame_rate;
+	if (dv_frame.buffer[3] & 0x80)
+	{
+	    frame_rate = 25;
+	}
+	else
+	{
+	    // Skip the first 2 frame numbers of each minute, except in
+	    // minutes divisible by 10.  This results in a "drop frame
+	    // timecode" with a nominal frame rate of 30 Hz.
+	    frame_num = frame_num + 2 * frame_num / (60 * 30 - 2)
+		- 2 * (frame_num + 2) / (10 * 60 * 30 - 18);
+	    frame_rate = 30;
+	}
+     
+	// Timecode format is based on SMPTE LTC
+	// <http://en.wikipedia.org/wiki/Linear_timecode>:
+	// 0: pack id = 0x13
+	// 1: LTC bits 0-3, 8-11
+	//    bits 0-5: frame part (BCD)
+	//    bit 6: drop frame timecode flag
+	// 2: LTC bits 16-19, 24-27
+	//    bits 0-6: second part (BCD)
+	// 3: LTC bits 32-35, 40-43
+	//    bits 0-6: minute part (BCD)
+	// 4: LTC bits 48-51, 56-59
+	//    bits 0-5: hour part (BCD)
+	// the remaining bits are meaningless in DV and we use zeroes
+	uint8_t timecode[DIF_PACK_SIZE] = {
+	    0x13,
+	    bcd(frame_num % frame_rate) | (1 << 6),
+	    bcd(frame_num / frame_rate % 60),
+	    bcd(frame_num / (60 * frame_rate) % 60),
+	    bcd(frame_num / (60 * 60 * frame_rate) % 24)
+	};
+
+	// Record date format:
+	// 0: pack id = 0x62 (video) or 0x52 (audio)
+	// 1: some kind of time zone indicator or 0xff for unknown
+	// 2: bits 6-7: unused? reserved?
+	//    bits 0-5: day part (BCD)
+	// 3: bits 5-7: unused? reserved? day of week?
+	//    bits 0-4: month part (BCD)
+	// 4: year part (BCD)
+	uint8_t video_record_date[DIF_PACK_SIZE] = {
+	    0x62,
+	    0xff,
+	    bcd(now_tm.tm_mday),
+	    bcd(1 + now_tm.tm_mon),
+	    bcd(now_tm.tm_year % 100)
+	};
+	uint8_t audio_record_date[DIF_PACK_SIZE] = {
+	    0x52,
+	    0xff,
+	    bcd(now_tm.tm_mday),
+	    bcd(1 + now_tm.tm_mon),
+	    bcd(now_tm.tm_year % 100)
+	};	
+
+	// Record time format (similar to timecode format):
+	// 0: pack id = 0x63 (video) or 0x53 (audio)
+	// 1: bits 6-7: reserved, set to 1
+	//    bits 0-5: frame part (BCD) or 0x3f for unknown
+	// 2: bit 7: unused? reserved?
+	//    bits 0-6: second part (BCD)
+	// 3: bit 7: unused? reserved?
+	//    bits 0-6: minute part (BCD)
+	// 4: bits 6-7: unused? reserved?
+	//    bits 0-5: hour part (BCD)
+	uint8_t video_record_time[DIF_PACK_SIZE] = {
+	    0x63,
+	    0xff,
+	    bcd(now_tm.tm_sec),
+	    bcd(now_tm.tm_min),
+	    bcd(now_tm.tm_hour)
+	};
+	uint8_t audio_record_time[DIF_PACK_SIZE] = {
+	    0x53,
+	    0xff,
+	    bcd(now_tm.tm_sec),
+	    bcd(now_tm.tm_min),
+	    bcd(now_tm.tm_hour)
+	};
+
+        // In DIFs 1 and 2 (subcode) of sequence 6 onward:
+	// - Write timecode at offset 6 and 30
+	// - Write video record date at offset 14 and 38
+	// - Write video record time at offset 22 and 46
+	// In DIFs 3, 4 and 5 (VAUX) of even sequences:
+	// - Write video record date at offset 13 and 58
+	// - Write video record time at offset 18 and 63
+	// In DIF 86 of even sequences and DIF 38 of odd sequences (AAUX):
+	// - Write audio record date at offset 3
+	// In DIF 102 of even sequences and DIF 54 of odd sequences (AAUX):
+	// - Write audio record time at offset 3
+
+	for (unsigned seq_num = 0;
+	     seq_num != dv_frame_system(&dv_frame)->seq_count;
+	     ++seq_num)
+	{
+	    if (seq_num >= 6)
+	    {
+		for (unsigned block_num = 1; block_num <= 3; ++block_num)
+		{
+		    for (unsigned i = 0; i <= 1; ++i)
+		    {
+			memcpy(dv_frame.buffer + seq_num * DIF_SEQUENCE_SIZE
+			       + block_num * DIF_BLOCK_SIZE + i * 24 + 6,
+			       timecode,
+			       DIF_PACK_SIZE);
+			memcpy(dv_frame.buffer + seq_num * DIF_SEQUENCE_SIZE
+			       + block_num * DIF_BLOCK_SIZE + i * 24 + 14,
+			       video_record_date,
+			       DIF_PACK_SIZE);
+			memcpy(dv_frame.buffer + seq_num * DIF_SEQUENCE_SIZE
+			       + block_num * DIF_BLOCK_SIZE + i * 24 + 22,
+			       video_record_time,
+			       DIF_PACK_SIZE);
+		    }
+		}
+	    }
+
+	    for (unsigned block_num = 3; block_num <= 5; ++block_num)
+	    {
+		for (unsigned i = 0; i <= 1; ++i)
+		{
+		    memcpy(dv_frame.buffer + seq_num * DIF_SEQUENCE_SIZE
+			   + block_num * DIF_BLOCK_SIZE + i * 45 + 13,
+			   video_record_date,
+			   DIF_PACK_SIZE);
+		    memcpy(dv_frame.buffer + seq_num * DIF_SEQUENCE_SIZE
+			   + block_num * DIF_BLOCK_SIZE + i * 45 + 18,
+			   video_record_time,
+			   DIF_PACK_SIZE);
+		}
+	    }
+
+	    memcpy(dv_frame.buffer + seq_num * DIF_SEQUENCE_SIZE
+		   + ((seq_num & 1) ? 38 : 86) * DIF_BLOCK_SIZE + 3,
+		   audio_record_date,
+		   DIF_PACK_SIZE);
+	    memcpy(dv_frame.buffer + seq_num * DIF_SEQUENCE_SIZE
+		   + ((seq_num & 1) ? 54 : 102) * DIF_BLOCK_SIZE + 3,
+		   audio_record_time,
+		   DIF_PACK_SIZE);
+	}
     }
 }
 
@@ -475,9 +644,13 @@ void mixer::run_mixer()
     dv_frame_ptr last_mixed_dv;
     unsigned serial_num = 0;
     const mix_data * m = 0;
-    dv_decoder_t * decoder = dv_decoder_new(0, true, true);
-    dv_set_quality(decoder, DV_QUALITY_BEST);
-    dv_encoder_t * encoder = dv_encoder_new(false, false, false);
+
+    auto_codec decoder(auto_codec_open(&dvvideo_decoder));
+    AVCodecContext * dec = decoder.get();
+    dec->get_buffer = raw_frame_get_buffer;
+    dec->release_buffer = raw_frame_release_buffer;
+    dec->reget_buffer = raw_frame_reget_buffer;
+    auto_codec encoder(auto_codec_open(&dvvideo_encoder));
 
     for (;;)
     {
@@ -532,16 +705,8 @@ void mixer::run_mixer()
 	    const dv_frame_ptr video_sec_source_dv =
 		m->source_frames[m->settings.video_effect->sec_source_id];
 
-	    // Decode primary (with metadata)
-	    dv_parse_header(decoder, video_pri_source_dv->buffer);
-	    tm pri_source_timestamp;
-	    dv_get_recording_datetime_tm(decoder,
-					 &pri_source_timestamp);
-	    bool pri_source_is16x9 = dv_format_wide(decoder);
+	    // Decode sources
 	    mixed_raw = decode_video_frame(decoder, video_pri_source_dv);
-
-	    // Decode secondary
-	    dv_parse_header(decoder, video_pri_source_dv->buffer);
 	    video_sec_source_raw =
 		decode_video_frame(decoder, video_sec_source_dv);
 
@@ -555,20 +720,31 @@ void mixer::run_mixer()
 		m->settings.video_effect->bottom);
 
 	    // Encode mixed video
-	    mixed_dv = allocate_dv_frame();
+	    const dv_system * system = raw_frame_system(mixed_raw.get());
+	    AVCodecContext * enc = encoder.get();
+	    if (dv_frame_aspect(video_pri_source_dv.get())
+		== dv_frame_aspect_wide)
+	    {
+		enc->sample_aspect_ratio.num = system->pixel_aspect_wide.width;
+		enc->sample_aspect_ratio.den = system->pixel_aspect_wide.height;
+	    }
+	    else
+	    {
+		enc->sample_aspect_ratio.num = system->pixel_aspect_normal.width;
+		enc->sample_aspect_ratio.den = system->pixel_aspect_normal.height;
+	    }
+	    enc->time_base.num = system->frame_rate_denom;
+	    enc->time_base.den = system->frame_rate_numer;
+	    enc->width = system->frame_width;
+	    enc->height = system->frame_height;
+	    enc->pix_fmt = mixed_raw->pix_fmt;
+	    mixed_raw->header.pts = serial_num;
+  	    mixed_dv = allocate_dv_frame();
+	    os_check_error("avcodec_encode_video",
+			   avcodec_encode_video(enc,
+						mixed_dv->buffer, system->size, 
+						&mixed_raw->header));
 	    mixed_dv->serial_num = serial_num;
-	    // I LOVE THIS API
-	    encoder->isPAL =
-		dv_frame_system_code(mixed_dv.get()) == e_dv_system_625_50;
-	    encoder->is16x9 = pri_source_is16x9;
-	    time_t pri_source_time = mktime(&pri_source_timestamp);
-	    dv_encode_metadata(mixed_dv->buffer,
-			       encoder->isPAL, encoder->is16x9,
-			       &pri_source_time, serial_num);
-	    uint8_t * mixed_raw_pixels[1] = { mixed_raw->buffer };
-	    dv_encode_full_frame(encoder,
-				 mixed_raw_pixels, e_dv_color_yuv,
-				 mixed_dv->buffer);
 	}
 	else
 	{
@@ -583,10 +759,8 @@ void mixer::run_mixer()
 	    else
 		silence_audio(*mixed_dv);
 
-	dv_encode_timecode(mixed_dv->buffer,
-			   dv_frame_system_code(mixed_dv.get())
-			   == e_dv_system_625_50,
-			   mixed_dv->serial_num);
+	set_times(*mixed_dv);
+
 	mixed_dv->do_record = m->settings.do_record;
 	mixed_dv->cut_before = m->settings.cut_before;
 
@@ -604,7 +778,4 @@ void mixer::run_mixer()
 	    monitor_->put_frames(m->source_frames.size(), &m->source_frames[0],
 				 m->settings, mixed_dv);
     }
-
-    dv_encoder_free(encoder);
-    dv_decoder_free(decoder);
 }

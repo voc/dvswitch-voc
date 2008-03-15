@@ -13,6 +13,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 
+#include "auto_handle.hpp"
 #include "frame_pool.hpp"
 #include "ring_buffer.hpp"
 

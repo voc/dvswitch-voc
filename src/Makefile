@@ -11,9 +11,9 @@ CPPFLAGS := -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_POSIX_C_SOURCE \
 	-DSHAREDIR="\"$(sharedir)\""
 
 csources := dvsink-files.c dvsource-file.c dvsource-firewire.c config.c \
-	dif.c socket.c frame_timer.c
+	dif.c socket.c frame_timer.c frame.c
 cxxsources := dvswitch.cpp mixer.cpp mixer_window.cpp dv_display_widget.cpp \
-	dv_selector_widget.cpp server.cpp frame_pool.cpp
+	dv_selector_widget.cpp server.cpp frame_pool.cpp auto_codec.cpp
 common_objects := .objs/config.o .objs/dif.o .objs/socket.o
 
 all : .objs/dvsink-command .objs/dvsink-files .objs/dvsource-file \
@@ -28,8 +28,9 @@ install :
 clean :
 	rm -rf .objs
 
-.objs/% : CFLAGS += $(shell pkg-config --cflags libdv)
-.objs/dvswitch : LDFLAGS += $(shell pkg-config --libs libdv)
+.objs/% : CFLAGS += $(shell pkg-config --cflags libavcodec)
+.objs/% : CXXFLAGS += $(shell pkg-config --cflags libavcodec)
+.objs/dvswitch : LDFLAGS += $(shell pkg-config --libs libavcodec)
 
 .objs/dvsource-file .objs/dvswitch : LDFLAGS += -lpthread -lrt
 
@@ -55,7 +56,7 @@ clean :
 	.objs/mixer_window.o .objs/dv_display_widget.o \
         .objs/dv_selector_widget.o .objs/server.o $(common_objects) \
 	.objs/auto_pipe.o .objs/os_error.o .objs/video_effect.o \
-	.objs/frame_pool.o
+	.objs/frame_pool.o .objs/frame.o .objs/auto_codec.o
 
 .PHONY : all install clean
 

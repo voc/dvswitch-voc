@@ -4,6 +4,8 @@
 #include <boost/pool/object_pool.hpp>
 #include <boost/thread/mutex.hpp>
 
+#include <avcodec.h>
+
 #include "frame.h"
 #include "frame_pool.hpp"
 
@@ -14,11 +16,9 @@ namespace
 
     void free_dv_frame(dv_frame * frame)
     {
+	boost::mutex::scoped_lock lock(dv_frame_pool_mutex);
 	if (frame)
-	{
-	    boost::mutex::scoped_lock lock(dv_frame_pool_mutex);
 	    dv_frame_pool.free(frame);
-	}
     }
 
     boost::mutex raw_frame_pool_mutex; // controls access to the following
@@ -26,11 +26,9 @@ namespace
 
     void free_raw_frame(raw_frame * frame)
     {
+	boost::mutex::scoped_lock lock(raw_frame_pool_mutex);
 	if (frame)
-	{
-	    boost::mutex::scoped_lock lock(raw_frame_pool_mutex);
 	    raw_frame_pool.free(frame);
-	}
     }
 }
 
