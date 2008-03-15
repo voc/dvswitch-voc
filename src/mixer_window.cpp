@@ -91,15 +91,17 @@ void mixer_window::toggle_record() throw()
 }
 
 void mixer_window::put_frames(unsigned source_count,
-			      const dv_frame_ptr * source_frames,
+			      const dv_frame_ptr * source_dv,
 			      mixer::mix_settings mix_settings,
-			      const dv_frame_ptr & mixed_frame)
+			      const dv_frame_ptr & mixed_dv,
+			      const raw_frame_ptr & mixed_raw)
 {
     {
 	boost::mutex::scoped_lock lock(frame_mutex_);
-	source_frames_.assign(source_frames, source_frames + source_count);
+	source_dv_.assign(source_dv, source_dv + source_count);
 	mix_settings_ = mix_settings;
-	mixed_frame_ = mixed_frame;
+	mixed_dv_ = mixed_dv;
+	mixed_raw_ = mixed_raw;
     }
 
     // Poke the event loop.
@@ -116,20 +118,26 @@ bool mixer_window::update(Glib::IOCondition) throw()
 
     try
     {
-	dv_frame_ptr mixed_frame;
-	std::vector<dv_frame_ptr> source_frames;
+	dv_frame_ptr mixed_dv;
+	std::vector<dv_frame_ptr> source_dv;
+	raw_frame_ptr mixed_raw;
+
 	{
 	    boost::mutex::scoped_lock lock(frame_mutex_);
-	    mixed_frame = mixed_frame_;
-	    mixed_frame_.reset();
-	    source_frames = source_frames_;
-	    source_frames_.clear();
+	    mixed_dv = mixed_dv_;
+	    mixed_dv_.reset();
+	    source_dv = source_dv_;
+	    source_dv_.clear();
+	    mixed_raw = mixed_raw_;
+	    mixed_raw_.reset();
 	}
 
-	if (mixed_frame)
-	    display_.put_frame(mixed_frame);
+	if (mixed_raw)
+	    display_.put_frame(mixed_raw);
+	else if (mixed_dv)
+	    display_.put_frame(mixed_dv);
 
-	selector_.set_source_count(source_frames.size());
+	selector_.set_source_count(source_dv.size());
 
 	// Update the thumbnail displays of sources.  If a new mixed frame
 	// arrives while we were doing this, return to the event loop.
@@ -138,18 +146,18 @@ bool mixer_window::update(Glib::IOCondition) throw()
 	// even if we don't have time to run them all at full frame rate
 	// they all get updated at roughly the same rate.
 
-	for (std::size_t i = 0; i != source_frames.size(); ++i)
+	for (std::size_t i = 0; i != source_dv.size(); ++i)
 	{
-	    if (next_source_id_ >= source_frames.size())
+	    if (next_source_id_ >= source_dv.size())
 		next_source_id_ = 0;
 	    mixer::source_id id = next_source_id_++;
 
-	    if (source_frames[id])
+	    if (source_dv[id])
 	    {
-		selector_.put_frame(id, source_frames[id]);
+		selector_.put_frame(id, source_dv[id]);
 
 		boost::mutex::scoped_lock lock(frame_mutex_);
-		if (mixed_frame_)
+		if (mixed_dv_)
 		    break;
 	    }
 	}

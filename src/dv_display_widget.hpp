@@ -9,6 +9,7 @@
 #include <gtkmm/drawingarea.h>
 
 #include "auto_codec.hpp"
+#include "frame.h"
 #include "frame_pool.hpp"
 
 class dv_display_widget : public Gtk::DrawingArea
@@ -18,6 +19,7 @@ public:
     ~dv_display_widget();
 
     void put_frame(const dv_frame_ptr &);
+    void put_frame(const raw_frame_ptr &);
 
 protected:
     struct rectangle
@@ -30,6 +32,8 @@ protected:
     auto_codec decoder_;
 
 private:
+    rectangle get_source_rect(const dv_system * system,
+			      enum dv_frame_aspect frame_aspect);
     virtual AVFrame * get_frame_buffer() = 0;
     virtual void put_frame_buffer(const rectangle &) = 0;
 

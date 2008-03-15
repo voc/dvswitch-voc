@@ -97,6 +97,8 @@ struct raw_frame_ref
     unsigned height;
 };
 
+void copy_raw_frame(struct raw_frame_ref dest, struct raw_frame_ref source);
+
 #ifdef __cplusplus
 }
 #endif

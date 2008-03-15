@@ -777,6 +777,6 @@ void mixer::run_mixer()
 	}
 	if (monitor_)
 	    monitor_->put_frames(m->source_frames.size(), &m->source_frames[0],
-				 m->settings, mixed_dv);
+				 m->settings, mixed_dv, mixed_raw);
     }
 }

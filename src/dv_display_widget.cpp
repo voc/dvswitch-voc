@@ -94,6 +94,31 @@ dv_display_widget::~dv_display_widget()
 {
 }
 
+dv_display_widget::rectangle
+dv_display_widget::get_source_rect(const dv_system * system,
+				   enum dv_frame_aspect frame_aspect)
+{
+    rectangle result;
+
+    result.left = (system->frame_width - system->frame_width_used) / 2;
+    result.top = 0;
+    result.width = system->frame_width_used;
+    result.height = system->frame_height;
+
+    if (frame_aspect == dv_frame_aspect_wide)
+    {
+	result.pixel_width = system->pixel_aspect_wide.width;
+	result.pixel_height = system->pixel_aspect_wide.height;
+    }
+    else
+    {
+	result.pixel_width = system->pixel_aspect_normal.width;
+	result.pixel_height = system->pixel_aspect_normal.height;
+    }
+
+    return result;
+}
+
 void dv_display_widget::put_frame(const dv_frame_ptr & dv_frame)
 {
     if (!is_realized())
@@ -116,25 +141,39 @@ void dv_display_widget::put_frame(const dv_frame_ptr & dv_frame)
 	header->opaque = const_cast<void *>(static_cast<const void *>(system));
 	decoded_serial_num_ = dv_frame->serial_num;
 
-	rectangle source_rect;
+	put_frame_buffer(
+	    get_source_rect(system, dv_frame_aspect(dv_frame.get())));
+	queue_draw();
+    }
+}
 
-	source_rect.left = (system->frame_width - system->frame_width_used) / 2;
-	source_rect.top = 0;
-	source_rect.width = system->frame_width_used;
-	source_rect.height = system->frame_height;
+void dv_display_widget::put_frame(const raw_frame_ptr & raw_frame)
+{
+    if (!is_realized())
+	return;
 
-	if (dv_frame_aspect(dv_frame.get()) == dv_frame_aspect_wide)
+    if (raw_frame->header.pts != decoded_serial_num_)
 	{
-	    source_rect.pixel_width = system->pixel_aspect_wide.width;
-	    source_rect.pixel_height = system->pixel_aspect_wide.height;
-	}
-	else
-	{
-	    source_rect.pixel_width = system->pixel_aspect_normal.width;
-	    source_rect.pixel_height = system->pixel_aspect_normal.height;
-	}
+	const struct dv_system * system = raw_frame_system(raw_frame.get());
 
-	put_frame_buffer(source_rect);
+	AVFrame * header = get_frame_buffer();
+	if (!header)
+	    return;
+
+	raw_frame_ref dest, source;
+	for (int plane = 0; plane != 4; ++plane)
+	{
+	    dest.planes.data[plane] = header->data[plane];
+	    dest.planes.linesize[plane] = header->linesize[plane];
+	    source.planes.data[plane] = raw_frame->header.data[plane];
+	    source.planes.linesize[plane] = raw_frame->header.linesize[plane];
+	}
+	dest.pix_fmt = source.pix_fmt = raw_frame->pix_fmt;
+	dest.height = source.height = system->frame_height;
+	copy_raw_frame(dest, source);
+	decoded_serial_num_ = raw_frame->header.pts;
+
+	put_frame_buffer(get_source_rect(system, raw_frame->aspect));
 	queue_draw();
     }
 }

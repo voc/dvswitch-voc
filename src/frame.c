@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <string.h>
 
+#include <avcodec.h>
+
 #include "frame.h"
 
 enum dv_frame_aspect dv_frame_aspect(const struct dv_frame * frame)
@@ -70,3 +72,41 @@ int raw_frame_reget_buffer(AVCodecContext * context __attribute__((unused)),
 {
     return 0;
 }
+
+void copy_raw_frame(struct raw_frame_ref dest,
+		    struct raw_frame_ref source)
+{
+    assert(dest.height == source.height);
+    assert(dest.pix_fmt == source.pix_fmt);
+
+    int chroma_shift_horiz, chroma_shift_vert;
+    avcodec_get_chroma_sub_sample(dest.pix_fmt,
+				  &chroma_shift_horiz, &chroma_shift_vert);
+
+    unsigned width = FRAME_WIDTH;
+    unsigned height = source.height;
+
+    for (int plane = 0; plane != 4; ++plane)
+    {
+	const uint8_t * source_p = source.planes.data[plane];
+	if (!source_p)
+	    continue;
+	const unsigned source_size = source.planes.linesize[plane];
+	uint8_t * dest_p = dest.planes.data[plane];
+	const unsigned dest_size = dest.planes.linesize[plane];
+		
+	if (plane == 1)
+	{
+	    width >>= chroma_shift_horiz;
+	    height >>= chroma_shift_vert;
+	}
+
+	for (unsigned y = 0; y != height; ++y)
+	{
+	    memcpy(dest_p, source_p, width);
+	    source_p += source_size;
+	    dest_p += dest_size;
+	}
+    }
+}
+

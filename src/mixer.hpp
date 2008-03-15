@@ -67,10 +67,8 @@ public:
 	// mix these source frames.  mixed_dv is a pointer to the
 	// mixed frame that was sent to sinks.
 	//
-	// {video_{pri,sec}_source,mixed}_raw are pointers to decoded
-	// versions of the primary and secondary video sources and the
-	// mixed frame, if the mixer produced them in the course of
-	// its work; any or all may be null.
+	// mixed_raw is a pointer to the raw video for the mixed
+	// frame, or null if the mixer did not need to decode video.
 	//
 	// All DV frames may be shared and must not be modified.  Raw
 	// frames may be modified by the monitor.  All references and
@@ -83,7 +81,8 @@ public:
 	virtual void put_frames(unsigned source_count,
 				const dv_frame_ptr * source_dv,
 				mix_settings,
-				const dv_frame_ptr & mixed_dv) = 0;
+				const dv_frame_ptr & mixed_dv,
+				const raw_frame_ptr & mixed_raw) = 0;
     };
 
     mixer();
