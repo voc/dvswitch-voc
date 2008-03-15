@@ -741,10 +741,10 @@ void mixer::run_mixer()
 	    enc->pix_fmt = mixed_raw->pix_fmt;
 	    mixed_raw->header.pts = serial_num;
   	    mixed_dv = allocate_dv_frame();
-	    os_check_error("avcodec_encode_video",
-			   avcodec_encode_video(enc,
+	    int out_size = avcodec_encode_video(enc,
 						mixed_dv->buffer, system->size, 
-						&mixed_raw->header));
+						&mixed_raw->header);
+	    assert(size_t(out_size) == system->size);
 	    mixed_dv->serial_num = serial_num;
 	}
 	else
