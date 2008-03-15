@@ -59,6 +59,7 @@ struct raw_frame
 {
     AVFrame header;
     enum PixelFormat pix_fmt;
+    enum dv_frame_aspect aspect;
     union
     {
 	struct

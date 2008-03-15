@@ -471,6 +471,7 @@ namespace
 	assert(got_frame && size_t(used_size) == system->size);
 	result->header.opaque =
 	    const_cast<void *>(static_cast<const void *>(system));
+	result->aspect = dv_frame_aspect(dv_frame.get());
 	return result;
     }
 
