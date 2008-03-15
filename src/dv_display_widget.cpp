@@ -76,7 +76,7 @@ namespace
     // XXX These will only work for "PAL" frames.
     // For "NTSC" frames the codec will give us PIX_FMT_YUV411P which
     // we will have to convert to YUY2 or YV16.
-    const int wanted_pix_fmt_xvideo = 0x32315659; // 'YV12'
+    const int wanted_pix_fmt_xvideo = 0x30323449; // 'I420'
     const PixelFormat wanted_pix_fmt_avcodec = PIX_FMT_YUV420P;
 }
 
@@ -289,17 +289,21 @@ void dv_full_display_widget::put_frame_buffer(const rectangle & source_rect)
     XvImage * xv_image = static_cast<XvImage *>(xv_image_);
 
     raw_frame_ref frame_ref;
-    frame_ref.planes.data[0] =
-	reinterpret_cast<uint8_t *>(xv_image->data + xv_image->offsets[0]);
-    frame_ref.planes.linesize[0] = xv_image->pitches[0];
-    frame_ref.planes.data[1] =
-	reinterpret_cast<uint8_t *>(xv_image->data + xv_image->offsets[2]);
-    frame_ref.planes.linesize[1] = xv_image->pitches[2];
-    frame_ref.planes.data[2] =
-	reinterpret_cast<uint8_t *>(xv_image->data + xv_image->offsets[1]);
-    frame_ref.planes.linesize[2] = xv_image->pitches[1];
-    frame_ref.planes.data[3] = 0;
-    frame_ref.planes.linesize[3] = 0;
+    for (int plane = 0; plane != 4; ++plane)
+    {
+	if (plane < xv_image->num_planes)
+	{
+	    frame_ref.planes.data[plane] =
+		reinterpret_cast<uint8_t *>(xv_image->data
+					    + xv_image->offsets[plane]);
+	    frame_ref.planes.linesize[plane] = xv_image->pitches[plane];
+	}
+	else
+	{
+	    frame_ref.planes.data[plane] = 0;
+	    frame_ref.planes.linesize[plane] = 0;
+	}
+    }
     frame_ref.pix_fmt = wanted_pix_fmt_avcodec;
     frame_ref.height = source_rect.height;
 
@@ -331,19 +335,22 @@ int dv_full_display_widget::get_buffer(AVCodecContext * context,
     XvImage * xv_image = static_cast<XvImage *>(widget->xv_image_);
 
     assert(context->pix_fmt == wanted_pix_fmt_avcodec);
-    assert(xv_image->num_planes == 3);
 
-    header->data[0] =
-	reinterpret_cast<uint8_t *>(xv_image->data + xv_image->offsets[0]);
-    header->linesize[0] = xv_image->pitches[0];
-    // Swap planes 1 and 2 - YV12 plane order is Y',Cr,Cb whereas
-    // ffmpeg uses the usual Y',Cb,Cr.
-    header->data[1] =
-	reinterpret_cast<uint8_t *>(xv_image->data + xv_image->offsets[2]);
-    header->linesize[1] = xv_image->pitches[2];
-    header->data[2] =
-	reinterpret_cast<uint8_t *>(xv_image->data + xv_image->offsets[1]);
-    header->linesize[2] = xv_image->pitches[1];
+    for (int plane = 0; plane != 4; ++plane)
+    {
+	if (plane < xv_image->num_planes)
+	{
+	    header->data[plane] =
+		reinterpret_cast<uint8_t *>(xv_image->data
+					    + xv_image->offsets[plane]);
+	    header->linesize[plane] = xv_image->pitches[plane];
+	}
+	else
+	{
+	    header->data[plane] = 0;
+	    header->linesize[plane] = 0;
+	}
+    }
 
     header->type = FF_BUFFER_TYPE_USER;
     return 0;
