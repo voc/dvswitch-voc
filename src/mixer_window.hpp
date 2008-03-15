@@ -33,6 +33,9 @@ private:
     void toggle_record() throw();
     bool update(Glib::IOCondition) throw();
 
+    void set_sec_video_source(mixer::source_id);
+    void update_video_effect();
+
     virtual void put_frames(unsigned source_count,
 			    const dv_frame_ptr * source_dv,
 			    mixer::mix_settings,
@@ -48,6 +51,11 @@ private:
     Gtk::Button cut_button_;
     dv_full_display_widget display_;
     dv_selector_widget selector_;
+
+    mixer::source_id sec_video_source_id_;
+    bool pip_active_;
+    bool pip_pending_;
+    unsigned pip_left_, pip_top_, pip_right_, pip_bottom_;
 
     auto_pipe wakeup_pipe_;
 

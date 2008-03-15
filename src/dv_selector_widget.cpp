@@ -20,7 +20,8 @@ namespace
     };
     enum {
 	column_text_label,
-	column_video_button,
+	column_pri_video_button,
+	column_sec_video_button,
 	column_audio_button,
 	column_multiplier
     };
@@ -98,18 +99,34 @@ void dv_selector_widget::set_source_count(unsigned count)
 		       Gtk::FILL, Gtk::FILL,
 		       0, 0);
 
-		Gtk::RadioButton * video_button =
-		    create_radio_button(video_button_group_,
+		Gtk::RadioButton * pri_video_button =
+		    create_radio_button(pri_video_button_group_,
 					video_source_pixbuf_);
-		video_button->signal_pressed().connect(
+		pri_video_button->signal_pressed().connect(
 		    sigc::bind(
 			sigc::mem_fun(*this,
-				      &dv_selector_widget::on_video_selected),
+				      &dv_selector_widget::on_pri_video_selected),
 			i));
-		video_button->show();
-		attach(*video_button,
-		       column + column_video_button,
-		       column + column_video_button + 1,
+		pri_video_button->show();
+		attach(*pri_video_button,
+		       column + column_pri_video_button,
+		       column + column_pri_video_button + 1,
+		       row + row_labels, row + row_labels + 1,
+		       Gtk::FILL, Gtk::FILL,
+		       0, 0);
+
+		Gtk::RadioButton * sec_video_button =
+		    create_radio_button(sec_video_button_group_,
+					video_source_pixbuf_);
+		sec_video_button->signal_pressed().connect(
+		    sigc::bind(
+			sigc::mem_fun(*this,
+				      &dv_selector_widget::on_sec_video_selected),
+			i));
+		sec_video_button->show();
+		attach(*sec_video_button,
+		       column + column_sec_video_button,
+		       column + column_sec_video_button + 1,
 		       row + row_labels, row + row_labels + 1,
 		       Gtk::FILL, Gtk::FILL,
 		       0, 0);
@@ -134,17 +151,33 @@ void dv_selector_widget::set_source_count(unsigned count)
 		{
 		    // Make the mnemonic on the label work.  Also make
 		    // the numeric keypad and Alt-keys work.
-		    label->set_mnemonic_widget(*video_button);
-		    video_button->add_accelerator("activate",
+		    label->set_mnemonic_widget(*pri_video_button);
+		    pri_video_button->add_accelerator("activate",
 						  accel_group_,
 						  GDK_KP_1 + i,
 						  Gdk::ModifierType(0),
 						  Gtk::AccelFlags(0));
-		    video_button->signal_activate().connect(
+		    pri_video_button->signal_activate().connect(
 			sigc::bind(
 			    sigc::mem_fun(
 				*this,
-				&dv_selector_widget::on_video_selected),
+				&dv_selector_widget::on_pri_video_selected),
+			    i));
+		    sec_video_button->add_accelerator("activate",
+						      accel_group_,
+						      '1' + i,
+						      Gdk::SHIFT_MASK,
+						      Gtk::AccelFlags(0));
+		    sec_video_button->add_accelerator("activate",
+						      accel_group_,
+						      GDK_KP_1 + i,
+						      Gdk::SHIFT_MASK,
+						      Gtk::AccelFlags(0));
+		    sec_video_button->signal_activate().connect(
+			sigc::bind(
+			    sigc::mem_fun(
+				*this,
+				&dv_selector_widget::on_sec_video_selected),
 			    i));
 		    audio_button->add_accelerator("activate",
 						  accel_group_,
@@ -183,9 +216,15 @@ void dv_selector_widget::put_frame(mixer::source_id source_id,
 }
 
 sigc::signal1<void, mixer::source_id> &
-dv_selector_widget::signal_video_selected()
+dv_selector_widget::signal_pri_video_selected()
 {
-    return video_selected_signal_;
+    return pri_video_selected_signal_;
+}
+
+sigc::signal1<void, mixer::source_id> &
+dv_selector_widget::signal_sec_video_selected()
+{
+    return sec_video_selected_signal_;
 }
 
 sigc::signal1<void, mixer::source_id> &
@@ -194,9 +233,14 @@ dv_selector_widget::signal_audio_selected()
     return audio_selected_signal_;
 }
 
-void dv_selector_widget::on_video_selected(mixer::source_id source_id)
+void dv_selector_widget::on_pri_video_selected(mixer::source_id source_id)
 {
-    video_selected_signal_(source_id);
+    pri_video_selected_signal_(source_id);
+}
+
+void dv_selector_widget::on_sec_video_selected(mixer::source_id source_id)
+{
+    sec_video_selected_signal_(source_id);
 }
 
 void dv_selector_widget::on_audio_selected(mixer::source_id source_id)

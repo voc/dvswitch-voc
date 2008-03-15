@@ -14,6 +14,7 @@
 #include <gtkmm/stock.h>
 #include <gtkmm/stockid.h>
 
+#include "frame.h"
 #include "gui.hpp"
 #include "mixer.hpp"
 #include "mixer_window.hpp"
@@ -22,6 +23,13 @@ mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
       record_button_("gtk-media-record"),
       cut_button_("gtk-cut"),
+      sec_video_source_id_(0),
+      pip_active_(false),
+      pip_pending_(false),
+      pip_left_(FRAME_WIDTH * 9 / 15),
+      pip_top_(FRAME_HEIGHT_MAX * 1 / 15),
+      pip_right_(FRAME_WIDTH * 14 / 15),
+      pip_bottom_(FRAME_HEIGHT_MAX * 6 / 15),
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)      
 {
@@ -49,8 +57,10 @@ mixer_window::mixer_window(mixer & mixer)
     display_.show();
 
     selector_.set_accel_group(get_accel_group());
-    selector_.signal_video_selected().connect(
+    selector_.signal_pri_video_selected().connect(
 	sigc::mem_fun(mixer_, &mixer::set_video_source));
+    selector_.signal_sec_video_selected().connect(
+	sigc::mem_fun(*this, &mixer_window::set_sec_video_source));
     selector_.signal_audio_selected().connect(
 	sigc::mem_fun(mixer_, &mixer::set_audio_source));
     selector_.show();
@@ -74,6 +84,37 @@ mixer_window::mixer_window(mixer & mixer)
 
 bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 {
+    if (event->keyval == 'p')
+    {
+	if (pip_active_)
+	{
+	    pip_active_ = false;
+	    update_video_effect();
+	}
+	else
+	{
+	    pip_pending_ = true;
+	}
+	return true;
+    }
+ 
+    if (pip_pending_)
+    {
+	if (event->keyval == GDK_Return || event->keyval == GDK_KP_Enter)
+	{
+	    pip_active_ = true;
+	    pip_pending_ = false;
+	    update_video_effect();
+	    return true;
+	}
+       
+	if (event->keyval == GDK_Escape)
+	{
+	    pip_pending_ = false;
+	    return true;
+	}
+    }
+
     if (event->keyval == 'q' && event->state & Gdk::CONTROL_MASK)
     {
 	Gtk::Main::quit();
@@ -88,6 +129,26 @@ void mixer_window::toggle_record() throw()
     bool flag = record_button_.get_active();
     mixer_.enable_record(flag);
     cut_button_.set_sensitive(flag);
+}
+
+void mixer_window::set_sec_video_source(mixer::source_id id)
+{
+    sec_video_source_id_ = id;
+}
+
+void mixer_window::update_video_effect()
+{
+    if (pip_active_)
+    {
+	mixer_.set_video_effect(
+	    mixer_.create_video_effect_pic_in_pic(
+		sec_video_source_id_,
+		pip_left_, pip_top_, pip_right_, pip_bottom_));
+    }
+    else
+    {
+	mixer_.set_video_effect(mixer::null_video_effect());
+    }
 }
 
 void mixer_window::put_frames(unsigned source_count,
