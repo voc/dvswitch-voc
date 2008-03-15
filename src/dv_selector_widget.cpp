@@ -28,8 +28,12 @@ namespace
 }
 
 dv_selector_widget::dv_selector_widget()
-    : video_source_pixbuf_(
-	  Gdk::Pixbuf::create_from_file(SHAREDIR "/dvswitch/video-source.png")),
+    : pri_video_source_pixbuf_(
+	  Gdk::Pixbuf::create_from_file(SHAREDIR
+					"/dvswitch/pri-video-source.png")),
+      sec_video_source_pixbuf_(
+	  Gdk::Pixbuf::create_from_file(SHAREDIR
+					"/dvswitch/sec-video-source.png")),
       audio_source_pixbuf_(
 	  Gdk::Pixbuf::create_from_file(SHAREDIR "/dvswitch/audio-source.png"))
 {
@@ -101,7 +105,7 @@ void dv_selector_widget::set_source_count(unsigned count)
 
 		Gtk::RadioButton * pri_video_button =
 		    create_radio_button(pri_video_button_group_,
-					video_source_pixbuf_);
+					pri_video_source_pixbuf_);
 		pri_video_button->signal_pressed().connect(
 		    sigc::bind(
 			sigc::mem_fun(*this,
@@ -117,7 +121,7 @@ void dv_selector_widget::set_source_count(unsigned count)
 
 		Gtk::RadioButton * sec_video_button =
 		    create_radio_button(sec_video_button_group_,
-					video_source_pixbuf_);
+					sec_video_source_pixbuf_);
 		sec_video_button->signal_pressed().connect(
 		    sigc::bind(
 			sigc::mem_fun(*this,

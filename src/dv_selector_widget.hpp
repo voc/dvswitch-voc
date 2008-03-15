@@ -38,7 +38,8 @@ private:
     void on_audio_selected(mixer::source_id);
 
     Glib::RefPtr<Gtk::AccelGroup> accel_group_;
-    Glib::RefPtr<Gdk::Pixbuf> video_source_pixbuf_;
+    Glib::RefPtr<Gdk::Pixbuf> pri_video_source_pixbuf_;
+    Glib::RefPtr<Gdk::Pixbuf> sec_video_source_pixbuf_;
     Gtk::RadioButtonGroup pri_video_button_group_;
     Gtk::RadioButtonGroup sec_video_button_group_;
     sigc::signal1<void, mixer::source_id> pri_video_selected_signal_;
