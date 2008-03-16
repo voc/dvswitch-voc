@@ -16,10 +16,14 @@ auto_codec auto_codec_open(AVCodec * codec)
     auto_codec result(avcodec_alloc_context());
     if (!result.get())
 	throw std::bad_alloc();
-
-    boost::mutex::scoped_lock lock(avcodec_mutex);
-    os_check_error("avcodec_open", -avcodec_open(result.get(), codec));
+    auto_codec_open(result, codec);
     return result;
+}
+
+void auto_codec_open(const auto_codec & context, AVCodec * codec)
+{
+    boost::mutex::scoped_lock lock(avcodec_mutex);
+    os_check_error("avcodec_open", -avcodec_open(context.get(), codec));
 }
 
 void auto_codec_closer::operator()(AVCodecContext * context) const

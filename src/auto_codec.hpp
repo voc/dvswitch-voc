@@ -20,5 +20,6 @@ typedef auto_handle<AVCodecContext *, auto_codec_closer, auto_codec_factory>
 auto_codec;
 
 auto_codec auto_codec_open(AVCodec * codec);
+void auto_codec_open(const auto_codec &, AVCodec * codec);
 
 #endif // !INC_AUTO_CODEC_HPP
