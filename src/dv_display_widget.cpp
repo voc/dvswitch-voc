@@ -89,7 +89,7 @@ dv_display_widget::dv_display_widget(int lowres)
     if (!decoder_.get())
 	throw std::bad_alloc();
     decoder_.get()->lowres = lowres;
-    auto_codec_open(decoder_, &dvvideo_decoder);
+    auto_codec_open_decoder(decoder_, CODEC_ID_DVVIDEO);
       
     set_app_paintable(true);
     set_double_buffered(false);

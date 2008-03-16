@@ -646,12 +646,12 @@ void mixer::run_mixer()
     unsigned serial_num = 0;
     const mix_data * m = 0;
 
-    auto_codec decoder(auto_codec_open(&dvvideo_decoder));
+    auto_codec decoder(auto_codec_open_decoder(CODEC_ID_DVVIDEO));
     AVCodecContext * dec = decoder.get();
     dec->get_buffer = raw_frame_get_buffer;
     dec->release_buffer = raw_frame_release_buffer;
     dec->reget_buffer = raw_frame_reget_buffer;
-    auto_codec encoder(auto_codec_open(&dvvideo_encoder));
+    auto_codec encoder(auto_codec_open_encoder(CODEC_ID_DVVIDEO));
 
     for (;;)
     {
