@@ -10,15 +10,13 @@ namespace
 {
     boost::mutex avcodec_mutex;
 
-    class avcodec_initialiser
+    struct avcodec_initialiser
     {
 	avcodec_initialiser()
 	{
 	    avcodec_init();
 	}
-
-	static avcodec_initialiser instance_;
-    };
+    } initialiser;
 }
 
 auto_codec auto_codec_open(AVCodec * codec)
