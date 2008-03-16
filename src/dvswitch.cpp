@@ -88,8 +88,6 @@ int main(int argc, char **argv)
 	    return 2;
 	}
 
-	avcodec_init();
-
 	// The mixer must be created before the window, since we pass
 	// a reference to the mixer into the window's constructor to
 	// allow it to adjust the mixer's controls.
