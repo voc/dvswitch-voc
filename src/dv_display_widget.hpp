@@ -4,6 +4,7 @@
 #ifndef DVSWITCH_DV_DISPLAY_WIDGET_HPP
 #define DVSWITCH_DV_DISPLAY_WIDGET_HPP
 
+#include <memory>
 #include <utility>
 
 #include <gtkmm/drawingarea.h>
@@ -15,7 +16,7 @@
 class dv_display_widget : public Gtk::DrawingArea
 {
 public:
-    dv_display_widget();
+    explicit dv_display_widget(int lowres = 0);
     ~dv_display_widget();
 
     void put_frame(const dv_frame_ptr &);
@@ -72,14 +73,20 @@ public:
     ~dv_thumb_display_widget();
 
 private:
+    struct raw_frame_thumb;
+
     virtual AVFrame * get_frame_buffer();
     virtual void put_frame_buffer(const rectangle &);
+
+    static int get_buffer(AVCodecContext *, AVFrame *);
+    static void release_buffer(AVCodecContext *, AVFrame *);
+    static int reget_buffer(AVCodecContext *, AVFrame *);
 
     virtual bool on_expose_event(GdkEventExpose *) throw();
     virtual void on_realize() throw();
     virtual void on_unrealize() throw();
 
-    raw_frame_ptr raw_frame_;
+    std::auto_ptr<raw_frame_thumb> raw_frame_;
     void * x_image_;
     void * x_shm_info_;
     unsigned dest_width_, dest_height_;

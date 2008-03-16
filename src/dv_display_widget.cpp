@@ -82,10 +82,15 @@ namespace
 
 // dv_display_widget
 
-dv_display_widget::dv_display_widget()
-    : decoder_(auto_codec_open(&dvvideo_decoder)),
+dv_display_widget::dv_display_widget(int lowres)
+    : decoder_(avcodec_alloc_context()),
       decoded_serial_num_(-1)
 {
+    if (!decoder_.get())
+	throw std::bad_alloc();
+    decoder_.get()->lowres = lowres;
+    auto_codec_open(decoder_, &dvvideo_decoder);
+      
     set_app_paintable(true);
     set_double_buffered(false);
 }
@@ -436,18 +441,42 @@ bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
 
 // dv_thumb_display_widget
 
+namespace
+{
+    const unsigned dv_block_size_log2 = 3;
+    const unsigned dv_block_size = 1 << dv_block_size_log2;
+
+    const unsigned frame_thumb_linesize_4 =
+	(FRAME_WIDTH / dv_block_size + 15) & ~15;
+    const unsigned frame_thumb_linesize_2 =
+	(FRAME_WIDTH / 2 / dv_block_size + 15) & ~15;
+}
+
+struct dv_thumb_display_widget::raw_frame_thumb
+{
+    AVFrame header;
+    enum PixelFormat pix_fmt;
+    enum dv_frame_aspect aspect;
+    struct
+    {
+	uint8_t y[frame_thumb_linesize_4 * FRAME_HEIGHT_MAX / dv_block_size];
+	uint8_t c_dummy[frame_thumb_linesize_2];
+    } buffer __attribute__((aligned(16)));
+};
+
 dv_thumb_display_widget::dv_thumb_display_widget()
-    : raw_frame_(allocate_raw_frame()),
+    : dv_display_widget(dv_block_size_log2),
+      raw_frame_(new raw_frame_thumb),
       x_image_(0),
       x_shm_info_(0),
       dest_width_(0),
       dest_height_(0)
 {
     AVCodecContext * decoder = decoder_.get();
-    decoder->get_buffer = raw_frame_get_buffer;
-    decoder->release_buffer = raw_frame_release_buffer;
-    decoder->reget_buffer = raw_frame_reget_buffer;
-    decoder->opaque = raw_frame_.get();
+    decoder->opaque = this;
+    decoder->get_buffer = get_buffer;
+    decoder->release_buffer = release_buffer;
+    decoder->reget_buffer = reget_buffer;
 
     // We don't know what the frame format will be, but assume "PAL"
     // 4:3 frames and therefore an active image size of 702x576 and
@@ -544,30 +573,27 @@ void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
     dest_height_ = div_round_nearest(source_rect.height,
 				     thumb_scale_denom);
 
-    // Scale the image down.  Actually this is scaling up because the
-    // decoded frame is really blocks of 8x8 pixels anyway, so we can
-    // use Bresenham's algorithm.
+    // Scale the image up using Bresenham's algorithm
 
     assert(x_image->bits_per_pixel == 24 || x_image->bits_per_pixel == 32);
 
-    static const unsigned block_size = 8;
-    static const unsigned source_width_blocks = source_rect.width / block_size;
-    const unsigned source_height_blocks = source_rect.height / block_size;
-    assert(source_width_blocks <= dest_width_);
-    assert(source_height_blocks <= dest_height_);
-    unsigned source_y = source_rect.top, dest_y = 0;
-    unsigned error_y = source_height_blocks / 2;
+    const unsigned source_width = source_rect.width / dv_block_size;
+    const unsigned source_height = source_rect.height / dv_block_size;
+    assert(source_width <= dest_width_);
+    assert(source_height <= dest_height_);
+    unsigned source_y = source_rect.top / dv_block_size, dest_y = 0;
+    unsigned error_y = source_height / 2;
     do
     {
 	const uint8_t * source =
-	    raw_frame_->buffer._420.y + FRAME_LINESIZE_4 * source_y
-	    + source_rect.left + block_size / 2;
+	    raw_frame_->buffer.y + frame_thumb_linesize_4 * source_y
+	    + source_rect.left / dv_block_size;
 	uint8_t * dest = reinterpret_cast<uint8_t *>(
 	    x_image->data + x_image->bytes_per_line * dest_y);
 	uint8_t * dest_row_end =
 	    dest + x_image->bits_per_pixel / 8 * dest_width_;
-	unsigned error_x = source_width_blocks / 2;
-	uint8_t source_value = *source; // read first Y component
+	unsigned error_x = source_width / 2;
+	uint8_t source_value = *source;
 	do
 	{
 	    // Write Y component to each byte of the pixel
@@ -577,20 +603,19 @@ void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
 	    if (x_image->bits_per_pixel == 32)
 		*dest++ = source_value;
 
-	    error_x += source_width_blocks;
+	    error_x += source_width;
 	    if (error_x >= dest_width_)
 	    {
-		source += block_size; // next block
-		source_value = *source; // read first Y component
+		source_value = *++source;
 		error_x -= dest_width_;
 	    }
 	}
 	while (dest != dest_row_end);
 	
-	error_y += source_height_blocks;
+	error_y += source_height;
 	if (error_y >= dest_height_)
 	{
-	    source_y += block_size;
+	    ++source_y;
 	    error_y -= dest_height_;
 	}
 	++dest_y;
@@ -598,6 +623,36 @@ void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
     while (dest_y != dest_height_);
 
     set_size_request(dest_width_, dest_height_);
+}
+
+int dv_thumb_display_widget::get_buffer(AVCodecContext * context,
+					AVFrame * header)
+{
+    dv_thumb_display_widget * widget =
+	static_cast<dv_thumb_display_widget *>(context->opaque);
+
+    header->data[0] = widget->raw_frame_->buffer.y;
+    header->linesize[0] = frame_thumb_linesize_4;
+    header->data[1] = widget->raw_frame_->buffer.c_dummy;
+    header->linesize[1] = 0;
+    header->data[2] = widget->raw_frame_->buffer.c_dummy;
+    header->linesize[2] = 0;
+    header->data[3] = 0;
+    header->linesize[3] = 0;
+
+    header->type = FF_BUFFER_TYPE_USER;
+    return 0;
+}
+
+void dv_thumb_display_widget::release_buffer(AVCodecContext *, AVFrame * header)
+{
+    for (int i = 0; i != 4; ++i)
+	header->data[i] = 0;
+}
+
+int dv_thumb_display_widget::reget_buffer(AVCodecContext *, AVFrame *)
+{
+    return 0;
 }
 
 bool dv_thumb_display_widget::on_expose_event(GdkEventExpose *) throw()
