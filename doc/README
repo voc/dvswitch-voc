@@ -8,11 +8,11 @@ dvswitch is a basic video mixer designed for the needs of DebConf.  It
 may suit the needs of other conferences that require live mixing for
 streams and/or recording.
 
-Currently dvswitch can only select between multiple source video and
-audio streams.  It cannot mix streams but it can combine audio from
-one source with video from another.  It works solely with the DV
-format since almost all camcorders support this and it allows for low
-latency display and cutting.
+Currently dvswitch can combine audio from one source with video from
+another and can combine two video streams with a picture-in-picture
+effect.  Further mixing effects are planned.  It works solely with the
+DV format since almost all camcorders support this and it allows for
+low latency display and cutting.
 
 Since DV cameras must be connected to computers via Firewire cables of
 limited length, dvswitch is divided into several different programs
@@ -116,8 +116,10 @@ keystrokes:
 
 1 to 9          select the video source
 Alt-1 to Alt-9  select the audio source
+P               picture-in-picture
 R               start/stop recording (in English locales)
 T               cut recording (in English locales)
+Return/Enter    apply effect
 Ctrl-Q          quit
 
 Video and audio sources can also be selected using the buttons beneath
@@ -151,3 +153,21 @@ Icecast, run:
 
 dvsink-command provides a continuous stream which is not affected by
 the recording commands.
+
+Applying effects
+----------------
+
+Currently the only mixing effect is picture-in-picture.  To apply this
+effect:
+
+1. Select the primary video source by pressing its number key or
+   clicking the 'A' button under its thumbnail
+2. Select the secondary video source by pressing Alt and its number
+   key or clicking the 'B' button under its thumbnail
+3. Press P
+4. Select the area the secondary video source should overlay in the
+   main display, using mouse button 1 (normally left).  You can also
+   extend the selection using mouse button 2 (normally middle).
+5. Press Return/Enter
+
+To cancel the effect, press P again.

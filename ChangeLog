@@ -1,3 +1,13 @@
+dvswitch (0.7) unstable; urgency=low
+
+  * Made keyboard shortcut for cut button work
+  * Moved video/DV system parameters into a common structure
+  * Replaced libdv codec with DV codec in libavcodec (ffmpeg), which
+    is significantly faster
+  * Added UI for picture-in-picture mixing
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 20 Apr 2008 22:18:37 +0100
+
 dvswitch (0.6.2) unstable; urgency=low
 
   * Fixed bug in thumbnail image size initialisation that could result
