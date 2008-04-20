@@ -8,6 +8,7 @@
 
 enum {
     luma_bias = 16,   // black level (lower values are reserved for sync)
+    luma_max = 235,
     chroma_bias = 128 // neutral level (chroma components are signed)
 };
 
@@ -50,6 +51,38 @@ void video_effect_show_title_safe(struct raw_frame_ref dest)
 		// Skip to right border
 		p += width - 2 * border_horiz;
 	    // else continue across top border or bottom border
+	    while (p != end)
+		*p = (*p + bias) / 2, ++p;
+	}
+    }
+}
+
+void video_effect_brighten(struct raw_frame_ref dest,
+			   unsigned left, unsigned top,
+			   unsigned right, unsigned bottom)
+{
+    int chroma_shift_horiz, chroma_shift_vert;    
+    avcodec_get_chroma_sub_sample(dest.pix_fmt,
+				  &chroma_shift_horiz, &chroma_shift_vert);
+
+    unsigned bias = luma_max;
+
+    for (int plane = 0; plane != 3; ++plane)
+    {
+	if (plane == 1)
+	{
+	    left >>= chroma_shift_horiz;
+	    right >>= chroma_shift_horiz;
+	    top >>= chroma_shift_vert;
+	    bottom >>= chroma_shift_vert;
+	    bias = chroma_bias;
+	}
+
+	for (unsigned y = top; y != bottom; ++y)
+	{
+	    uint8_t * p = (dest.planes.data[plane]
+			   + dest.planes.linesize[plane] * y + left);
+	    uint8_t * end = p + (right - left);
 	    while (p != end)
 		*p = (*p + bias) / 2, ++p;
 	}
