@@ -72,12 +72,6 @@ namespace
     {
 	shmdt(info->shmaddr);
     }
-
-    // XXX These will only work for "PAL" frames.
-    // For "NTSC" frames the codec will give us PIX_FMT_YUV411P which
-    // we will have to convert to YUY2 or YV16.
-    const int wanted_pix_fmt_xvideo = 0x30323449; // 'I420'
-    const PixelFormat wanted_pix_fmt_avcodec = PIX_FMT_YUV420P;
 }
 
 // dv_display_widget
@@ -86,10 +80,15 @@ dv_display_widget::dv_display_widget(int lowres)
     : decoder_(avcodec_alloc_context()),
       decoded_serial_num_(-1)
 {
-    if (!decoder_.get())
+    AVCodecContext * decoder = decoder_.get();
+    if (!decoder)
 	throw std::bad_alloc();
-    decoder_.get()->lowres = lowres;
+    decoder->lowres = lowres;
     auto_codec_open_decoder(decoder_, CODEC_ID_DVVIDEO);
+    decoder->opaque = this;
+    decoder->get_buffer = get_buffer;
+    decoder->release_buffer = release_buffer;
+    decoder->reget_buffer = reget_buffer;
       
     set_app_paintable(true);
     set_double_buffered(false);
@@ -134,7 +133,7 @@ void dv_display_widget::put_frame(const dv_frame_ptr & dv_frame)
 	const struct dv_system * system = dv_frame_system(dv_frame.get());
 	AVCodecContext * decoder = decoder_.get();
 
-	AVFrame * header = get_frame_buffer();
+	AVFrame * header = get_frame_header();
 	if (!header)
 	    return;
 
@@ -142,6 +141,8 @@ void dv_display_widget::put_frame(const dv_frame_ptr & dv_frame)
 	int used_size = avcodec_decode_video(decoder,
 					     header, &got_frame,
 					     dv_frame->buffer, system->size);
+	if (used_size <= 0)
+	    return;
 	assert(got_frame && size_t(used_size) == system->size);
 	header->opaque = const_cast<void *>(static_cast<const void *>(system));
 	decoded_serial_num_ = dv_frame->serial_num;
@@ -158,10 +159,12 @@ void dv_display_widget::put_frame(const raw_frame_ptr & raw_frame)
 	return;
 
     if (raw_frame->header.pts != decoded_serial_num_)
-	{
+    {
 	const struct dv_system * system = raw_frame_system(raw_frame.get());
 
-	AVFrame * header = get_frame_buffer();
+	AVFrame * header = get_frame_buffer(get_frame_header(),
+					    raw_frame->pix_fmt,
+					    system->frame_height);
 	if (!header)
 	    return;
 
@@ -183,30 +186,63 @@ void dv_display_widget::put_frame(const raw_frame_ptr & raw_frame)
     }
 }
 
+int dv_display_widget::get_buffer(AVCodecContext * context, AVFrame * header)
+{
+    dv_display_widget * widget =
+	static_cast<dv_display_widget *>(context->opaque);
+
+    return widget->get_frame_buffer(header, context->pix_fmt, context->height)
+	? 0 : -1;
+}
+
+void dv_display_widget::release_buffer(AVCodecContext *, AVFrame * header)
+{
+    for (int i = 0; i != 4; ++i)
+	header->data[i] = 0;
+}
+
+int dv_display_widget::reget_buffer(AVCodecContext *, AVFrame *)
+{
+    return 0;
+}
+
 // dv_full_display_widget
 
 dv_full_display_widget::dv_full_display_widget()
-    : xv_port_(invalid_xv_port),
+    : pix_fmt_(PIX_FMT_NONE),
+      height_(0),
+      xv_port_(invalid_xv_port),
       xv_image_(0),
       xv_shm_info_(0)
 {
-    AVCodecContext * decoder = decoder_.get();
-    decoder->opaque = this;
-    decoder->get_buffer = get_buffer;
-    decoder->release_buffer = release_buffer;
-    decoder->reget_buffer = reget_buffer;
-
     // We don't know what the frame format will be, but assume "PAL"
     // 4:3 frames and therefore an active image size of 702x576 and
     // pixel aspect ratio of 59:54.
     set_size_request(767, 576);
 }
 
-void dv_full_display_widget::on_realize() throw()
+bool dv_full_display_widget::try_init_xvideo(PixelFormat pix_fmt,
+					     unsigned height) throw()
 {
-    dv_display_widget::on_realize();
+    if (pix_fmt == pix_fmt_ && height == height_)
+	return xv_image_;
 
-    assert(xv_port_ == invalid_xv_port && xv_image_ == 0);
+    fini_xvideo();
+
+    int xv_pix_fmt;
+    switch (pix_fmt)
+    {
+    case PIX_FMT_YUV420P:
+	// Use I420, which is an exact match and widely supported.
+	xv_pix_fmt = 0x30323449;
+	break;
+    case PIX_FMT_YUV411P:
+	// There is no common match for this, so use YUY2 and convert.
+	xv_pix_fmt = 0x32595559;
+	break;
+    default:
+	assert(!"Unexpected pixel format");
+    }
 
     Display * x_display = get_x_display(*this);
 
@@ -217,7 +253,7 @@ void dv_full_display_widget::on_realize() throw()
 			&adaptor_count, &adaptor_info) != Success)
     {
 	std::cerr << "ERROR: XvQueryAdaptors() failed\n";
-	return;
+	return false;
     }
 
     // Search for a suitable adaptor.
@@ -233,17 +269,17 @@ void dv_full_display_widget::on_realize() throw()
 	if (!format_info)
 	    continue;
 	for (int j = 0; j != format_count; ++j)
-	    if (format_info[j].id == wanted_pix_fmt_xvideo)
+	    if (format_info[j].id == xv_pix_fmt)
 		goto end_adaptor_loop;
     }
 end_adaptor_loop:
     if (i == adaptor_count)
     {
 	std::cerr << "ERROR: No Xv adaptor for this display supports "
-		  << char(wanted_pix_fmt_xvideo >> 24)
-		  << char((wanted_pix_fmt_xvideo >> 16) & 0xFF)
-		  << char((wanted_pix_fmt_xvideo >> 8) & 0xFF)
-		  << char(wanted_pix_fmt_xvideo & 0xFF)
+		  << char(xv_pix_fmt & 0xFF)
+		  << char((xv_pix_fmt >> 8) & 0xFF)
+		  << char((xv_pix_fmt >> 16) & 0xFF)
+		  << char(xv_pix_fmt >> 24)
 		  << " format\n";
     }
     else
@@ -266,18 +302,21 @@ end_adaptor_loop:
     XvFreeAdaptorInfo(adaptor_info);
 
     if (xv_port_ == invalid_xv_port)
-	return;
+	return false;
 
     if (XShmSegmentInfo * xv_shm_info = new (std::nothrow) XShmSegmentInfo)
     {
+	// Allocate frame buffer in shared memory.  Note we allocate an
+	// extra row to allow space for in-place conversion.
 	if (XvImage * xv_image =
-	    XvShmCreateImage(x_display, xv_port_, wanted_pix_fmt_xvideo, 0,
-			     FRAME_WIDTH, FRAME_HEIGHT_MAX,
-			     xv_shm_info))
+	    XvShmCreateImage(x_display, xv_port_, xv_pix_fmt, 0,
+			     FRAME_WIDTH, height + 1, xv_shm_info))
 	{
 	    if ((xv_image->data = allocate_x_shm(x_display, xv_shm_info,
 						 xv_image->data_size)))
 	    {
+		pix_fmt_ = pix_fmt;
+		height_ = height;
 		xv_image_ = xv_image;
 		xv_shm_info_ = xv_shm_info;
 	    }
@@ -295,9 +334,11 @@ end_adaptor_loop:
 
     if (!xv_image_)
 	std::cerr << "ERROR: Could not create Xv image\n";
+
+    return xv_image_;
 }
 
-void dv_full_display_widget::on_unrealize() throw()
+void dv_full_display_widget::fini_xvideo() throw()
 {
     if (xv_port_ != invalid_xv_port)
     {
@@ -320,38 +361,104 @@ void dv_full_display_widget::on_unrealize() throw()
 	xv_port_ = invalid_xv_port;
     }
 
-    dv_display_widget::on_unrealize();
+    pix_fmt_ = PIX_FMT_NONE;
+    height_ = 0;
 }
 
-AVFrame * dv_full_display_widget::get_frame_buffer()
+AVFrame * dv_full_display_widget::get_frame_header()
 {
-    return xv_image_ ? &frame_header_ : 0;
+    return &frame_header_;
+}
+
+AVFrame * dv_full_display_widget::get_frame_buffer(AVFrame * header,
+						   PixelFormat pix_fmt,
+						   unsigned height)
+{
+    if (!try_init_xvideo(pix_fmt, height))
+	return 0;
+
+    XvImage * xv_image = static_cast<XvImage *>(xv_image_);
+
+    if (pix_fmt == PIX_FMT_YUV420P)
+    {
+	for (int plane = 0; plane != 3; ++plane)
+	{
+	    header->data[plane] =
+		reinterpret_cast<uint8_t *>(xv_image->data
+					    + xv_image->offsets[plane]);
+	    header->linesize[plane] = xv_image->pitches[plane];
+	}
+    }
+    else if (pix_fmt == PIX_FMT_YUV411P)
+    {
+	uint8_t * data = reinterpret_cast<uint8_t *>(xv_image->data
+						     + xv_image->offsets[0]);
+	unsigned linesize = xv_image->pitches[0];
+
+	// Interleave the lines in the buffer so we can convert it to
+	// 4:2:2 in-place.
+	header->data[0] = data + linesize;
+	header->linesize[0] = linesize;
+	header->data[1] = data + linesize + linesize / 2;
+	header->linesize[1] = linesize;
+	header->data[2] = data + linesize + linesize * 3 / 4;
+	header->linesize[2] = linesize;
+    }
+    else
+    {
+	assert(!"unknown pixel format");
+    }
+
+    header->data[3] = 0;
+    header->linesize[3] = 0;
+
+    header->type = FF_BUFFER_TYPE_USER;
+    return &frame_header_;
 }
 
 void dv_full_display_widget::put_frame_buffer(const rectangle & source_rect)
 {
-    XvImage * xv_image = static_cast<XvImage *>(xv_image_);
-
     raw_frame_ref frame_ref;
     for (int plane = 0; plane != 4; ++plane)
     {
-	if (plane < xv_image->num_planes)
+	frame_ref.planes.data[plane] = frame_header_.data[plane];
+	frame_ref.planes.linesize[plane] = frame_header_.linesize[plane];
+    }
+    frame_ref.pix_fmt = pix_fmt_;
+    frame_ref.height = height_;
+    video_effect_show_title_safe(frame_ref);
+
+    if (pix_fmt_ == PIX_FMT_YUV411P)
+    {	
+	// Lines are interleaved in the buffer; convert them in-place.
+
+	XvImage * xv_image = static_cast<XvImage *>(xv_image_);
+	uint8_t * data = reinterpret_cast<uint8_t *>(xv_image->data
+						     + xv_image->offsets[0]);
+	unsigned linesize = xv_image->pitches[0];
+
+	for (unsigned y = 0; y != height_; ++y)
 	{
-	    frame_ref.planes.data[plane] =
-		reinterpret_cast<uint8_t *>(xv_image->data
-					    + xv_image->offsets[plane]);
-	    frame_ref.planes.linesize[plane] = xv_image->pitches[plane];
-	}
-	else
-	{
-	    frame_ref.planes.data[plane] = 0;
-	    frame_ref.planes.linesize[plane] = 0;
+	    uint8_t * out = data + y * linesize;
+	    uint8_t * end = out + FRAME_WIDTH * 2;
+	    const uint8_t * in_y = out + linesize;
+	    const uint8_t * in_u = in_y + linesize / 2;
+	    const uint8_t * in_v = in_u + linesize / 4;
+
+	    do
+	    {
+		*out++ = *in_y++;
+		*out++ = *in_u;
+		*out++ = *in_y++;
+		*out++ = *in_v;
+		*out++ = *in_y++;
+		*out++ = *in_u++;
+		*out++ = *in_y++;
+		*out++ = *in_v++;
+	    }
+	    while (out != end);
 	}
     }
-    frame_ref.pix_fmt = wanted_pix_fmt_avcodec;
-    frame_ref.height = source_rect.height;
-
-    video_effect_show_title_safe(frame_ref);
 
     if (source_rect.pixel_width > source_rect.pixel_height)
     {
@@ -369,46 +476,6 @@ void dv_full_display_widget::put_frame_buffer(const rectangle & source_rect)
     }
     source_rect_ = source_rect;
     set_size_request(dest_width_, dest_height_);
-}
-
-int dv_full_display_widget::get_buffer(AVCodecContext * context,
-				       AVFrame * header)
-{
-    dv_full_display_widget * widget =
-	static_cast<dv_full_display_widget *>(context->opaque);
-    XvImage * xv_image = static_cast<XvImage *>(widget->xv_image_);
-
-    assert(context->pix_fmt == wanted_pix_fmt_avcodec);
-
-    for (int plane = 0; plane != 4; ++plane)
-    {
-	if (plane < xv_image->num_planes)
-	{
-	    header->data[plane] =
-		reinterpret_cast<uint8_t *>(xv_image->data
-					    + xv_image->offsets[plane]);
-	    header->linesize[plane] = xv_image->pitches[plane];
-	}
-	else
-	{
-	    header->data[plane] = 0;
-	    header->linesize[plane] = 0;
-	}
-    }
-
-    header->type = FF_BUFFER_TYPE_USER;
-    return 0;
-}
-
-void dv_full_display_widget::release_buffer(AVCodecContext *, AVFrame * header)
-{
-    for (int i = 0; i != 4; ++i)
-	header->data[i] = 0;
-}
-
-int dv_full_display_widget::reget_buffer(AVCodecContext *, AVFrame *)
-{
-    return 0;
 }
 
 bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
@@ -437,6 +504,13 @@ bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
     }
 
     return true;
+}
+
+void dv_full_display_widget::on_unrealize() throw()
+{
+    fini_xvideo();
+
+    dv_display_widget::on_unrealize();
 }
 
 // dv_thumb_display_widget
@@ -472,12 +546,6 @@ dv_thumb_display_widget::dv_thumb_display_widget()
       dest_width_(0),
       dest_height_(0)
 {
-    AVCodecContext * decoder = decoder_.get();
-    decoder->opaque = this;
-    decoder->get_buffer = get_buffer;
-    decoder->release_buffer = release_buffer;
-    decoder->reget_buffer = reget_buffer;
-
     // We don't know what the frame format will be, but assume "PAL"
     // 4:3 frames and therefore an active image size of 702x576 and
     // pixel aspect ratio of 59:54.
@@ -488,9 +556,18 @@ dv_thumb_display_widget::~dv_thumb_display_widget()
 {
 }
 
-void dv_thumb_display_widget::on_realize() throw()
+bool dv_thumb_display_widget::try_init_xshm(PixelFormat pix_fmt,
+					    unsigned height) throw()
 {
-    dv_display_widget::on_realize();
+    assert(pix_fmt == PIX_FMT_YUV420P || pix_fmt == PIX_FMT_YUV422P
+	   || pix_fmt == PIX_FMT_YUV410P || pix_fmt == PIX_FMT_YUV411P);
+    assert(height <= FRAME_HEIGHT_MAX / dv_block_size);
+
+    if (x_image_)
+    {
+	raw_frame_->pix_fmt = pix_fmt;
+	return true;
+    }
 
     Display * x_display = get_x_display(*this);
 
@@ -520,6 +597,7 @@ void dv_thumb_display_widget::on_realize() throw()
 			 x_display, x_shm_info,
 			 x_image->height * x_image->bytes_per_line)))
 		{
+		    raw_frame_->pix_fmt = pix_fmt;
 		    x_image_ = x_image;
 		    x_shm_info_ = x_shm_info;
 		}
@@ -539,9 +617,11 @@ void dv_thumb_display_widget::on_realize() throw()
     {
 	std::cerr << "ERROR: Window does not support 24- or 32-bit colour\n";
     }
+
+    return x_image_;
 }
 
-void dv_thumb_display_widget::on_unrealize() throw()
+void dv_thumb_display_widget::fini_xshm() throw()
 {
     if (XImage * x_image = static_cast<XImage *>(x_image_))
     {
@@ -553,13 +633,38 @@ void dv_thumb_display_widget::on_unrealize() throw()
 	free(x_image);
 	x_image_ = 0;
     }
+}
+
+void dv_thumb_display_widget::on_unrealize() throw()
+{
+    fini_xshm();
 
     dv_display_widget::on_unrealize();
 }
 
-AVFrame * dv_thumb_display_widget::get_frame_buffer()
+AVFrame * dv_thumb_display_widget::get_frame_header()
 {
-    return x_image_ ? &raw_frame_->header : 0;
+    return &raw_frame_->header;
+}
+
+AVFrame * dv_thumb_display_widget::get_frame_buffer(AVFrame * header,
+						    PixelFormat pix_fmt,
+						    unsigned height)
+{
+    if (!try_init_xshm(pix_fmt, height))
+	return 0;
+
+    header->data[0] = raw_frame_->buffer.y;
+    header->linesize[0] = frame_thumb_linesize_4;
+    header->data[1] = raw_frame_->buffer.c_dummy;
+    header->linesize[1] = 0;
+    header->data[2] = raw_frame_->buffer.c_dummy;
+    header->linesize[2] = 0;
+    header->data[3] = 0;
+    header->linesize[3] = 0;
+
+    header->type = FF_BUFFER_TYPE_USER;
+    return header;
 }
 
 void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
@@ -623,36 +728,6 @@ void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
     while (dest_y != dest_height_);
 
     set_size_request(dest_width_, dest_height_);
-}
-
-int dv_thumb_display_widget::get_buffer(AVCodecContext * context,
-					AVFrame * header)
-{
-    dv_thumb_display_widget * widget =
-	static_cast<dv_thumb_display_widget *>(context->opaque);
-
-    header->data[0] = widget->raw_frame_->buffer.y;
-    header->linesize[0] = frame_thumb_linesize_4;
-    header->data[1] = widget->raw_frame_->buffer.c_dummy;
-    header->linesize[1] = 0;
-    header->data[2] = widget->raw_frame_->buffer.c_dummy;
-    header->linesize[2] = 0;
-    header->data[3] = 0;
-    header->linesize[3] = 0;
-
-    header->type = FF_BUFFER_TYPE_USER;
-    return 0;
-}
-
-void dv_thumb_display_widget::release_buffer(AVCodecContext *, AVFrame * header)
-{
-    for (int i = 0; i != 4; ++i)
-	header->data[i] = 0;
-}
-
-int dv_thumb_display_widget::reget_buffer(AVCodecContext *, AVFrame *)
-{
-    return 0;
 }
 
 bool dv_thumb_display_widget::on_expose_event(GdkEventExpose *) throw()

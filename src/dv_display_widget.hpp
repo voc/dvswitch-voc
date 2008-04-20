@@ -35,8 +35,14 @@ protected:
 private:
     rectangle get_source_rect(const dv_system * system,
 			      enum dv_frame_aspect frame_aspect);
-    virtual AVFrame * get_frame_buffer() = 0;
+    virtual AVFrame * get_frame_header() = 0;
+    virtual AVFrame * get_frame_buffer(AVFrame * header,
+				       PixelFormat pix_fmt, unsigned height) = 0;
     virtual void put_frame_buffer(const rectangle &) = 0;
+
+    static int get_buffer(AVCodecContext *, AVFrame *);
+    static void release_buffer(AVCodecContext *, AVFrame *);
+    static int reget_buffer(AVCodecContext *, AVFrame *);
 
     unsigned decoded_serial_num_;
 };
@@ -47,17 +53,19 @@ public:
     dv_full_display_widget();
 
 private:
-    virtual AVFrame * get_frame_buffer();
+    bool try_init_xvideo(PixelFormat pix_fmt, unsigned height) throw();
+    void fini_xvideo() throw();
+
+    virtual AVFrame * get_frame_header();
+    virtual AVFrame * get_frame_buffer(AVFrame * header,
+				       PixelFormat pix_fmt, unsigned height);
     virtual void put_frame_buffer(const rectangle &);
 
-    static int get_buffer(AVCodecContext *, AVFrame *);
-    static void release_buffer(AVCodecContext *, AVFrame *);
-    static int reget_buffer(AVCodecContext *, AVFrame *);
-
     virtual bool on_expose_event(GdkEventExpose *) throw();
-    virtual void on_realize() throw();
     virtual void on_unrealize() throw();
 
+    PixelFormat pix_fmt_;
+    unsigned height_;
     uint32_t xv_port_;
     void * xv_image_;
     void * xv_shm_info_;
@@ -75,15 +83,15 @@ public:
 private:
     struct raw_frame_thumb;
 
-    virtual AVFrame * get_frame_buffer();
+    bool try_init_xshm(PixelFormat pix_fmt, unsigned height) throw();
+    void fini_xshm() throw();
+
+    virtual AVFrame * get_frame_header();
+    virtual AVFrame * get_frame_buffer(AVFrame * header,
+				       PixelFormat pix_fmt, unsigned height);
     virtual void put_frame_buffer(const rectangle &);
 
-    static int get_buffer(AVCodecContext *, AVFrame *);
-    static void release_buffer(AVCodecContext *, AVFrame *);
-    static int reget_buffer(AVCodecContext *, AVFrame *);
-
     virtual bool on_expose_event(GdkEventExpose *) throw();
-    virtual void on_realize() throw();
     virtual void on_unrealize() throw();
 
     std::auto_ptr<raw_frame_thumb> raw_frame_;
