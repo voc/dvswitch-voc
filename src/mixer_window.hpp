@@ -55,7 +55,6 @@ private:
     mixer::source_id sec_video_source_id_;
     bool pip_active_;
     bool pip_pending_;
-    unsigned pip_left_, pip_top_, pip_right_, pip_bottom_;
 
     auto_pipe wakeup_pipe_;
 

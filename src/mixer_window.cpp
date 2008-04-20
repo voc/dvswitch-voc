@@ -56,10 +56,6 @@ mixer_window::mixer_window(mixer & mixer)
       sec_video_source_id_(0),
       pip_active_(false),
       pip_pending_(false),
-      pip_left_(FRAME_WIDTH * 9 / 15),
-      pip_top_(FRAME_HEIGHT_MAX * 1 / 15),
-      pip_right_(FRAME_WIDTH * 14 / 15),
-      pip_bottom_(FRAME_HEIGHT_MAX * 6 / 15),
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)      
 {
@@ -119,11 +115,12 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 	if (pip_active_)
 	{
 	    pip_active_ = false;
-	    update_video_effect();
+	    mixer_.set_video_effect(mixer::null_video_effect());
 	}
 	else
 	{
 	    pip_pending_ = true;
+	    display_.set_selection_enabled(true);
 	}
 	return true;
     }
@@ -134,7 +131,13 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 	{
 	    pip_active_ = true;
 	    pip_pending_ = false;
-	    update_video_effect();
+	    display_.set_selection_enabled(false);
+
+	    rectangle sel = display_.get_selection();
+	    mixer_.set_video_effect(
+		mixer_.create_video_effect_pic_in_pic(
+		    sec_video_source_id_,
+		    sel.left, sel.top, sel.right, sel.bottom));
 	    return true;
 	}
        
@@ -170,14 +173,9 @@ void mixer_window::update_video_effect()
 {
     if (pip_active_)
     {
-	mixer_.set_video_effect(
-	    mixer_.create_video_effect_pic_in_pic(
-		sec_video_source_id_,
-		pip_left_, pip_top_, pip_right_, pip_bottom_));
     }
     else
     {
-	mixer_.set_video_effect(mixer::null_video_effect());
     }
 }
 
