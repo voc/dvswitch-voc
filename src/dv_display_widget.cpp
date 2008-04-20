@@ -2,6 +2,7 @@
 // See the file "COPYING" for licence details.
 
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <ostream>
@@ -213,12 +214,37 @@ dv_full_display_widget::dv_full_display_widget()
       height_(0),
       xv_port_(invalid_xv_port),
       xv_image_(0),
-      xv_shm_info_(0)
+      xv_shm_info_(0),
+      sel_enabled_(false),
+      sel_in_progress_(false)
 {
+    std::memset(&selection_, 0, sizeof(selection_));
+
     // We don't know what the frame format will be, but assume "PAL"
     // 4:3 frames and therefore an active image size of 702x576 and
     // pixel aspect ratio of 59:54.
     set_size_request(767, 576);
+
+    add_events(Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK
+	       | Gdk::BUTTON1_MOTION_MASK | Gdk::BUTTON2_MOTION_MASK);
+}
+
+void dv_full_display_widget::set_selection_enabled(bool flag)
+{
+    sel_enabled_ = flag;
+
+    if (!sel_enabled_ && sel_in_progress_)
+    {
+	sel_in_progress_ = false;
+	remove_modal_grab();
+    }
+
+    queue_draw();
+}
+
+rectangle dv_full_display_widget::get_selection()
+{
+    return selection_;
 }
 
 bool dv_full_display_widget::try_init_xvideo(PixelFormat pix_fmt,
@@ -427,7 +453,14 @@ void dv_full_display_widget::put_frame_buffer(
     }
     frame_ref.pix_fmt = pix_fmt_;
     frame_ref.height = height_;
+
     video_effect_show_title_safe(frame_ref);
+
+    if (sel_enabled_)
+	video_effect_brighten(
+	    frame_ref,
+	    selection_.left, std::min<unsigned>(selection_.top, height_),
+	    selection_.right, std::min<unsigned>(selection_.bottom, height_));
 
     if (pix_fmt_ == PIX_FMT_YUV411P)
     {	
@@ -479,6 +512,71 @@ void dv_full_display_widget::put_frame_buffer(
     }
     source_region_ = source_region;
     set_size_request(dest_width_, dest_height_);
+}
+
+void dv_full_display_widget::window_to_frame_coords(
+    int & frame_x, int & frame_y,
+    int window_x, int window_y) throw()
+{
+    frame_x = div_round_nearest(window_x
+				* (source_region_.right - source_region_.left),
+				dest_width_);
+    frame_y = div_round_nearest(window_y
+				* (source_region_.bottom - source_region_.top),
+				dest_height_);
+}
+
+void dv_full_display_widget::update_selection(int x, int y)
+{
+    selection_.left = std::min(sel_start_x_, x);
+    selection_.right = std::max(sel_start_x_, x) + 1;
+    selection_.top = std::min(sel_start_y_, y);
+    selection_.bottom = std::max(sel_start_y_, y) + 1;
+    queue_draw();
+}
+
+bool dv_full_display_widget::on_button_press_event(GdkEventButton * event)
+    throw()
+{
+    if (sel_enabled_ && (event->button == 1 || event->button == 2))
+    {
+	sel_in_progress_ = true;
+	add_modal_grab();
+
+	int x, y;
+	window_to_frame_coords(x, y, event->x, event->y);
+	if (event->button == 1)
+	{
+	    sel_start_x_ = x;
+	    sel_start_y_ = y;
+	}
+	update_selection(x, y);
+	return true;
+    }
+
+    return false;
+}
+
+bool dv_full_display_widget::on_button_release_event(GdkEventButton * event)
+    throw()
+{
+    if (sel_in_progress_ && (event->button == 1 || event->button == 2))
+    {
+	sel_in_progress_ = false;
+	remove_modal_grab();
+	return true;
+    }
+
+    return false;
+}
+
+bool dv_full_display_widget::on_motion_notify_event(GdkEventMotion * event)
+    throw()
+{
+    int x, y;
+    window_to_frame_coords(x, y, event->x, event->y);
+    update_selection(x, y);
+    return true;
 }
 
 bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
