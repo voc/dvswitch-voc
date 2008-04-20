@@ -128,7 +128,7 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
     assert(col_weights[FRAME_WIDTH - 1].spill == 1);
     assert(col_weights[(FRAME_WIDTH >> chroma_shift_horiz) - 1].spill == 1);
     assert(row_weights[source.height - 1].spill == 1);
-    assert(col_weights[(source.height >> chroma_shift_vert) - 1].spill == 1);
+    assert(row_weights[(source.height >> chroma_shift_vert) - 1].spill == 1);
 
     unsigned width = FRAME_WIDTH;
     unsigned height = source.height;
@@ -144,8 +144,6 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 	    bottom >>= chroma_shift_vert;
 	    height >>= chroma_shift_vert;
 	}
-	const uint8_t * source_p = source.planes.data[plane];
-	unsigned source_gap = source.planes.linesize[plane] - width;
 	uint8_t * dest_p =
 	    dest.planes.data[plane] + top * dest.planes.linesize[plane] + left;
 	const unsigned dest_gap = dest.planes.linesize[plane] - (right - left);
@@ -161,6 +159,8 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 	    for (;;)
 	    {
 		// Loop over source columns
+		const uint8_t * source_p = (source.planes.data[plane] +
+					    source.planes.linesize[plane] * y);
 		row_p = row_buffer;
 		for (x = 0; x != width; ++x)
 		{
@@ -191,8 +191,6 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 		if (!row_weight)
 		    break;
 	    }
-
-	    source_p += source_gap;
 	}
 
 	assert(dest_p == (dest.planes.data[plane]
