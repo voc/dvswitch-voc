@@ -12,6 +12,7 @@
 #include "auto_codec.hpp"
 #include "frame.h"
 #include "frame_pool.hpp"
+#include "geometry.hpp"
 
 class dv_display_widget : public Gtk::DrawingArea
 {
@@ -23,22 +24,20 @@ public:
     void put_frame(const raw_frame_ptr &);
 
 protected:
-    struct rectangle
+    struct display_region : rectangle
     {
-	unsigned left, top;
-	unsigned width, height;
 	unsigned pixel_width, pixel_height;
     };
 
     auto_codec decoder_;
 
 private:
-    rectangle get_source_rect(const dv_system * system,
-			      enum dv_frame_aspect frame_aspect);
+    display_region get_display_region(const dv_system * system,
+				      enum dv_frame_aspect frame_aspect);
     virtual AVFrame * get_frame_header() = 0;
     virtual AVFrame * get_frame_buffer(AVFrame * header,
 				       PixelFormat pix_fmt, unsigned height) = 0;
-    virtual void put_frame_buffer(const rectangle &) = 0;
+    virtual void put_frame_buffer(const display_region &) = 0;
 
     static int get_buffer(AVCodecContext *, AVFrame *);
     static void release_buffer(AVCodecContext *, AVFrame *);
@@ -59,7 +58,7 @@ private:
     virtual AVFrame * get_frame_header();
     virtual AVFrame * get_frame_buffer(AVFrame * header,
 				       PixelFormat pix_fmt, unsigned height);
-    virtual void put_frame_buffer(const rectangle &);
+    virtual void put_frame_buffer(const display_region &);
 
     virtual bool on_expose_event(GdkEventExpose *) throw();
     virtual void on_unrealize() throw();
@@ -70,7 +69,7 @@ private:
     void * xv_image_;
     void * xv_shm_info_;
     AVFrame frame_header_;
-    rectangle source_rect_;
+    display_region source_region_;
     unsigned dest_width_, dest_height_;
 };
 
@@ -89,7 +88,7 @@ private:
     virtual AVFrame * get_frame_header();
     virtual AVFrame * get_frame_buffer(AVFrame * header,
 				       PixelFormat pix_fmt, unsigned height);
-    virtual void put_frame_buffer(const rectangle &);
+    virtual void put_frame_buffer(const display_region &);
 
     virtual bool on_expose_event(GdkEventExpose *) throw();
     virtual void on_unrealize() throw();

@@ -98,16 +98,16 @@ dv_display_widget::~dv_display_widget()
 {
 }
 
-dv_display_widget::rectangle
-dv_display_widget::get_source_rect(const dv_system * system,
-				   enum dv_frame_aspect frame_aspect)
+dv_display_widget::display_region
+dv_display_widget::get_display_region(const dv_system * system,
+				      enum dv_frame_aspect frame_aspect)
 {
-    rectangle result;
+    display_region result;
 
     result.left = (system->frame_width - system->frame_width_used) / 2;
     result.top = 0;
-    result.width = system->frame_width_used;
-    result.height = system->frame_height;
+    result.right = result.left + system->frame_width_used;
+    result.bottom = system->frame_height;
 
     if (frame_aspect == dv_frame_aspect_wide)
     {
@@ -148,7 +148,7 @@ void dv_display_widget::put_frame(const dv_frame_ptr & dv_frame)
 	decoded_serial_num_ = dv_frame->serial_num;
 
 	put_frame_buffer(
-	    get_source_rect(system, dv_frame_aspect(dv_frame.get())));
+	    get_display_region(system, dv_frame_aspect(dv_frame.get())));
 	queue_draw();
     }
 }
@@ -181,7 +181,7 @@ void dv_display_widget::put_frame(const raw_frame_ptr & raw_frame)
 	copy_raw_frame(dest, source);
 	decoded_serial_num_ = raw_frame->header.pts;
 
-	put_frame_buffer(get_source_rect(system, raw_frame->aspect));
+	put_frame_buffer(get_display_region(system, raw_frame->aspect));
 	queue_draw();
     }
 }
@@ -416,7 +416,8 @@ AVFrame * dv_full_display_widget::get_frame_buffer(AVFrame * header,
     return &frame_header_;
 }
 
-void dv_full_display_widget::put_frame_buffer(const rectangle & source_rect)
+void dv_full_display_widget::put_frame_buffer(
+    const display_region & source_region)
 {
     raw_frame_ref frame_ref;
     for (int plane = 0; plane != 4; ++plane)
@@ -460,21 +461,23 @@ void dv_full_display_widget::put_frame_buffer(const rectangle & source_rect)
 	}
     }
 
-    if (source_rect.pixel_width > source_rect.pixel_height)
+    if (source_region.pixel_width > source_region.pixel_height)
     {
-	dest_height_ = source_rect.height;
-	dest_width_ = div_round_nearest(source_rect.width
-				       * source_rect.pixel_width,
-				       source_rect.pixel_height);
+	dest_height_ = source_region.bottom - source_region.top;
+	dest_width_ = div_round_nearest((source_region.right
+					 - source_region.left)
+					* source_region.pixel_width,
+					source_region.pixel_height);
     }
     else
     {
-	dest_width_ = source_rect.width;
-	dest_height_ = div_round_nearest(source_rect.height
-					* source_rect.pixel_height,
-					source_rect.pixel_width);
+	dest_width_ = source_region.right - source_region.left;
+	dest_height_ = div_round_nearest((source_region.bottom
+					  - source_region.top)
+					 * source_region.pixel_height,
+					 source_region.pixel_width);
     }
-    source_rect_ = source_rect;
+    source_region_ = source_region;
     set_size_request(dest_width_, dest_height_);
 }
 
@@ -495,8 +498,9 @@ bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
 		      get_x_window(drawable),
 		      gdk_x11_gc_get_xgc(gc->gobj()),
 		      static_cast<XvImage *>(xv_image_),
-		      source_rect_.left, source_rect_.top,
-		      source_rect_.width, source_rect_.height,
+		      source_region_.left, source_region_.top,
+		      source_region_.right - source_region_.left,
+		      source_region_.bottom - source_region_.top,
 		      dest_x, dest_y,
 		      dest_width_, dest_height_,
 		      False);
@@ -667,32 +671,35 @@ AVFrame * dv_thumb_display_widget::get_frame_buffer(AVFrame * header,
     return header;
 }
 
-void dv_thumb_display_widget::put_frame_buffer(const rectangle & source_rect)
+void dv_thumb_display_widget::put_frame_buffer(
+    const display_region & source_region)
 {
     XImage * x_image = static_cast<XImage *>(x_image_);
 
-    dest_width_ = div_round_nearest(source_rect.width
-				    * source_rect.pixel_width,
-				    source_rect.pixel_height
+    dest_width_ = div_round_nearest((source_region.right - source_region.left)
+				    * source_region.pixel_width,
+				    source_region.pixel_height
 				    * thumb_scale_denom);
-    dest_height_ = div_round_nearest(source_rect.height,
+    dest_height_ = div_round_nearest(source_region.bottom - source_region.top,
 				     thumb_scale_denom);
 
     // Scale the image up using Bresenham's algorithm
 
     assert(x_image->bits_per_pixel == 24 || x_image->bits_per_pixel == 32);
 
-    const unsigned source_width = source_rect.width / dv_block_size;
-    const unsigned source_height = source_rect.height / dv_block_size;
+    const unsigned source_width = ((source_region.right - source_region.left)
+				   / dv_block_size);
+    const unsigned source_height = ((source_region.bottom - source_region.top)
+				    / dv_block_size);
     assert(source_width <= dest_width_);
     assert(source_height <= dest_height_);
-    unsigned source_y = source_rect.top / dv_block_size, dest_y = 0;
+    unsigned source_y = source_region.top / dv_block_size, dest_y = 0;
     unsigned error_y = source_height / 2;
     do
     {
 	const uint8_t * source =
 	    raw_frame_->buffer.y + frame_thumb_linesize_4 * source_y
-	    + source_rect.left / dv_block_size;
+	    + source_region.left / dv_block_size;
 	uint8_t * dest = reinterpret_cast<uint8_t *>(
 	    x_image->data + x_image->bytes_per_line * dest_y);
 	uint8_t * dest_row_end =
