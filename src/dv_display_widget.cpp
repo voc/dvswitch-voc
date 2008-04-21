@@ -528,12 +528,53 @@ void dv_full_display_widget::window_to_frame_coords(
 				 dest_height_));
 }
 
-void dv_full_display_widget::update_selection(int x, int y)
+void dv_full_display_widget::update_selection(int x2, int y2)
 {
-    selection_.left = std::min(sel_start_x_, x);
-    selection_.right = std::max(sel_start_x_, x) + 1;
-    selection_.top = std::min(sel_start_y_, y);
-    selection_.bottom = std::max(sel_start_y_, y) + 1;
+    int frame_width = source_region_.right - source_region_.left;
+    int frame_height = source_region_.bottom - source_region_.top;
+
+    int dir_x, x1, scale_x_max;
+    if (x2 < sel_start_x_)
+    {
+	dir_x = -1;
+	x1 = sel_start_x_ + 1;
+	scale_x_max = (x1 - source_region_.left) * frame_height;
+    }
+    else
+    {
+	dir_x = 1;
+	x1 = sel_start_x_;
+	x2 += 1;
+	scale_x_max = (source_region_.right - x1) * frame_height;
+    }
+    int scale_x = (x2 - x1) * dir_x * frame_height;
+
+    int dir_y, y1, scale_y_max;
+    if (y2 < sel_start_y_)
+    {
+	dir_y = -1;
+	y1 = sel_start_y_ + 1;
+	scale_y_max = (y1 - source_region_.top) * frame_width;
+    }
+    else
+    {
+	dir_y = 1;
+	y1 = sel_start_y_;
+	y2 += 1;
+	scale_y_max = (source_region_.bottom - y1) * frame_width;
+    }
+    int scale_y = (y2 - y1) * dir_y * frame_width;
+
+    // Expand to maintain aspect ratio and shrink to fit the display region
+    int scale = std::min(std::max(scale_x, scale_y),
+			 std::min(scale_x_max, scale_y_max));
+    x2 = x1 + dir_x * scale / frame_height;
+    y2 = y1 + dir_y * scale / frame_width;
+
+    selection_.left = dir_x < 0 ? x2 : x1;
+    selection_.right = dir_x < 0 ? x1 : x2;
+    selection_.top = dir_y < 0 ? y2 : y1;
+    selection_.bottom = dir_y < 0 ? y1 : y2;
     queue_draw();
 }
 
