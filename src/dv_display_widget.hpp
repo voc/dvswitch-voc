@@ -12,7 +12,7 @@
 #include "auto_codec.hpp"
 #include "frame.h"
 #include "frame_pool.hpp"
-#include "geometry.hpp"
+#include "geometry.h"
 
 class dv_display_widget : public Gtk::DrawingArea
 {
