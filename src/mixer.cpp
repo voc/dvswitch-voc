@@ -710,8 +710,9 @@ void mixer::run_mixer()
 	    // Mix raw video
 	    video_effect_pic_in_pic(
 		make_raw_frame_ref(mixed_raw),
+		m->settings.video_effect->dest_region,
 		make_raw_frame_ref(video_sec_source_raw),
-		m->settings.video_effect->dest_region);
+		raw_frame_system(video_sec_source_raw.get())->active_region);
 
 	    // Encode mixed video
 	    const dv_system * system = raw_frame_system(mixed_raw.get());

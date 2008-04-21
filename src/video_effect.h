@@ -15,8 +15,9 @@ void video_effect_show_title_safe(struct raw_frame_ref dest);
 void video_effect_brighten(struct raw_frame_ref dest,
 			   struct rectangle dest_rect);
 void video_effect_pic_in_pic(struct raw_frame_ref dest,
+			     struct rectangle dest_rect,
                              struct raw_frame_ref source,
-			     struct rectangle dest_rect);
+			     struct rectangle source_rect);
 
 #ifdef __cplusplus
 }
