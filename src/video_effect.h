@@ -9,15 +9,14 @@ extern "C" {
 #endif
 
 #include "frame.h"
+#include "geometry.h"
 
 void video_effect_show_title_safe(struct raw_frame_ref dest);
 void video_effect_brighten(struct raw_frame_ref dest,
-			   unsigned left, unsigned top,
-			   unsigned right, unsigned bottom);
+			   struct rectangle dest_rect);
 void video_effect_pic_in_pic(struct raw_frame_ref dest,
                              struct raw_frame_ref source,
-			     unsigned left, unsigned top,
-			     unsigned right, unsigned bottom);
+			     struct rectangle dest_rect);
 
 #ifdef __cplusplus
 }

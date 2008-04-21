@@ -15,6 +15,7 @@
 
 #include "auto_handle.hpp"
 #include "frame_pool.hpp"
+#include "geometry.h"
 #include "ring_buffer.hpp"
 
 namespace boost
@@ -107,8 +108,7 @@ public:
 
     static std::tr1::shared_ptr<video_effect_settings>
     create_video_effect_pic_in_pic(source_id sec_source_id,
-				   unsigned left, unsigned top,
-				   unsigned right, unsigned bottom);
+				   rectangle dest_region);
     static std::tr1::shared_ptr<video_effect_settings>
     null_video_effect()
     {

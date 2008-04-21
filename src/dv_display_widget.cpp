@@ -453,10 +453,10 @@ void dv_full_display_widget::put_frame_buffer(
     video_effect_show_title_safe(frame_ref);
 
     if (sel_enabled_)
-	video_effect_brighten(
-	    frame_ref,
-	    selection_.left, std::min<unsigned>(selection_.top, height_),
-	    selection_.right, std::min<unsigned>(selection_.bottom, height_));
+    {
+	selection_ &= source_region;
+	video_effect_brighten(frame_ref, selection_);
+    }
 
     if (pix_fmt_ == PIX_FMT_YUV411P)
     {	

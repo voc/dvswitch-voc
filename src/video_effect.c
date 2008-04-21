@@ -58,8 +58,7 @@ void video_effect_show_title_safe(struct raw_frame_ref dest)
 }
 
 void video_effect_brighten(struct raw_frame_ref dest,
-			   unsigned left, unsigned top,
-			   unsigned right, unsigned bottom)
+			   struct rectangle d_rect)
 {
     int chroma_shift_horiz, chroma_shift_vert;    
     avcodec_get_chroma_sub_sample(dest.pix_fmt,
@@ -71,18 +70,18 @@ void video_effect_brighten(struct raw_frame_ref dest,
     {
 	if (plane == 1)
 	{
-	    left >>= chroma_shift_horiz;
-	    right >>= chroma_shift_horiz;
-	    top >>= chroma_shift_vert;
-	    bottom >>= chroma_shift_vert;
+	    d_rect.left >>= chroma_shift_horiz;
+	    d_rect.right >>= chroma_shift_horiz;
+	    d_rect.top >>= chroma_shift_vert;
+	    d_rect.bottom >>= chroma_shift_vert;
 	    bias = chroma_bias;
 	}
 
-	for (unsigned y = top; y != bottom; ++y)
+	for (unsigned y = d_rect.top; y != d_rect.bottom; ++y)
 	{
 	    uint8_t * p = (dest.planes.data[plane]
-			   + dest.planes.linesize[plane] * y + left);
-	    uint8_t * end = p + (right - left);
+			   + dest.planes.linesize[plane] * y + d_rect.left);
+	    uint8_t * end = p + (d_rect.right - d_rect.left);
 	    while (p != end)
 		*p = (*p + bias) / 2, ++p;
 	}
@@ -91,23 +90,22 @@ void video_effect_brighten(struct raw_frame_ref dest,
 
 void video_effect_pic_in_pic(struct raw_frame_ref dest,
 			     struct raw_frame_ref source,
-			     unsigned left, unsigned top,
-			     unsigned right, unsigned bottom)
+			     struct rectangle d_rect)
 {
     int chroma_shift_horiz, chroma_shift_vert;
     avcodec_get_chroma_sub_sample(dest.pix_fmt,
 				  &chroma_shift_horiz, &chroma_shift_vert);
 
     // Round coordinates so they include whole numbers of chroma pixels
-    left &= -(1U << chroma_shift_horiz);
-    right &= -(1U << chroma_shift_horiz);
-    top &= -(1U << chroma_shift_vert);
-    bottom &= -(1U << chroma_shift_vert);
+    d_rect.left &= -(1U << chroma_shift_horiz);
+    d_rect.right &= -(1U << chroma_shift_horiz);
+    d_rect.top &= -(1U << chroma_shift_vert);
+    d_rect.bottom &= -(1U << chroma_shift_vert);
 
-    assert(left < right && right <= FRAME_WIDTH);
-    assert(top < bottom && bottom <= dest.height);
-    assert(right - left < FRAME_WIDTH);
-    assert(bottom - top < dest.height);
+    assert(d_rect.left < d_rect.right && d_rect.right <= FRAME_WIDTH);
+    assert(d_rect.top < d_rect.bottom && d_rect.bottom <= dest.height);
+    assert(d_rect.right - d_rect.left < FRAME_WIDTH);
+    assert(d_rect.bottom - d_rect.top < dest.height);
 
     // Scaling tables
 
@@ -125,8 +123,8 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
     e = 0;
     for (x = 0; x != FRAME_WIDTH; ++x)
     {
-	e += right - left;
-	col_weights[x].cur = ((right - left) << 16) / FRAME_WIDTH;
+	e += d_rect.right - d_rect.left;
+	col_weights[x].cur = ((d_rect.right - d_rect.left) << 16) / FRAME_WIDTH;
 	if (e >= FRAME_WIDTH)
 	{
 	    e -= FRAME_WIDTH;
@@ -143,8 +141,9 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
     e = 0;
     for (y = 0; y != source.height; ++y)
     {
-	e += bottom - top;
-	row_weights[y].cur = ((bottom - top) << 16) / source.height;
+	e += d_rect.bottom - d_rect.top;
+	row_weights[y].cur = (((d_rect.bottom - d_rect.top) << 16)
+			      / source.height);
 	if (e >= source.height)
 	{
 	    e -= source.height;
@@ -170,18 +169,20 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
     {
 	if (plane == 1)
 	{
-	    left >>= chroma_shift_horiz;
-	    right >>= chroma_shift_horiz;
+	    d_rect.left >>= chroma_shift_horiz;
+	    d_rect.right >>= chroma_shift_horiz;
 	    width >>= chroma_shift_horiz;
-	    top >>= chroma_shift_vert;
-	    bottom >>= chroma_shift_vert;
+	    d_rect.top >>= chroma_shift_vert;
+	    d_rect.bottom >>= chroma_shift_vert;
 	    height >>= chroma_shift_vert;
 	}
-	uint8_t * dest_p =
-	    dest.planes.data[plane] + top * dest.planes.linesize[plane] + left;
-	const unsigned dest_gap = dest.planes.linesize[plane] - (right - left);
+	uint8_t * dest_p = (dest.planes.data[plane]
+			    + d_rect.top * dest.planes.linesize[plane]
+			    + d_rect.left);
+	const unsigned dest_gap = (dest.planes.linesize[plane]
+				   - (d_rect.right - d_rect.left));
 	uint32_t row_buffer[FRAME_WIDTH], * row_p;
-	memset(row_buffer, 0, (right - left) * sizeof(uint32_t));
+	memset(row_buffer, 0, (d_rect.right - d_rect.left) * sizeof(uint32_t));
 
 	// Loop over source rows
 	for (y = 0; y != height; ++y)
@@ -209,14 +210,15 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 
 		// Spit out destination row
 		row_p = row_buffer;
-		for (x = left; x != right; ++x)
+		for (x = d_rect.left; x != d_rect.right; ++x)
 		    *dest_p++ = *row_p++ >> 24;
 
 		if (y == height - 1)
 		    break;
 
 		dest_p += dest_gap;
-		memset(row_buffer, 0, (right - left) * sizeof(uint32_t));
+		memset(row_buffer, 0,
+		       (d_rect.right - d_rect.left) * sizeof(uint32_t));
 
 		// Scale source row to next dest row if it overlaps
 		row_weight = row_spill - 1;
@@ -227,7 +229,7 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 	}
 
 	assert(dest_p == (dest.planes.data[plane]
-			  + (bottom - 1) * dest.planes.linesize[plane]
-			  + right));
+			  + (d_rect.bottom - 1) * dest.planes.linesize[plane]
+			  + d_rect.right));
     }
 }

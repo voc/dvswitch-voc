@@ -133,11 +133,9 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 	    pip_pending_ = false;
 	    display_.set_selection_enabled(false);
 
-	    rectangle sel = display_.get_selection();
 	    mixer_.set_video_effect(
 		mixer_.create_video_effect_pic_in_pic(
-		    sec_video_source_id_,
-		    sel.left, sel.top, sel.right, sel.bottom));
+		    sec_video_source_id_, display_.get_selection()));
 	    return true;
 	}
        

@@ -127,23 +127,18 @@ void mixer::remove_sink(sink_id id)
 struct mixer::video_effect_settings
 {
     source_id sec_source_id;
-    unsigned left, top;
-    unsigned right, bottom;
+    rectangle dest_region;
 };
 
 std::tr1::shared_ptr<mixer::video_effect_settings>
 mixer::create_video_effect_pic_in_pic(source_id sec_source_id,
-				      unsigned left, unsigned top,
-				      unsigned right, unsigned bottom)
+				      rectangle dest_region)
 {
     // XXX Need to validate parameters before they break anything
     std::tr1::shared_ptr<video_effect_settings> result(
 	new video_effect_settings);
     result->sec_source_id = sec_source_id;
-    result->left = left;
-    result->top = top;
-    result->right = right;
-    result->bottom = bottom;
+    result->dest_region = dest_region;
     return result;
 }
 
@@ -716,10 +711,7 @@ void mixer::run_mixer()
 	    video_effect_pic_in_pic(
 		make_raw_frame_ref(mixed_raw),
 		make_raw_frame_ref(video_sec_source_raw),
-		m->settings.video_effect->left,
-		m->settings.video_effect->top,
-		m->settings.video_effect->right,
-		m->settings.video_effect->bottom);
+		m->settings.video_effect->dest_region);
 
 	    // Encode mixed video
 	    const dv_system * system = raw_frame_system(mixed_raw.get());
