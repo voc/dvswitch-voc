@@ -104,11 +104,7 @@ dv_display_widget::get_display_region(const dv_system * system,
 				      enum dv_frame_aspect frame_aspect)
 {
     display_region result;
-
-    result.left = (system->frame_width - system->frame_width_used) / 2;
-    result.top = 0;
-    result.right = result.left + system->frame_width_used;
-    result.bottom = system->frame_height;
+    static_cast<rectangle &>(result) = system->active_region;
 
     if (frame_aspect == dv_frame_aspect_wide)
     {

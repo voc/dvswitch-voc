@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "geometry.h"
+
 #define DIF_BLOCK_SIZE 80
 #define DIF_BLOCKS_PER_SEQUENCE 150
 #define DIF_SEQUENCE_SIZE (DIF_BLOCK_SIZE * DIF_BLOCKS_PER_SEQUENCE)
@@ -27,7 +29,7 @@ struct dv_system
 {
     const char * common_name;
     unsigned frame_width, frame_height;
-    unsigned frame_width_used;
+    struct rectangle active_region;
     unsigned frame_rate_numer, frame_rate_denom;
     struct {
 	unsigned width, height;
