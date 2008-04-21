@@ -518,12 +518,14 @@ void dv_full_display_widget::window_to_frame_coords(
     int & frame_x, int & frame_y,
     int window_x, int window_y) throw()
 {
-    frame_x = div_round_nearest(window_x
-				* (source_region_.right - source_region_.left),
-				dest_width_);
-    frame_y = div_round_nearest(window_y
-				* (source_region_.bottom - source_region_.top),
-				dest_height_);
+    frame_x = (source_region_.left +
+	       div_round_nearest(window_x
+				 * (source_region_.right - source_region_.left),
+				 dest_width_));
+    frame_y = (source_region_.top +
+	       div_round_nearest(window_y
+				 * (source_region_.bottom - source_region_.top),
+				 dest_height_));
 }
 
 void dv_full_display_widget::update_selection(int x, int y)
