@@ -71,12 +71,12 @@ mixer_window::mixer_window(mixer & mixer)
     set_border_width(gui_standard_spacing);
     set_mnemonic_modifier(Gdk::ModifierType(0));
 
-    record_button_.set_active(true);
     record_button_.set_mode(/*draw_indicator=*/false);
     record_button_.signal_toggled().connect(
 	sigc::mem_fun(*this, &mixer_window::toggle_record));
     record_button_.show();
 
+    cut_button_.set_sensitive(false);
     cut_button_.signal_clicked().connect(sigc::mem_fun(mixer_, &mixer::cut));
     cut_button_.show();
 

@@ -91,6 +91,7 @@ void mixer::put_frame(source_id id, const dv_frame_ptr & frame)
 	    {
 		settings_.video_source_id = id;
 		settings_.audio_source_id = id;
+		settings_.do_record = false;
 		settings_.cut_before = false;
 		clock_state_ = run_state_run;
 		should_notify_clock = true; // after we unlock the mutex
