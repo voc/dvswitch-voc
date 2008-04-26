@@ -2,9 +2,8 @@
 #include <iostream>
 #include <ostream>
 
-#include <libdv/dv.h>
-
 #include "frame.h"
+#include "frame_pool.hpp"
 #include "mixer.hpp"
 
 // The use of volatile in this test program is not an endorsement of its
@@ -20,7 +19,7 @@ namespace
 	    : sink_count_(sink_count)
 	{}
     private:
-	virtual void put_frame(const mixer::frame_ptr &)
+	virtual void put_frame(const dv_frame_ptr &)
 	{
 	    std::cout << "sinked frame\n";
 	    ++sink_count_;
@@ -44,8 +43,8 @@ int main()
     {
 	if (source_count - sink_count < 8)
 	{
-	    mixer::frame_ptr frame(the_mixer.allocate_frame());
-	    frame->system = e_dv_system_625_50;
+	    dv_frame_ptr frame(allocate_dv_frame());
+	    frame->buffer[3] = 0xBF; // 625/50 frame
 	    the_mixer.put_frame(0, frame);
 	    ++source_count;
 	    std::cout << "sourced frame\n";
