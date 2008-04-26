@@ -6,12 +6,20 @@
 
 #include "video_effect.h"
 
-const int pad = 100;
 const uint32_t source_colour = 0xfefefe, dest_colour = 0x000000, pad_colour = 0xbadbad;
+
+#ifdef TEST_SPEED
+const int pad = 0;
+const int dims[] = {
+    480, 576, 702, 712, 720
+};
+#else
+const int pad = 100;
 const int dims[] = {
     1, 2, 3, 4, 15, 16, 17, 31, 32, 33, 64,
     128, 256, 480, 576, 702, 712, 719, 720
 };
+#endif
 const int n_dims = sizeof(dims) / sizeof(dims[0]);
 
 void alloc_plane(raw_frame_ref & frame, int i, int width, int height)
@@ -150,6 +158,7 @@ void test_pic_in_pic(raw_frame_ref dest, int d_width, int d_height,
 
 	    video_effect_pic_in_pic(dest, d_rect, source, s_rect);
 
+#ifndef TEST_SPEED
 	    // Check we overwrote the area we were supposed to
 	    assert_rect_colour(dest, d_rect, source_colour);
 
@@ -170,6 +179,7 @@ void test_pic_in_pic(raw_frame_ref dest, int d_width, int d_height,
 
 	    // Restore destination area
 	    fill_rect_colour(dest, d_rect, dest_colour);
+#endif
 	}
     }
 }

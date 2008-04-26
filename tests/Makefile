@@ -1,10 +1,12 @@
 CPPFLAGS := -I../src
 CXXFLAGS := -g
 
-all : mixer ring_buffer pic_in_pic
+all : mixer ring_buffer pic_in_pic pic_in_pic_speed
 
-mixer pic_in_pic : CPPFLAGS += $(shell pkg-config --cflags libavcodec)
-mixer pic_in_pic : LDFLAGS += $(shell pkg-config --libs libavcodec)
+mixer pic_in_pic pic_in_pic_speed : \
+	CPPFLAGS += $(shell pkg-config --cflags libavcodec)
+mixer pic_in_pic pic_in_pic_speed : \
+	LDFLAGS += $(shell pkg-config --libs libavcodec)
 
 mixer : LDFLAGS += -lboost_thread -lpthread -lrt
 
@@ -17,7 +19,12 @@ ring_buffer : ring_buffer.o
 pic_in_pic : pic_in_pic.o ../src/.objs/video_effect.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^
 
+pic_in_pic_speed.o : pic_in_pic.cpp
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -DTEST_SPEED -o $@ -c $^
+pic_in_pic_speed : pic_in_pic_speed.o ../src/.objs/video_effect.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^
+
 clean :
-	rm -f mixer ring_buffer pic_in_pic *.o 
+	rm -f mixer ring_buffer pic_in_pic pic_in_pic_speed *.o 
 
 .PHONY : all clean
