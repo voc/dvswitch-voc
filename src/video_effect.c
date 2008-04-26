@@ -212,13 +212,17 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 		    source.planes.data[plane]
 		    + source.planes.linesize[plane] * (s_top + y) + s_left;
 		row_p = row_buffer;
+		uint32_t value_sum = *row_p;
 		for (x = 0; x != s_width; ++x)
 		{
-		    unsigned value = *source_p++;
-		    *row_p += row_weight * col_weights[x].cur * value;
+		    unsigned value_rw = *source_p++ * row_weight;
+		    value_sum += value_rw * col_weights[x].cur;
 		    if (col_weights[x].spill)
-			*++row_p += (row_weight * (col_weights[x].spill - 1)
-				     * value);
+		    {
+			*row_p++ = value_sum;
+			value_sum = (*row_p
+				     + value_rw * (col_weights[x].spill - 1));
+		    }
 		}
 
 		if (!row_spill)
