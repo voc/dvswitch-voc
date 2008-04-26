@@ -200,19 +200,54 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 	memset(row_buffer, 0, d_width * sizeof(uint32_t));
 
 	// Loop over source rows
-	for (y = 0; y != s_height; ++y)
+	for (y = 0; ; ++y)
 	{
 	    unsigned row_weight = row_weights[y].cur;
 	    unsigned row_spill = row_weights[y].spill;
 
-	    for (;;)
+	    // Loop over source columns
+	    const uint8_t * source_p =
+		source.planes.data[plane]
+		+ source.planes.linesize[plane] * (s_top + y) + s_left;
+	    row_p = row_buffer;
+	    uint32_t value_sum = *row_p;
+	    for (x = 0; x != s_width; ++x)
 	    {
-		// Loop over source columns
-		const uint8_t * source_p =
-		    source.planes.data[plane]
-		    + source.planes.linesize[plane] * (s_top + y) + s_left;
+		unsigned value_rw = *source_p++ * row_weight;
+		value_sum += value_rw * col_weights[x].cur;
+		if (col_weights[x].spill)
+		{
+		    *row_p++ = value_sum;
+		    value_sum = *row_p + value_rw * (col_weights[x].spill - 1);
+		}
+	    }
+
+	    if (!row_spill)
+		continue;
+
+	    // Spit out destination row
+	    row_p = row_buffer;
+	    for (x = 0; x != d_width; ++x)
+		*dest_p++ = (*row_p++ * (uint64_t)weight_scale
+			     + (1U << 31)) >> 32;
+
+	    if (y == s_height - 1)
+		break;
+
+	    dest_p += dest_gap;
+
+	    // Scale source row to next dest row if it overlaps
+	    // otherwise just reinitialise row buffer
+	    row_weight = row_spill - 1;
+	    if (!row_weight)
+	    {
+		memset(row_buffer, 0, d_width * sizeof(uint32_t));
+	    }
+	    else
+	    {
+		source_p -= s_width;
 		row_p = row_buffer;
-		uint32_t value_sum = *row_p;
+		uint32_t value_sum = 0;
 		for (x = 0; x != s_width; ++x)
 		{
 		    unsigned value_rw = *source_p++ * row_weight;
@@ -220,31 +255,9 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 		    if (col_weights[x].spill)
 		    {
 			*row_p++ = value_sum;
-			value_sum = (*row_p
-				     + value_rw * (col_weights[x].spill - 1));
+			value_sum = value_rw * (col_weights[x].spill - 1);
 		    }
 		}
-
-		if (!row_spill)
-		    break;
-
-		// Spit out destination row
-		row_p = row_buffer;
-		for (x = 0; x != d_width; ++x)
-		    *dest_p++ = (*row_p++ * (uint64_t)weight_scale
-				 + (1U << 31)) >> 32;
-
-		if (y == s_height - 1)
-		    break;
-
-		dest_p += dest_gap;
-		memset(row_buffer, 0, d_width * sizeof(uint32_t));
-
-		// Scale source row to next dest row if it overlaps
-		row_weight = row_spill - 1;
-		row_spill = 0;
-		if (!row_weight)
-		    break;
 	    }
 	}
     }
