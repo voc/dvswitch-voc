@@ -138,16 +138,18 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
     struct weights col_weights[FRAME_WIDTH];
     struct weights row_weights[FRAME_HEIGHT_MAX];
     unsigned e, x, y;
+    uint32_t weight_scale = (((1ULL << 32) + s_width * s_height / 2)
+			     / (s_width * s_height));
 
     e = 0;
     for (x = 0; x != s_width; ++x)
     {
 	e += d_width;
-	col_weights[x].cur = (d_width << 16) / s_width;
+	col_weights[x].cur = d_width;
 	if (e >= s_width)
 	{
 	    e -= s_width;
-	    unsigned next_weight = (e << 16) / s_width;
+	    unsigned next_weight = e;
 	    col_weights[x].spill = 1 + next_weight;
 	    col_weights[x].cur -= next_weight;
 	}
@@ -161,11 +163,11 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
     for (y = 0; y != s_height; ++y)
     {
 	e += d_height;
-	row_weights[y].cur = (d_height << 16) / s_height;
+	row_weights[y].cur = d_height;
 	if (e >= s_height)
 	{
 	    e -= s_height;
-	    unsigned next_weight = (e << 16) / s_height;
+	    unsigned next_weight = e;
 	    row_weights[y].spill = 1 + next_weight;
 	    row_weights[y].cur -= next_weight;
 	}
@@ -215,10 +217,10 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 		for (x = 0; x != s_width; ++x)
 		{
 		    unsigned value = *source_p++;
-		    *row_p += (row_weight * col_weights[x].cur >> 8) * value;
+		    *row_p += row_weight * col_weights[x].cur * value;
 		    if (col_weights[x].spill)
-			*++row_p += ((row_weight * (col_weights[x].spill - 1)
-				      >> 8) * value);
+			*++row_p += (row_weight * (col_weights[x].spill - 1)
+				     * value);
 		}
 
 		if (!row_spill)
@@ -227,7 +229,8 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 		// Spit out destination row
 		row_p = row_buffer;
 		for (x = 0; x != d_width; ++x)
-		    *dest_p++ = *row_p++ >> 24;
+		    *dest_p++ = (*row_p++ * (uint64_t)weight_scale
+				 + (1U << 31)) >> 32;
 
 		if (y == s_height - 1)
 		    break;
