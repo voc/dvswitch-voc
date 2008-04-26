@@ -145,16 +145,15 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
     for (x = 0; x != s_width; ++x)
     {
 	e += d_width;
-	col_weights[x].cur = d_width;
 	if (e >= s_width)
 	{
 	    e -= s_width;
-	    unsigned next_weight = e;
-	    col_weights[x].spill = 1 + next_weight;
-	    col_weights[x].cur -= next_weight;
+	    col_weights[x].cur = d_width - e;
+	    col_weights[x].spill = 1 + e;
 	}
 	else
 	{
+	    col_weights[x].cur = d_width;
 	    col_weights[x].spill = 0;
 	}
     }
@@ -163,16 +162,15 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
     for (y = 0; y != s_height; ++y)
     {
 	e += d_height;
-	row_weights[y].cur = d_height;
 	if (e >= s_height)
 	{
 	    e -= s_height;
-	    unsigned next_weight = e;
-	    row_weights[y].spill = 1 + next_weight;
-	    row_weights[y].cur -= next_weight;
+	    row_weights[y].cur = d_height - e;
+	    row_weights[y].spill = 1 + e;
 	}
 	else
 	{
+	    row_weights[y].cur = d_height;
 	    row_weights[y].spill = 0;
 	}
     }
