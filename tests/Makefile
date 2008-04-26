@@ -1,4 +1,7 @@
 CPPFLAGS := -I../src
+CXXFLAGS := -g
+
+all : mixer ring_buffer pic_in_pic
 
 mixer : LDFLAGS += -lboost_thread -lpthread -lrt
 
