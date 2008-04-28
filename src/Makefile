@@ -60,9 +60,6 @@ clean :
 
 .PHONY : all install clean
 
-.objs/%.d : .objs/.created
-	touch $@
-
 .objs/%.o : %.cpp .objs/.created
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ -MD -MF .objs/$*.d -c $<
 
@@ -74,7 +71,7 @@ clean :
 	touch $@
 
 ifneq ($(MAKECMDGOALS),clean)
-    include $(cxxsources:%.cpp=.objs/%.d) $(csources:%.c=.objs/%.d)
+    -include $(cxxsources:%.cpp=.objs/%.d) $(csources:%.c=.objs/%.d)
 endif
 
 .PRECIOUS : %/.created
