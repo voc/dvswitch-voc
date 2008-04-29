@@ -1,11 +1,23 @@
 #!/usr/bin/make -f
 
-build :
-	make prefix=/usr
+export CFLAGS := -g
+ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+CFLAGS += -O0
+else
+CFLAGS += -O2
+endif
+export CXXFLAGS := $(CFLAGS)
+
+build : build/Makefile
+	make -C build
+
+build/Makefile :
+	mkdir -p build
+	cd build && cmake -D prefix=/usr ..
 
 install-stamp : build
 	dh_testroot
-	make DESTDIR=$$(pwd)/debian/tmp prefix=/usr install
+	make -C build DESTDIR=$$(pwd)/debian/tmp install
 	mkdir -p debian/dvsink/usr/bin debian/dvsink/usr/share/doc
 	mv debian/tmp/usr/bin/dvsink-* debian/dvsink/usr/bin
 	cp -R debian/tmp/usr/share/doc/dvswitch \
@@ -46,7 +58,7 @@ binary-indep : install-stamp
 	dh_builddeb -i	
 
 clean :
-	make clean
+	rm -rf build
 	dh_clean install-stamp
 
 .PHONY : build binary binary-arch binary-indep clean

@@ -1,3 +1,9 @@
+dvswitch (0.8) unstable; urgency=low
+
+  * Changed build system to use cmake
+
+ -- 
+
 dvswitch (0.7) unstable; urgency=low
 
   * Made keyboard shortcut for cut button work
