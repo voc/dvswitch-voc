@@ -140,22 +140,23 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
  
     if (pip_pending_)
     {
-	if (event->keyval == GDK_Return || event->keyval == GDK_KP_Enter)
+	switch (event->keyval)
 	{
+	case GDK_Return:
+	case GDK_KP_Enter:
 	    pip_active_ = true;
-	    pip_pending_ = false;
-	    display_.set_selection_enabled(false);
-
 	    mixer_.set_video_effect(
 		mixer_.create_video_effect_pic_in_pic(
 		    sec_video_source_id_, display_.get_selection()));
-	    return true;
-	}
+	    // fall through
        
-	if (event->keyval == GDK_Escape)
-	{
+	case GDK_Escape:
+	    display_.set_selection_enabled(false);
 	    pip_pending_ = false;
 	    return true;
+
+	default:
+	    break;
 	}
     }
 
