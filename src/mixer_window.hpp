@@ -10,6 +10,9 @@
 
 #include <glibmm/refptr.h>
 #include <gtkmm/box.h>
+#include <gtkmm/menu.h>
+#include <gtkmm/menubar.h>
+#include <gtkmm/imagemenuitem.h>
 #include <gtkmm/togglebutton.h>
 #include <gtkmm/window.h>
 
@@ -44,6 +47,10 @@ private:
     mixer & mixer_;
 
     Gtk::VBox main_box_;
+    Gtk::MenuBar menu_bar_;
+    Gtk::MenuItem file_menu_item_;
+    Gtk::Menu file_menu_;
+    Gtk::ImageMenuItem quit_menu_item_;
     Gtk::HBox upper_box_;
     Gtk::VBox command_box_;
     Gtk::ToggleButton record_button_;

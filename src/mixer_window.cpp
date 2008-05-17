@@ -23,6 +23,8 @@
 //
 // +-------------------------------------------------------------------+
 // | ╔═══════════════════════════════════════════════════════════════╗ |
+// | ║                          menu_bar_                            ║ |
+// | ╠═══════════════════════════════════════════════════════════════╣ |
 // | ║+-----╥-------------------------------------------------------+║main_box_
 // | ║|     ║                                                       |upper_box_
 // | ║|     ║                                                       |║ |
@@ -51,6 +53,8 @@
 
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
+      file_menu_item_("_File", true),
+      quit_menu_item_(Gtk::StockID("gtk-quit")),
       record_button_("gtk-media-record"),
       cut_button_("gtk-cut"),
       sec_video_source_id_(0),
@@ -68,8 +72,15 @@ mixer_window::mixer_window(mixer & mixer)
     pipe_io_source->connect(sigc::mem_fun(this, &mixer_window::update));
     pipe_io_source->attach();
 
-    set_border_width(gui_standard_spacing);
     set_mnemonic_modifier(Gdk::ModifierType(0));
+
+    quit_menu_item_.signal_activate().connect(sigc::ptr_fun(&Gtk::Main::quit));
+    quit_menu_item_.show();
+    file_menu_.add(quit_menu_item_);
+    file_menu_item_.set_submenu(file_menu_);
+    file_menu_item_.show();
+    menu_bar_.add(file_menu_item_);
+    menu_bar_.show();
 
     record_button_.set_mode(/*draw_indicator=*/false);
     record_button_.signal_toggled().connect(
@@ -82,6 +93,7 @@ mixer_window::mixer_window(mixer & mixer)
 
     display_.show();
 
+    selector_.set_border_width(gui_standard_spacing);
     selector_.set_accel_group(get_accel_group());
     selector_.signal_pri_video_selected().connect(
 	sigc::mem_fun(mixer_, &mixer::set_video_source));
@@ -96,14 +108,15 @@ mixer_window::mixer_window(mixer & mixer)
     command_box_.pack_start(cut_button_, Gtk::PACK_SHRINK);
     command_box_.show();
 
+    upper_box_.set_border_width(gui_standard_spacing);
     upper_box_.set_spacing(gui_standard_spacing);
-    upper_box_.add(command_box_);
-    upper_box_.add(display_);
+    upper_box_.pack_start(command_box_, Gtk::PACK_SHRINK);
+    upper_box_.pack_start(display_, Gtk::PACK_EXPAND_PADDING);
     upper_box_.show();
 
-    main_box_.set_spacing(gui_standard_spacing);
-    main_box_.add(upper_box_);
-    main_box_.add(selector_);
+    main_box_.pack_start(menu_bar_, Gtk::PACK_SHRINK);
+    main_box_.pack_start(upper_box_, Gtk::PACK_EXPAND_WIDGET);
+    main_box_.pack_start(selector_, Gtk::PACK_EXPAND_PADDING);
     main_box_.show();
     add(main_box_);
 }
@@ -144,12 +157,6 @@ bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
 	    pip_pending_ = false;
 	    return true;
 	}
-    }
-
-    if (event->keyval == 'q' && event->state & Gdk::CONTROL_MASK)
-    {
-	Gtk::Main::quit();
-	return true;
     }
 
     return Gtk::Window::on_key_press_event(event);
