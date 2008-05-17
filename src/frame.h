@@ -11,7 +11,13 @@
 
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <avcodec.h>
+#ifdef __cplusplus
+}
+#endif
 
 #include "dif.h"
 

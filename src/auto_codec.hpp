@@ -6,7 +6,9 @@
 
 #include "auto_handle.hpp"
 
+extern "C" {
 #include <avcodec.h>
+}
 
 struct auto_codec_closer
 {

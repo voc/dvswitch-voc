@@ -2,7 +2,9 @@
 #include <cstring>
 #include <iostream>
 
+extern "C" {
 #include <avcodec.h>
+}
 
 #include "video_effect.h"
 

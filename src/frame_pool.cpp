@@ -4,7 +4,9 @@
 #include <boost/pool/object_pool.hpp>
 #include <boost/thread/mutex.hpp>
 
+extern "C" {
 #include <avcodec.h>
+}
 
 #include "frame.h"
 #include "frame_pool.hpp"
