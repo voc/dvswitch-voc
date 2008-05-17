@@ -34,7 +34,6 @@ private:
     bool update(Glib::IOCondition) throw();
 
     void set_sec_video_source(mixer::source_id);
-    void update_video_effect();
 
     virtual void put_frames(unsigned source_count,
 			    const dv_frame_ptr * source_dv,

@@ -167,16 +167,6 @@ void mixer_window::set_sec_video_source(mixer::source_id id)
     sec_video_source_id_ = id;
 }
 
-void mixer_window::update_video_effect()
-{
-    if (pip_active_)
-    {
-    }
-    else
-    {
-    }
-}
-
 void mixer_window::put_frames(unsigned source_count,
 			      const dv_frame_ptr * source_dv,
 			      mixer::mix_settings mix_settings,
