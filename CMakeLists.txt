@@ -5,6 +5,9 @@ include(FindPkgConfig)
 pkg_check_modules(GTKMM REQUIRED gtkmm-2.4)
 pkg_check_modules(LIBAVCODEC REQUIRED libavcodec)
 
+# Cope with recent move of ffmpeg headers into subdirectories
+set(LIBAVCODEC_INCLUDE_DIRS ${LIBAVCODEC_INCLUDE_DIRS} ${LIBAVCODEC_INCLUDEDIR}/libavcodec)
+
 set(prefix /usr/local
     CACHE STRING "Installation prefix")
 set(bindir ${prefix}/bin
