@@ -6,6 +6,9 @@ dvswitch (0.8) unstable; urgency=low
     frame
   * Slightly improved colour accuracy of picture-in-picture
   * Changed build system to use cmake
+  * Added menu, currently with Quit command
+  * Fixed cancellation of picture-in-picture selection
+  * Fixed building with current ffmpeg libavcodec library
 
  -- 
 
