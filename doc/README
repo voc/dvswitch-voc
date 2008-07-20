@@ -120,6 +120,7 @@ P               picture-in-picture
 R               start/stop recording (in English locales)
 T               cut recording (in English locales)
 Return/Enter    apply effect
+Escape          cancel area selection
 Ctrl-Q          quit
 
 Video and audio sources can also be selected using the buttons beneath
@@ -168,6 +169,7 @@ effect:
 4. Select the area the secondary video source should overlay in the
    main display, using mouse button 1 (normally left).  You can also
    extend the selection using mouse button 2 (normally middle).
+   You can also cancel selection by pressing Escape.
 5. Press Return/Enter
 
 To cancel the effect, press P again.
