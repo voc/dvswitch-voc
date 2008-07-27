@@ -13,6 +13,7 @@
 #include <gtkmm/menu.h>
 #include <gtkmm/menubar.h>
 #include <gtkmm/imagemenuitem.h>
+#include <gtkmm/separator.h>
 #include <gtkmm/togglebutton.h>
 #include <gtkmm/window.h>
 
@@ -32,7 +33,10 @@ public:
     explicit mixer_window(mixer & mixer);
 
 private:
-    virtual bool on_key_press_event(GdkEventKey *) throw();
+    void cancel_effect();
+    void begin_pic_in_pic();
+    void apply_effect();
+
     void toggle_record() throw();
     bool update(Glib::IOCondition) throw();
 
@@ -55,6 +59,11 @@ private:
     Gtk::VBox command_box_;
     Gtk::ToggleButton record_button_;
     Gtk::Button cut_button_;
+    Gtk::HSeparator command_sep_;
+    Gtk::RadioButtonGroup effect_group_;
+    Gtk::RadioButton none_button_;
+    Gtk::RadioButton pip_button_;
+    Gtk::Button apply_button_;
     dv_full_display_widget display_;
     dv_selector_widget selector_;
 

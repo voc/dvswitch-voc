@@ -57,6 +57,9 @@ mixer_window::mixer_window(mixer & mixer)
       quit_menu_item_(Gtk::StockID("gtk-quit")),
       record_button_("gtk-media-record"),
       cut_button_("gtk-cut"),
+      none_button_(effect_group_, "No effect"),
+      pip_button_(effect_group_, "_Pic-in-pic", true),
+      apply_button_("gtk-apply"),
       sec_video_source_id_(0),
       pip_active_(false),
       pip_pending_(false),
@@ -65,6 +68,7 @@ mixer_window::mixer_window(mixer & mixer)
 {
     record_button_.set_use_stock();
     cut_button_.set_use_stock();
+    apply_button_.set_use_stock();
 	
     Glib::RefPtr<Glib::IOSource> pipe_io_source(
 	Glib::IOSource::create(wakeup_pipe_.reader.get(), Glib::IO_IN));
@@ -91,6 +95,40 @@ mixer_window::mixer_window(mixer & mixer)
     cut_button_.signal_clicked().connect(sigc::mem_fun(mixer_, &mixer::cut));
     cut_button_.show();
 
+    command_sep_.show();
+
+    none_button_.set_mode(/*draw_indicator=*/false);
+    none_button_.set_sensitive(true);
+    none_button_.signal_clicked().connect(
+	sigc::mem_fun(this, &mixer_window::cancel_effect));
+    none_button_.add_accelerator("activate",
+				 get_accel_group(),
+				 GDK_Escape,
+				 Gdk::ModifierType(0),
+				 Gtk::AccelFlags(0));
+    none_button_.show();
+
+    pip_button_.set_mode(/*draw_indicator=*/false);
+    pip_button_.set_sensitive(true);
+    pip_button_.signal_clicked().connect(
+	sigc::mem_fun(this, &mixer_window::begin_pic_in_pic));
+    pip_button_.show();
+
+    apply_button_.set_sensitive(false);
+    apply_button_.signal_clicked().connect(
+	sigc::mem_fun(this, &mixer_window::apply_effect));
+    apply_button_.add_accelerator("activate",
+				  get_accel_group(),
+				  GDK_Return,
+				  Gdk::ModifierType(0),
+				  Gtk::AccelFlags(0));
+    apply_button_.add_accelerator("activate",
+				  get_accel_group(),
+				  GDK_KP_Enter,
+				  Gdk::ModifierType(0),
+				  Gtk::AccelFlags(0));
+    apply_button_.show();
+
     display_.show();
 
     selector_.set_border_width(gui_standard_spacing);
@@ -106,6 +144,10 @@ mixer_window::mixer_window(mixer & mixer)
     command_box_.set_spacing(gui_standard_spacing);
     command_box_.pack_start(record_button_, Gtk::PACK_SHRINK);
     command_box_.pack_start(cut_button_, Gtk::PACK_SHRINK);
+    command_box_.pack_start(command_sep_, Gtk::PACK_SHRINK);
+    command_box_.pack_start(none_button_, Gtk::PACK_SHRINK);
+    command_box_.pack_start(pip_button_, Gtk::PACK_SHRINK);
+    command_box_.pack_start(apply_button_, Gtk::PACK_SHRINK);
     command_box_.show();
 
     upper_box_.set_border_width(gui_standard_spacing);
@@ -121,46 +163,34 @@ mixer_window::mixer_window(mixer & mixer)
     add(main_box_);
 }
 
-bool mixer_window::on_key_press_event(GdkEventKey * event) throw()
+void mixer_window::cancel_effect()
 {
-    if (event->keyval == 'p')
-    {
-	if (pip_active_)
-	{
-	    pip_active_ = false;
-	    mixer_.set_video_effect(mixer::null_video_effect());
-	}
-	else
-	{
-	    pip_pending_ = true;
-	    display_.set_selection_enabled(true);
-	}
-	return true;
-    }
- 
+    pip_pending_ = false;
+    pip_active_ = false;
+    mixer_.set_video_effect(mixer::null_video_effect());
+    display_.set_selection_enabled(false);
+    apply_button_.set_sensitive(false);
+}
+
+void mixer_window::begin_pic_in_pic()
+{
+    pip_pending_ = true;
+    display_.set_selection_enabled(true);
+    apply_button_.set_sensitive(true);
+}
+
+void mixer_window::apply_effect()
+{
     if (pip_pending_)
     {
-	switch (event->keyval)
-	{
-	case GDK_Return:
-	case GDK_KP_Enter:
-	    pip_active_ = true;
-	    mixer_.set_video_effect(
-		mixer_.create_video_effect_pic_in_pic(
-		    sec_video_source_id_, display_.get_selection()));
-	    // fall through
-       
-	case GDK_Escape:
-	    display_.set_selection_enabled(false);
-	    pip_pending_ = false;
-	    return true;
-
-	default:
-	    break;
-	}
+	pip_pending_ = false;
+	pip_active_ = true;
+	mixer_.set_video_effect(
+	    mixer_.create_video_effect_pic_in_pic(
+		sec_video_source_id_, display_.get_selection()));
+	display_.set_selection_enabled(false);	
     }
-
-    return Gtk::Window::on_key_press_event(event);
+    apply_button_.set_sensitive(false);
 }
 
 void mixer_window::toggle_record() throw()
