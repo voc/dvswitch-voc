@@ -203,6 +203,11 @@ void mixer_window::toggle_record() throw()
 void mixer_window::set_sec_video_source(mixer::source_id id)
 {
     sec_video_source_id_ = id;
+
+    if (pip_active_)
+	mixer_.set_video_effect(
+	    mixer_.create_video_effect_pic_in_pic(
+		sec_video_source_id_, display_.get_selection()));
 }
 
 void mixer_window::put_frames(unsigned source_count,
