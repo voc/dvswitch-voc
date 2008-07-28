@@ -9,6 +9,15 @@ dvswitch (0.8) unstable; urgency=low
   * Added menu, currently with Quit command
   * Fixed cancellation of picture-in-picture selection
   * Fixed building with current ffmpeg libavcodec library
+  * Added buttons to GUI for effect selection
+  * Changed key commands slightly:
+    - P begins picture-in-picture selection
+    - A (or Return or Enter) applies selected effect
+    - Escape cancels effect
+  * Allowed changing of primary and secondary video sources without
+    cancelling the effect
+  * Fixed crash when user tries to apply picture-in-picture with an empty
+    selection
 
  -- 
 
