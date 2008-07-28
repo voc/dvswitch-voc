@@ -183,11 +183,15 @@ void mixer_window::apply_effect()
 {
     if (pip_pending_)
     {
+	rectangle region = display_.get_selection();
+	if (region.empty())
+	    return;
+
 	pip_pending_ = false;
 	pip_active_ = true;
 	mixer_.set_video_effect(
 	    mixer_.create_video_effect_pic_in_pic(
-		sec_video_source_id_, display_.get_selection()));
+		sec_video_source_id_, region));
 	display_.set_selection_enabled(false);	
     }
     apply_button_.set_sensitive(false);
