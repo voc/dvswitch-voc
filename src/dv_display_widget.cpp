@@ -716,6 +716,7 @@ bool dv_thumb_display_widget::try_init_xshm(PixelFormat pix_fmt,
     Glib::RefPtr<Gdk::Drawable> drawable;
     int dest_x, dest_y;
     get_window()->get_internal_paint_info(drawable, dest_x, dest_y);
+    drawable->reference(); // get_internal_paint_info() doesn't do this!
     Visual * visual =
 	gdk_x11_visual_get_xvisual(drawable->get_visual()->gobj());
     int depth = drawable->get_depth();

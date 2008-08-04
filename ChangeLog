@@ -18,6 +18,7 @@ dvswitch (0.8) unstable; urgency=low
     cancelling the effect
   * Fixed crash when user tries to apply picture-in-picture with an empty
     selection
+  * Fixed crash when display depth is not 24 or 32
 
  -- 
 
