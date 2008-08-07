@@ -1,4 +1,4 @@
-// Copyright 2007 Ben Hutchings.
+// Copyright 2007-2008 Ben Hutchings.
 // See the file "COPYING" for licence details.
 
 #include <assert.h>
@@ -61,36 +61,92 @@ struct transfer_params {
     int            sock;
 };
 
+static int create_file(const char * format, char ** name)
+{
+    time_t now;
+    struct tm now_local;
+    size_t name_buf_len = 200, name_len;
+    char * name_buf = 0;
+    int file;
+
+    now = time(0);
+    localtime_r(&now, &now_local);
+
+    // Allocate a name buffer and generate the name in it, leaving room
+    // for a suffix.
+    for (;;)
+    {
+	name_buf = realloc(name_buf, name_buf_len);
+	if (!name_buf)
+	{
+	    perror("realloc");
+	    exit(1);
+	}
+	name_len = strftime(name_buf, name_buf_len - 20,
+			    format, &now_local);
+	if (name_len > 0)
+	    break;
+
+	// Try a bigger buffer.
+	name_buf_len *= 2;
+    }
+
+    // Add ".dv" extension if missing.  Add distinguishing
+    // number before it if necessary to avoid collision.
+    // Create parent directories as necessary.
+    int suffix_num = 0;
+    if (name_len <= 3 || strcmp(name_buf + name_len - 3, ".dv") != 0)
+	strcpy(name_buf + name_len, ".dv");
+    else
+	name_len -= 3;
+    for (;;)
+    {
+	file = open(name_buf, O_CREAT | O_EXCL | O_WRONLY, 0666);
+	if (file >= 0)
+	{
+	    *name = name_buf;
+	    return file;
+	}
+	else if (errno == EEXIST)
+	{
+	    // Name collision; try changing the suffix
+	    sprintf(name_buf + name_len, "-%d.dv", ++suffix_num);
+	}
+	else if (errno == ENOENT)
+	{
+	    // Parent directory missing
+	    char * p = name_buf + 1;
+	    while ((p = strchr(p, '/')))
+	    {
+		*p = 0;
+		if (mkdir(name_buf, 0777) < 0 && errno != EEXIST)
+		{
+		    fprintf(stderr, "ERROR: mkdir %s: %s\n",
+			    name_buf, strerror(errno));
+		    exit(1);
+		}
+		*p++ = '/';
+	    }
+	}
+	else
+	{
+	    fprintf(stderr, "ERROR: open %s: %s\n",
+		    name_buf, strerror(errno));
+	    exit(1);
+	}
+    }
+
+    *name = name_buf;
+    return file;
+}
+
 static void transfer_frames(struct transfer_params * params)
 {
     static uint8_t buf[SINK_FRAME_HEADER_SIZE + DIF_MAX_FRAME_SIZE];
     const struct dv_system * system;
 
-    time_t now;
-    struct tm now_local;
-    size_t name_buf_len;
-    char * name_buf;
-
-    // Work out how long the output file name could be.  Tell
-    // strftime() half of the buffer length so we have space for
-    // expanding local names and a suffix if this doesn't make
-    // sufficiently unique names.
-    now = time(0);
-    localtime_r(&now, &now_local);
-    for (name_buf = 0, name_buf_len = 200;
-	 ((name_buf = realloc(name_buf, name_buf_len))
-	  && (strftime(name_buf, name_buf_len / 2, output_name_format,
-		       &now_local)
-	      == 0));
-	 name_buf_len *= 2)
-	;
-    if (!name_buf)
-    {
-	perror("realloc");
-	exit(1);
-    }
-
     int file = -1;
+    char * name;
     ssize_t read_size;
 
     for (;;)
@@ -124,31 +180,8 @@ static void transfer_frames(struct transfer_params * params)
 		continue;
 	    }
 
-	    now = time(0);
-	    localtime_r(&now, &now_local);
-	    size_t name_len =
-		strftime(name_buf, name_buf_len, output_name_format,
-			 &now_local);
-	    assert(name_len != 0);
-
-	    // Add ".dv" extension if missing.  Add distinguishing
-	    // number before it if necessary to avoid collision.
-	    // XXX This code is disgusting.
-	    int suffix_num = 0;
-	    if (name_len <= 3 || strcmp(name_buf + name_len - 3, ".dv") != 0)
-		strcpy(name_buf + name_len, ".dv");
-	    else
-		name_len -= 3;
-	    while ((file = open(name_buf, O_CREAT | O_EXCL | O_WRONLY, 0666))
-		   < 0
-		   && errno == EEXIST)
-		sprintf(name_buf + name_len, "-%d.dv", ++suffix_num);
-	    if (file < 0)
-	    {
-		perror("open");
-		exit(1);
-	    }
-	    printf("INFO: Created file %s\n", name_buf);
+	    file = create_file(output_name_format, &name);
+	    printf("INFO: Created file %s\n", name);
 	    fflush(stdout);
 	}
 
