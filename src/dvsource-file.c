@@ -122,6 +122,20 @@ static void transfer_frames(struct transfer_params * params)
     }
 }
 
+int is_dv_file(int fd)
+{
+    uint32_t magic = 0;
+    int is_dv = 0;
+    off_t orig = lseek(fd, 0, SEEK_CUR);
+    lseek(fd, 0, SEEK_SET);
+    read(fd, &magic, sizeof(magic));
+    magic = ntohl(magic);
+    if (0x1f070000 == (magic & 0xffffff00))
+        is_dv = 1;
+    lseek(fd, orig, SEEK_SET);
+    return is_dv;
+}
+
 int main(int argc, char ** argv)
 {
     /* Initialise settings from configuration files. */
@@ -189,6 +203,10 @@ int main(int argc, char ** argv)
     if (params.file < 0)
     {
 	perror("ERROR: open");
+	return 1;
+    }
+    if (!is_dv_file(params.file)) {
+        fprintf(stderr, "ERROR: %s is not a DV file\n", filename);
 	return 1;
     }
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);

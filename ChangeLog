@@ -1,3 +1,9 @@
+dvswitch (0.9) UNRELEASED; urgency=low
+
+  * Make sure dvsource-file reject non-DV files.
+
+ -- 
+
 dvswitch (0.8) unstable; urgency=low
   
   * Disabled recording at startup
