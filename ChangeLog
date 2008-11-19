@@ -1,11 +1,6 @@
-dvswitch (0.9) UNRELEASED; urgency=low
-
-  * Make sure dvsource-file reject non-DV files.
-
- -- 
-
 dvswitch (0.8) unstable; urgency=low
-  
+
+  * UNRELEASED  
   * Disabled recording at startup
   * Changed picture-in-picture selection to maintain frame aspect ratio
   * Restricted picture-in-picture to use the active area of the reduced
@@ -26,6 +21,7 @@ dvswitch (0.8) unstable; urgency=low
     selection
   * Fixed crash when display depth is not 24 or 32
   * Made dvsink-files create directories as necessary
+  * Make sure dvsource-file reject non-DV files.
 
  -- 
 
