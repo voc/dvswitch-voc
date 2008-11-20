@@ -13,6 +13,7 @@
 #include <getopt.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <netinet/in.h>
 
 #include "config.h"
 #include "dif.h"
