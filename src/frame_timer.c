@@ -2,6 +2,7 @@
 // See the file "COPYING" for licence details.
 
 #include <errno.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
