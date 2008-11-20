@@ -311,9 +311,9 @@ void mixer::run_clock()
     }
 
     // Interval to the next frame (in ns)
-    unsigned frame_interval;
+    unsigned int frame_interval = 0;
     // Weighted rolling average frame interval
-    unsigned average_frame_interval;
+    unsigned int average_frame_interval = 0;
 
     for (uint64_t tick_timestamp = frame_timer_get();
 	 ;

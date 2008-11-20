@@ -64,8 +64,8 @@ static void transfer_frames(struct transfer_params * params)
 {
     const struct dv_system * last_system = 0, * system;
     static uint8_t buf[DIF_MAX_FRAME_SIZE];
-    uint64_t frame_timestamp;
-    unsigned frame_interval;
+    uint64_t frame_timestamp = 0;
+    unsigned int frame_interval = 0;
 
     frame_timer_init();
 
