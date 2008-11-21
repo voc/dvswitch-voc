@@ -515,6 +515,10 @@ void dv_full_display_widget::window_to_frame_coords(
     int & frame_x, int & frame_y,
     int window_x, int window_y) throw()
 {
+    /* Avoid division by zero when clicking in the dvswitch window
+       without any DV source playing. */
+    if (0 == dest_width_)
+        return;
     frame_x = (source_region_.left +
 	       div_round_nearest(window_x
 				 * (source_region_.right - source_region_.left),

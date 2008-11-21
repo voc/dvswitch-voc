@@ -24,6 +24,8 @@ dvswitch (0.8) unstable; urgency=low
   * Made dvsource-file reject non-DV files.
   * Changed README to point to dvswitch-devel@lists.alioth.debian.org
     instead of debconf-video@lists.debconf.org.
+  * Fixed crash when users click in the dvswitch window without any source
+    enabled.
 
  -- 
 
