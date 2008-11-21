@@ -22,6 +22,8 @@ dvswitch (0.8) unstable; urgency=low
   * Fixed crash when display depth is not 24 or 32
   * Made dvsink-files create directories as necessary
   * Make sure dvsource-file reject non-DV files.
+  * Changed README to point to dvswitch-devel@lists.alioth.debian.org
+    instead of debconf-video@lists.debconf.org.
 
  -- 
 

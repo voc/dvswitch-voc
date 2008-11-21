@@ -35,8 +35,8 @@ subversion repository at <svn://svn.debian.org/dvswitch/trunk>.
 Bugs
 ----
 
-Report bugs to the debconf-video mailing list,
-debconf-video@lists.debconf.org.
+Report bugs to the dvswitch mailing list,
+dvswitch-devel@lists.alioth.debian.org.
 
 System requirements
 -------------------
