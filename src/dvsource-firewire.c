@@ -50,7 +50,7 @@ static void usage(const char * progname)
 {
     fprintf(stderr,
 	    "\
-Usage: %s [{-c|--card} FIREWIRE-CARD \\\n\
+Usage: %s [{-c|--card} FIREWIRE-CARD] \\\n\
            [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT]\n",
 	    progname);
 }
