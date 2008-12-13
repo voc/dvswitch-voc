@@ -170,9 +170,9 @@ effect:
 2. Select the secondary video source by pressing Alt and its number
    key or clicking the 'B' button under its thumbnail
 3. Press P
-4. Select the area the secondary video source should overlay in the
-   main display, using mouse button 1 (normally left).  You can also
-   extend the selection using mouse button 2 (normally middle).
+4. Drag to mark the area the secondary video source should overlay in
+   the main display, using mouse button 1 (normally left).  You can
+   also extend the selection using mouse button 2 (normally middle).
    You can also cancel selection by pressing Escape.
 5. Press Return/Enter
 
