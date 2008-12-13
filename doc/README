@@ -25,6 +25,10 @@ that can run on different computers on a TCP/IP network:
 - dvsink-command: sink that runs a command with the mixed stream as
   its standard input
 
+It is important to make sure all DV sources use the same image format
+and frame rate, ie PAL or NTSC, not both.  Mixing input format will
+produce bogus output.
+
 Home page
 ---------
 
