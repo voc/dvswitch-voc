@@ -72,7 +72,7 @@ int create_listening_socket(const char * host, const char * port)
     }
     if (bind(sock, addr->ai_addr, addr->ai_addrlen) != 0)
     {
-	perror("ERROR: connect");
+	perror("ERROR: bind");
 	exit(1);
     }
     if (listen(sock, 10) != 0)
