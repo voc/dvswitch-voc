@@ -137,8 +137,12 @@ Run dvsource-file to stream a DV file to the mixer.  It takes a single
 filename.  Normally it plays the file once and then exits.  You can
 enable looping of the file with the -l option.
 
-Run dvsource-firewire to stream from a DV camera over Firewire to the
-mixer.
+Run dvsource-firewire to stream from a DV device (camera or VCR)
+connected by Firewire.
+
+Run dvsource-v4l2-dv to stream from a DV device that has a
+Video4Linux2 driver.  This includes most USB DV cameras if you have
+the uvcvideo driver installed.
 
 Run dvsink-files to save the mixer's output to files.  It takes a
 filename pattern which may include formatting sequences as used by
