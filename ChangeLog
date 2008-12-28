@@ -1,31 +1,34 @@
-dvswitch (0.8) unstable; urgency=low
+dvswitch (0.8~alpha) UNRELEASED; urgency=low
 
-  * UNRELEASED  
   * Disabled recording at startup
-  * Changed picture-in-picture selection to maintain frame aspect ratio
-  * Restricted picture-in-picture to use the active area of the reduced
-    frame
-  * Slightly improved colour accuracy of picture-in-picture
-  * Changed build system to use cmake
   * Added menu, currently with Quit command
-  * Fixed cancellation of picture-in-picture selection
-  * Fixed building with current ffmpeg libavcodec library
   * Added buttons to GUI for effect selection
-  * Changed key commands slightly:
-    - P begins picture-in-picture selection
-    - A (or Return or Enter) applies selected effect
-    - Escape cancels effect
+  * Changed key commands slightly
   * Allowed changing of primary and secondary video sources without
     cancelling the effect
-  * Fixed crash when user tries to apply picture-in-picture with an empty
-    selection
-  * Fixed crash when display depth is not 24 or 32
   * Made dvsink-files create directories as necessary
-  * Made dvsource-file reject non-DV files.
-  * Changed README to point to dvswitch-devel@lists.alioth.debian.org
-    instead of debconf-video@lists.debconf.org.
-  * Fixed crash when users click in the dvswitch window without any source
-    enabled.
+  * Made dvsource-file reject non-DV files
+  * Added support for USB DV sources through dvgrab and the uvcvideo driver
+  * Moved source selector buttons to keep window within 1024x768 (depending
+    on font selection and window decoration)
+  * Documentation changes:
+    - Documented all key commands
+    - Changed contact address to dvswitch-devel@lists.alioth.debian.org
+    - Added notes to (maybe) avoid user mistakes
+  * Build system changes:
+    - Changed to use cmake
+    - Fixed building with current ffmpeg libavcodec library
+  * Bug fixes:
+    - Changed picture-in-picture selection to maintain frame aspect ratio
+    - Restricted picture-in-picture to use the active area of the reduced
+      frame
+    - Slightly improved colour accuracy of picture-in-picture
+    - Fixed cancellation of picture-in-picture selection
+    - Fixed crash when user tries to apply picture-in-picture with an empty
+      selection
+    - Fixed crash when display depth is not 24 or 32
+    - Fixed crash when users click in the dvswitch window without any source
+      enabled
 
  -- 
 
