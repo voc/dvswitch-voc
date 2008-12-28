@@ -134,7 +134,7 @@ mixer_window::mixer_window(mixer & mixer)
     selector_.set_border_width(gui_standard_spacing);
     selector_.set_accel_group(get_accel_group());
     selector_.signal_pri_video_selected().connect(
-	sigc::mem_fun(mixer_, &mixer::set_video_source));
+	sigc::mem_fun(*this, &mixer_window::set_pri_video_source));
     selector_.signal_sec_video_selected().connect(
 	sigc::mem_fun(*this, &mixer_window::set_sec_video_source));
     selector_.signal_audio_selected().connect(
@@ -202,6 +202,21 @@ void mixer_window::toggle_record() throw()
     bool flag = record_button_.get_active();
     mixer_.enable_record(flag);
     cut_button_.set_sensitive(flag);
+}
+
+void mixer_window::set_pri_video_source(mixer::source_id id)
+{
+    // If the secondary source is becoming the primary source, cancel
+    // the effect rather than mixing it with itself.
+    if (pip_active_ && id == sec_video_source_id_)
+    {
+	pip_active_ = false;
+	if (!pip_pending_)
+	    none_button_.set_active();
+	mixer_.set_video_effect(mixer_.null_video_effect());
+    }
+
+    mixer_.set_video_source(id);
 }
 
 void mixer_window::set_sec_video_source(mixer::source_id id)

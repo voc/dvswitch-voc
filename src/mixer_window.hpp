@@ -40,6 +40,7 @@ private:
     void toggle_record() throw();
     bool update(Glib::IOCondition) throw();
 
+    void set_pri_video_source(mixer::source_id);
     void set_sec_video_source(mixer::source_id);
 
     virtual void put_frames(unsigned source_count,
