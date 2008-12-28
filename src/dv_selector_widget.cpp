@@ -6,6 +6,7 @@
 
 #include <gdk/gdkkeysyms.h>
 #include <gtkmm/label.h>
+#include <gtkmm/separator.h>
 
 #include "dv_selector_widget.hpp"
 #include "gui.hpp"
@@ -14,16 +15,17 @@ namespace
 {
     const unsigned thumbs_per_row = 4;
     enum {
-	row_display,
-	row_labels,
-	row_multiplier
+	column_labels,
+	column_display,
+	column_separator,
+	column_multiplier
     };
     enum {
-	column_text_label,
-	column_pri_video_button,
-	column_sec_video_button,
-	column_audio_button,
-	column_multiplier
+	row_text_label,
+	row_pri_video_button,
+	row_sec_video_button,
+	row_audio_button,
+	row_multiplier
     };
 }
 
@@ -66,9 +68,9 @@ void dv_selector_widget::set_source_count(unsigned count)
 {
     if (count > thumbnails_.size())
     {
-	resize(((count + thumbs_per_row) / thumbs_per_row)
+	resize(((count + thumbs_per_row - 1) / thumbs_per_row)
 	       * row_multiplier,
-	       thumbs_per_row * column_multiplier);
+	       thumbs_per_row * column_multiplier - 1);
 	mixer::source_id first_new_source_id = thumbnails_.size();
 
 	try
@@ -80,12 +82,23 @@ void dv_selector_widget::set_source_count(unsigned count)
 		unsigned column = (i % thumbs_per_row) * column_multiplier;
 		unsigned row = (i / thumbs_per_row) * row_multiplier;
 
+		if (i % thumbs_per_row != 0)
+		{
+		    Gtk::VSeparator * sep = manage(new Gtk::VSeparator);
+		    sep->show();
+		    attach(*sep,
+			   column - 1, column,
+			   row, row + row_multiplier,
+			   Gtk::FILL, Gtk::FILL,
+			   0, 0);
+		}
+
 		dv_thumb_display_widget * thumb =
 		    manage(new dv_thumb_display_widget);
 		thumb->show();
 		attach(*thumb,
-		       column, column + column_multiplier,
-		       row + row_display, row + row_display + 1,
+		       column + column_display, column + column_display + 1,
+		       row, row + row_multiplier,
 		       Gtk::FILL, Gtk::FILL,
 		       0, 0);
 		thumbnails_[i] = thumb;
@@ -97,9 +110,8 @@ void dv_selector_widget::set_source_count(unsigned count)
 		    manage(new Gtk::Label(label_text, true));
 		label->show();
 		attach(*label,
-		       column + column_text_label,
-		       column + column_text_label + 1,
-		       row + row_labels, row + row_labels + 1,
+		       column + column_labels, column + column_labels + 1,
+		       row + row_text_label, row + row_text_label + 1,
 		       Gtk::FILL, Gtk::FILL,
 		       0, 0);
 
@@ -113,9 +125,9 @@ void dv_selector_widget::set_source_count(unsigned count)
 			i));
 		pri_video_button->show();
 		attach(*pri_video_button,
-		       column + column_pri_video_button,
-		       column + column_pri_video_button + 1,
-		       row + row_labels, row + row_labels + 1,
+		       column + column_labels, column + column_labels + 1,
+		       row + row_pri_video_button,
+		       row + row_pri_video_button + 1,
 		       Gtk::FILL, Gtk::FILL,
 		       0, 0);
 
@@ -129,9 +141,9 @@ void dv_selector_widget::set_source_count(unsigned count)
 			i));
 		sec_video_button->show();
 		attach(*sec_video_button,
-		       column + column_sec_video_button,
-		       column + column_sec_video_button + 1,
-		       row + row_labels, row + row_labels + 1,
+		       column + column_labels, column + column_labels + 1,
+		       row + row_sec_video_button,
+		       row + row_sec_video_button + 1,
 		       Gtk::FILL, Gtk::FILL,
 		       0, 0);
 
@@ -145,9 +157,8 @@ void dv_selector_widget::set_source_count(unsigned count)
 			i));
 		audio_button->show();
 		attach(*audio_button,
-		       column + column_audio_button,
-		       column + column_audio_button + 1,
-		       row + row_labels, row + row_labels + 1,
+		       column + column_labels, column + column_labels + 1,
+		       row + row_audio_button, row + row_audio_button + 1,
 		       Gtk::FILL, Gtk::FILL,
 		       0, 0);
 
