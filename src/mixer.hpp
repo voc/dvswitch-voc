@@ -14,6 +14,7 @@
 #include <boost/thread/thread.hpp>
 
 #include "auto_handle.hpp"
+#include "frame.h"
 #include "frame_pool.hpp"
 #include "geometry.h"
 #include "ring_buffer.hpp"
@@ -31,6 +32,12 @@ public:
     static const unsigned invalid_id = -1;
 
     // Settings for mixing/switching
+    struct format_settings
+    {
+	const dv_system * system;
+	dv_frame_aspect frame_aspect;
+	dv_sample_rate sample_rate;
+    };
     struct video_effect_settings;
     struct mix_settings
     {
@@ -116,6 +123,8 @@ public:
     }
 
     // Mixer interface
+    format_settings get_format() const;
+    void set_format(format_settings);
     // Select the primary video source for output (this cancels any
     // video mixing effect)
     void set_video_source(source_id);
@@ -160,7 +169,8 @@ private:
     void run_clock();   // clock thread function
     void run_mixer();   // mixer thread function
 
-    boost::mutex source_mutex_; // controls access to the following
+    mutable boost::mutex source_mutex_; // controls access to the following
+    format_settings format_;
     mix_settings settings_;
     std::vector<source_data> sources_;
     run_state clock_state_;

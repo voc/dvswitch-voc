@@ -26,6 +26,9 @@ mixer::mixer()
       mixer_thread_(boost::bind(&mixer::run_mixer, this)),
       monitor_(0)
 {
+    format_.system = NULL;
+    format_.frame_aspect = dv_frame_aspect_auto;
+    format_.sample_rate = dv_sample_rate_auto;
     sources_.reserve(5);
     sinks_.reserve(5);
 }
@@ -97,6 +100,33 @@ void mixer::put_frame(source_id id, const dv_frame_ptr & frame)
 		clock_state_ = run_state_run;
 		should_notify_clock = true; // after we unlock the mutex
 	    }
+
+	    // Auto-select format
+	    if (clock_state_ == run_state_run)
+	    {
+		format_settings format;
+		format.system = dv_frame_system(frame.get());
+		format.frame_aspect = dv_frame_get_aspect(frame.get());
+		format.sample_rate = dv_frame_get_sample_rate(frame.get());
+
+		if (format_.system == NULL)
+		    format_.system = format.system;
+		else if (format_.system != format.system)
+		    std::cerr << "WARN: Source " << 1 + id
+			      << " using wrong video system\n";
+
+		if (format_.frame_aspect == dv_frame_aspect_auto)
+		    format_.frame_aspect = format.frame_aspect;
+		else if (format_.frame_aspect != format.frame_aspect)
+		    std::cerr << "WARN: Source " << 1 + id
+			      << " using wrong frame aspect\n";
+
+		if (format_.sample_rate == dv_sample_rate_auto)
+		    format_.sample_rate = format.sample_rate;
+		else if (format_.sample_rate != format.sample_rate)
+		    std::cerr << "WARN: Source " << 1 + id
+			      << "using wrong sample rate\n";
+	    }
 	}
     }
 
@@ -141,6 +171,20 @@ mixer::create_video_effect_pic_in_pic(source_id sec_source_id,
     result->sec_source_id = sec_source_id;
     result->dest_region = dest_region;
     return result;
+}
+
+mixer::format_settings mixer::get_format() const
+{
+    boost::mutex::scoped_lock lock(source_mutex_);
+    mixer::format_settings result = format_;
+    lock.unlock();
+    return result;
+}
+
+void mixer::set_format(format_settings format)
+{
+    boost::mutex::scoped_lock lock(source_mutex_);
+    format_ = format;
 }
 
 void mixer::set_video_source(source_id id)
