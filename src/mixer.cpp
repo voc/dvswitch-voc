@@ -1,4 +1,5 @@
-// Copyright 2007 Ben Hutchings.
+// Copyright 2007-2008 Ben Hutchings.
+// Copyright 2008 Petter Reinholdtsen.
 // See the file "COPYING" for licence details.
 
 #include <cstddef>
