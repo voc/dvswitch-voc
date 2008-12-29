@@ -103,7 +103,7 @@ dv_display_widget::~dv_display_widget()
 
 dv_display_widget::display_region
 dv_display_widget::get_display_region(const dv_system * system,
-				      enum dv_frame_aspect frame_aspect)
+				      dv_frame_aspect frame_aspect)
 {
     display_region result;
     static_cast<rectangle &>(result) = system->active_region;
@@ -147,7 +147,7 @@ void dv_display_widget::put_frame(const dv_frame_ptr & dv_frame)
 	decoded_serial_num_ = dv_frame->serial_num;
 
 	put_frame_buffer(
-	    get_display_region(system, dv_frame_aspect(dv_frame.get())));
+	    get_display_region(system, dv_frame_get_aspect(dv_frame.get())));
 	queue_draw();
     }
 }
@@ -677,7 +677,7 @@ struct dv_thumb_display_widget::raw_frame_thumb
 {
     AVFrame header;
     enum PixelFormat pix_fmt;
-    enum dv_frame_aspect aspect;
+    dv_frame_aspect aspect;
     struct
     {
 	uint8_t y[frame_thumb_linesize_4 * FRAME_HEIGHT_MAX / dv_block_size];

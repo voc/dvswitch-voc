@@ -33,7 +33,7 @@ protected:
 
 private:
     display_region get_display_region(const dv_system * system,
-				      enum dv_frame_aspect frame_aspect);
+				      dv_frame_aspect frame_aspect);
     virtual AVFrame * get_frame_header() = 0;
     virtual AVFrame * get_frame_buffer(AVFrame * header,
 				       PixelFormat pix_fmt, unsigned height) = 0;

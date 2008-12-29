@@ -463,7 +463,7 @@ namespace
 	assert(got_frame && size_t(used_size) == system->size);
 	result->header.opaque =
 	    const_cast<void *>(static_cast<const void *>(system));
-	result->aspect = dv_frame_aspect(dv_frame.get());
+	result->aspect = dv_frame_get_aspect(dv_frame.get());
 	return result;
     }
 
@@ -713,7 +713,7 @@ void mixer::run_mixer()
 	    // Encode mixed video
 	    const dv_system * system = raw_frame_system(mixed_raw.get());
 	    AVCodecContext * enc = encoder.get();
-	    if (dv_frame_aspect(video_pri_source_dv.get())
+	    if (dv_frame_get_aspect(video_pri_source_dv.get())
 		== dv_frame_aspect_wide)
 	    {
 		enc->sample_aspect_ratio.num = system->pixel_aspect_wide.width;

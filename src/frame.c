@@ -10,7 +10,7 @@
 
 #include "frame.h"
 
-enum dv_frame_aspect dv_frame_aspect(const struct dv_frame * frame)
+enum dv_frame_aspect dv_frame_get_aspect(const struct dv_frame * frame)
 {
     const uint8_t * vsc_pack = frame->buffer + 5 * DIF_BLOCK_SIZE + 53;
 
@@ -26,6 +26,22 @@ enum dv_frame_aspect dv_frame_aspect(const struct dv_frame * frame)
     else
 	return dv_frame_aspect_normal;
 }
+
+enum dv_sample_rate dv_frame_get_sample_rate(const struct dv_frame * frame)
+{
+    const uint8_t * as_pack = frame->buffer + (6 + 3 * 16) * DIF_BLOCK_SIZE + 3;
+
+    if (as_pack[0] == 0x50)
+    {
+	unsigned sample_rate = (as_pack[4] >> 3) & 7;
+	if (sample_rate < dv_sample_rate_count)
+	    return sample_rate;
+    }
+
+    // If no AS pack present or sample rate is unrecognised, assume 48 kHz.
+    // XXX Does this make any sense?
+    return dv_sample_rate_48k;
+}   
 
 int raw_frame_get_buffer(AVCodecContext * context, AVFrame * header)
 {
