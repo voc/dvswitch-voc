@@ -40,3 +40,36 @@ const struct dv_system dv_system_525_60 =
 	[dv_sample_rate_32k] =  { .min_count = 1053, .max_count = 1080 }
     }
 };
+
+enum dv_frame_aspect dv_buffer_get_aspect(const uint8_t * buffer)
+{
+    const uint8_t * vsc_pack = buffer + 5 * DIF_BLOCK_SIZE + 53;
+
+    // If no VSC pack present, assume normal (4:3) aspect
+    if (vsc_pack[0] != 0x61)
+	return dv_frame_aspect_normal;
+
+    // Check the aspect code (depends partly on the DV variant)
+    int aspect = vsc_pack[2] & 7;
+    int apt = buffer[4] & 7;
+    if (aspect == 2 || (apt == 0 && aspect == 7))
+	return dv_frame_aspect_wide;
+    else
+	return dv_frame_aspect_normal;
+}
+
+enum dv_sample_rate dv_buffer_get_sample_rate(const uint8_t * buffer)
+{
+    const uint8_t * as_pack = buffer + (6 + 3 * 16) * DIF_BLOCK_SIZE + 3;
+
+    if (as_pack[0] == 0x50)
+    {
+	unsigned sample_rate = (as_pack[4] >> 3) & 7;
+	if (sample_rate < dv_sample_rate_count)
+	    return sample_rate;
+    }
+
+    // If no AS pack present or sample rate is unrecognised, assume 48 kHz.
+    // XXX Does this make any sense?
+    return dv_sample_rate_48k;
+}   

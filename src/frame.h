@@ -46,18 +46,17 @@ unsigned dv_frame_system_code(const struct dv_frame * frame)
     return frame->buffer[3] >> 7;
 }
 
-enum dv_frame_aspect
+static inline enum dv_frame_aspect
+dv_frame_get_aspect(const struct dv_frame * frame)
 {
-    dv_frame_aspect_auto = -1,
-    dv_frame_aspect_normal,	// 4:3
-    dv_frame_aspect_wide,	// 16:9
-    dv_frame_aspect_count
-};
+    return dv_buffer_get_aspect(frame->buffer);
+}
 
-extern enum dv_frame_aspect dv_frame_get_aspect(const struct dv_frame * frame);
-
-extern enum dv_sample_rate
-dv_frame_get_sample_rate(const struct dv_frame * frame);
+static inline enum dv_sample_rate
+dv_frame_get_sample_rate(const struct dv_frame * frame)
+{
+    return dv_buffer_get_sample_rate(frame->buffer);
+}
 
 #define FRAME_WIDTH           720
 #define FRAME_HEIGHT_MAX      576
