@@ -7,6 +7,7 @@
 #include <gtkmm/button.h>
 #include <gtkmm/comboboxtext.h>
 #include <gtkmm/dialog.h>
+#include <gtkmm/label.h>
 
 #include "mixer.hpp"
 
