@@ -213,15 +213,17 @@ dv_full_display_widget::dv_full_display_widget()
       xv_port_(invalid_xv_port),
       xv_image_(0),
       xv_shm_info_(0),
+      // We don't know what the frame format will be, but assume "PAL"
+      // 4:3 frames and therefore an active image size of 702x576 and
+      // pixel aspect ratio of 59:54.
+      dest_width_(767), dest_height_(576),
       sel_enabled_(false),
       sel_in_progress_(false)
 {
+    std::memset(&source_region_, 0, sizeof(source_region_));
     std::memset(&selection_, 0, sizeof(selection_));
 
-    // We don't know what the frame format will be, but assume "PAL"
-    // 4:3 frames and therefore an active image size of 702x576 and
-    // pixel aspect ratio of 59:54.
-    set_size_request(767, 576);
+    set_size_request(dest_width_, dest_height_);
 
     add_events(Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK
 	       | Gdk::BUTTON1_MOTION_MASK | Gdk::BUTTON2_MOTION_MASK);
@@ -516,10 +518,6 @@ void dv_full_display_widget::window_to_frame_coords(
     int & frame_x, int & frame_y,
     int window_x, int window_y) throw()
 {
-    /* Avoid division by zero when clicking in the dvswitch window
-       without any DV source playing. */
-    if (0 == dest_width_)
-        return;
     frame_x = (source_region_.left +
 	       div_round_nearest(window_x
 				 * (source_region_.right - source_region_.left),
@@ -532,6 +530,9 @@ void dv_full_display_widget::window_to_frame_coords(
 
 void dv_full_display_widget::update_selection(int x2, int y2)
 {
+    if (source_region_.empty())
+	return;
+
     int frame_width = source_region_.right - source_region_.left;
     int frame_height = source_region_.bottom - source_region_.top;
 
