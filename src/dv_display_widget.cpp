@@ -12,6 +12,8 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
+#include <gdkmm/cursor.h>
+
 #include "dv_display_widget.hpp"
 #include "frame.h"
 #include "video_effect.h"
@@ -231,12 +233,23 @@ dv_full_display_widget::dv_full_display_widget()
 
 void dv_full_display_widget::set_selection_enabled(bool flag)
 {
+    Glib::RefPtr<Gdk::Window> window(get_window());
+
     sel_enabled_ = flag;
 
-    if (!sel_enabled_ && sel_in_progress_)
+    if (sel_enabled_)
     {
-	sel_in_progress_ = false;
-	remove_modal_grab();
+	window->set_cursor(Gdk::Cursor(Gdk::CROSSHAIR));
+    }
+    else
+    {
+	window->set_cursor(); // inherit from parent
+
+	if (sel_in_progress_)
+	{
+	    sel_in_progress_ = false;
+	    remove_modal_grab();
+	}
     }
 
     queue_draw();
