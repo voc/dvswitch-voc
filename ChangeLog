@@ -29,6 +29,7 @@ dvswitch (0.8~alpha) UNRELEASED; urgency=low
     - Fixed crash when display depth is not 24 or 32
     - Fixed crash when users click in the dvswitch window without any source
       enabled
+    - Made dvsource-file work with non-seekable files such as pipes
 
  -- 
 

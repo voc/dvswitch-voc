@@ -61,6 +61,28 @@ struct transfer_params {
     bool           opt_loop;
 };
 
+static ssize_t read_retry(int fd, void * buf, size_t count)
+{
+    ssize_t chunk, total = 0;
+
+    do
+    {
+	chunk = read(fd, buf, count);
+	if (chunk < 0)
+	{
+	    if (total == 0)
+		return chunk;
+	    break;
+	}
+	total += chunk;
+	buf = (char *)buf + chunk;
+	count -= chunk;
+    }
+    while (count);
+
+    return total;
+}
+
 static void transfer_frames(struct transfer_params * params)
 {
     const struct dv_system * last_system = 0, * system;
@@ -72,7 +94,7 @@ static void transfer_frames(struct transfer_params * params)
 
     for (;;)
     {
-	ssize_t size = read(params->file, buf, DIF_SEQUENCE_SIZE);
+	ssize_t size = read_retry(params->file, buf, DIF_SEQUENCE_SIZE);
 	if (size == 0)
 	{
 	    // End of file; exit or loop
@@ -103,8 +125,8 @@ static void transfer_frames(struct transfer_params * params)
 			      * system->frame_rate_denom);
 	}
 
-	size = read(params->file, buf + DIF_SEQUENCE_SIZE,
-		    system->size - DIF_SEQUENCE_SIZE);
+	size = read_retry(params->file, buf + DIF_SEQUENCE_SIZE,
+			  system->size - DIF_SEQUENCE_SIZE);
 	if (size != (ssize_t)(system->size - DIF_SEQUENCE_SIZE))
 	{
 	    if (size < 0)
@@ -129,6 +151,11 @@ int is_dv_file(int fd)
     uint32_t magic = 0;
     int is_dv = 0;
     off_t orig = lseek(fd, 0, SEEK_CUR);
+
+    /* Can't check a non-seekable file; assume it's valid */
+    if (orig == -1)
+	return 1;
+
     lseek(fd, 0, SEEK_SET);
     read(fd, &magic, sizeof(magic));
     magic = ntohl(magic);
