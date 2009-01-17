@@ -146,21 +146,18 @@ static void transfer_frames(struct transfer_params * params)
     }
 }
 
-int is_dv_file(int fd)
+static int is_dv_file(int fd)
 {
-    uint32_t magic = 0;
-    int is_dv = 0;
+    uint8_t buf[DIF_SIGNATURE_SIZE];
+    int is_dv;
     off_t orig = lseek(fd, 0, SEEK_CUR);
 
     /* Can't check a non-seekable file; assume it's valid */
     if (orig == -1)
 	return 1;
 
-    lseek(fd, 0, SEEK_SET);
-    read(fd, &magic, sizeof(magic));
-    magic = ntohl(magic);
-    if (0x1f070000 == (magic & 0xffffff00))
-        is_dv = 1;
+    is_dv = (read(fd, buf, DIF_SIGNATURE_SIZE) == DIF_SIGNATURE_SIZE
+	     && !memcmp(buf, DIF_SIGNATURE, DIF_SIGNATURE_SIZE));
     lseek(fd, orig, SEEK_SET);
     return is_dv;
 }

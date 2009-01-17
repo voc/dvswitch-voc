@@ -21,6 +21,10 @@ extern "C" {
 #define DIF_BLOCK_ID_SIZE 3
 #define DIF_PACK_SIZE 5
 
+// Block id for first block of a sequence
+#define DIF_SIGNATURE_SIZE DIF_BLOCK_ID_SIZE
+#define DIF_SIGNATURE "\x1f\x07\x00"
+
 enum dv_sample_rate
 {
     dv_sample_rate_auto = -1,
