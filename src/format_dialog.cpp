@@ -66,9 +66,9 @@ mixer::format_settings format_dialog::get_settings() const
 
     switch (system_combo_.get_active_row_number())
     {
-    case 0: settings.system = NULL;
-    case 1: settings.system = &dv_system_625_50;
-    case 2: settings.system = &dv_system_525_60;
+    case 0: settings.system = NULL; break;
+    case 1: settings.system = &dv_system_625_50; break;
+    case 2: settings.system = &dv_system_525_60; break;
     default: assert(!"impossible selection");
     }
 
