@@ -373,6 +373,7 @@ void mixer::run_clock()
 	    if (clock_state_ == run_state_stop)
 		break;
 
+	    m.format = format_;
 	    m.settings = settings_;
 	    settings_.cut_before = false;
 
@@ -755,10 +756,10 @@ void mixer::run_mixer()
 		raw_frame_system(video_sec_source_raw.get())->active_region);
 
 	    // Encode mixed video
-	    const dv_system * system = format_.system;
+	    const dv_system * system = m->format.system;
 	    AVCodecContext * enc = encoder.get();
-	    enc->sample_aspect_ratio.num = system->pixel_aspect[format_.frame_aspect].width;
-	    enc->sample_aspect_ratio.den = system->pixel_aspect[format_.frame_aspect].height;
+	    enc->sample_aspect_ratio.num = system->pixel_aspect[m->format.frame_aspect].width;
+	    enc->sample_aspect_ratio.den = system->pixel_aspect[m->format.frame_aspect].height;
 	    enc->time_base.num = system->frame_rate_denom;
 	    enc->time_base.den = system->frame_rate_numer;
 	    enc->width = system->frame_width;
@@ -777,8 +778,8 @@ void mixer::run_mixer()
 	    mixed_dv = video_pri_source_dv;
 	}
 
-	if (dv_frame_get_sample_rate(audio_source_dv.get()) != format_.sample_rate)
-	    silence_audio(*mixed_dv, format_.sample_rate);
+	if (dv_frame_get_sample_rate(audio_source_dv.get()) != m->format.sample_rate)
+	    silence_audio(*mixed_dv, m->format.sample_rate);
 	else if (mixed_dv != audio_source_dv)
 	    dub_audio(*mixed_dv, *audio_source_dv);
 

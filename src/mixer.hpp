@@ -157,6 +157,7 @@ private:
     struct mix_data
     {
 	std::vector<dv_frame_ptr> source_frames;
+	format_settings format;
 	mix_settings settings;
     };
 
