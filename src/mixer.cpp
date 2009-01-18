@@ -755,19 +755,10 @@ void mixer::run_mixer()
 		raw_frame_system(video_sec_source_raw.get())->active_region);
 
 	    // Encode mixed video
-	    const dv_system * system = raw_frame_system(mixed_raw.get());
+	    const dv_system * system = format_.system;
 	    AVCodecContext * enc = encoder.get();
-	    if (dv_frame_get_aspect(video_pri_source_dv.get())
-		== dv_frame_aspect_wide)
-	    {
-		enc->sample_aspect_ratio.num = system->pixel_aspect_wide.width;
-		enc->sample_aspect_ratio.den = system->pixel_aspect_wide.height;
-	    }
-	    else
-	    {
-		enc->sample_aspect_ratio.num = system->pixel_aspect_normal.width;
-		enc->sample_aspect_ratio.den = system->pixel_aspect_normal.height;
-	    }
+	    enc->sample_aspect_ratio.num = system->pixel_aspect[format_.frame_aspect].width;
+	    enc->sample_aspect_ratio.den = system->pixel_aspect[format_.frame_aspect].height;
 	    enc->time_base.num = system->frame_rate_denom;
 	    enc->time_base.den = system->frame_rate_numer;
 	    enc->width = system->frame_width;

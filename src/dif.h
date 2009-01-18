@@ -54,7 +54,7 @@ struct dv_system
     unsigned frame_rate_numer, frame_rate_denom;
     struct {
 	unsigned width, height;
-    } pixel_aspect_normal, pixel_aspect_wide;
+    } pixel_aspect[dv_frame_aspect_count];
     unsigned seq_count;
     size_t size;
     struct {

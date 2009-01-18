@@ -11,8 +11,10 @@ const struct dv_system dv_system_625_50 =
     .active_region = { .left = 9, .top = 0, .right = 711, .bottom = 576 },
     .frame_rate_numer = 25,
     .frame_rate_denom = 1,
-    .pixel_aspect_normal = { .width =  59, .height = 54 },
-    .pixel_aspect_wide =   { .width = 118, .height = 81 },
+    .pixel_aspect = {
+	[dv_frame_aspect_normal] = { .width =  59, .height = 54 },
+	[dv_frame_aspect_wide] =   { .width = 118, .height = 81 }
+    },
     .seq_count = 12,
     .size = 12 * DIF_SEQUENCE_SIZE,
     .sample_limits = {
@@ -30,8 +32,10 @@ const struct dv_system dv_system_525_60 =
     .active_region = { .left = 4, .top = 0, .right = 716, .bottom = 480 },
     .frame_rate_numer = 30000,
     .frame_rate_denom = 1001,
-    .pixel_aspect_normal = { .width = 10, .height = 11 },
-    .pixel_aspect_wide =   { .width = 40, .height = 33 },
+    .pixel_aspect = {
+	[dv_frame_aspect_normal] = { .width = 10, .height = 11 },
+	[dv_frame_aspect_wide] =   { .width = 40, .height = 33 }
+    },
     .seq_count = 10,
     .size = 10 * DIF_SEQUENCE_SIZE,
     .sample_limits = {

@@ -109,18 +109,8 @@ dv_display_widget::get_display_region(const dv_system * system,
 {
     display_region result;
     static_cast<rectangle &>(result) = system->active_region;
-
-    if (frame_aspect == dv_frame_aspect_wide)
-    {
-	result.pixel_width = system->pixel_aspect_wide.width;
-	result.pixel_height = system->pixel_aspect_wide.height;
-    }
-    else
-    {
-	result.pixel_width = system->pixel_aspect_normal.width;
-	result.pixel_height = system->pixel_aspect_normal.height;
-    }
-
+    result.pixel_width = system->pixel_aspect[frame_aspect].width;
+    result.pixel_height = system->pixel_aspect[frame_aspect].height;
     return result;
 }
 
