@@ -17,10 +17,10 @@ const struct dv_system dv_system_625_50 =
     },
     .seq_count = 12,
     .size = 12 * DIF_SEQUENCE_SIZE,
-    .sample_limits = {
-	[dv_sample_rate_48k] =  { .min_count = 1896, .max_count = 1944 },
-	[dv_sample_rate_44k1] = { .min_count = 1742, .max_count = 1786 },
-	[dv_sample_rate_32k] =  { .min_count = 1264, .max_count = 1296 }
+    .sample_counts = {
+	[dv_sample_rate_48k] =  { .min = 1896, .max = 1944, .std_cycle_len = 1, .std_cycle = { 1920 } },
+	[dv_sample_rate_44k1] = { .min = 1742, .max = 1786, .std_cycle_len = 1, .std_cycle = { 1764 } },
+	[dv_sample_rate_32k] =  { .min = 1264, .max = 1296, .std_cycle_len = 1, .std_cycle = { 1280 } }
     }
 };
 
@@ -38,10 +38,34 @@ const struct dv_system dv_system_525_60 =
     },
     .seq_count = 10,
     .size = 10 * DIF_SEQUENCE_SIZE,
-    .sample_limits = {
-	[dv_sample_rate_48k] =  { .min_count = 1580, .max_count = 1620 },
-	[dv_sample_rate_44k1] = { .min_count = 1452, .max_count = 1489 },
-	[dv_sample_rate_32k] =  { .min_count = 1053, .max_count = 1080 }
+    .sample_counts = {
+	[dv_sample_rate_48k] = {
+	    .min = 1580, .max = 1620,
+	    .std_cycle_len = 5, .std_cycle = { 1602, 1601, 1602, 1601, 1602 }
+	},
+	[dv_sample_rate_44k1] = {
+	    .min = 1452, .max = 1489,
+	    .std_cycle_len = 100,
+	    .std_cycle = {
+		1471, 1472, 1471, 1472, 1471, 1472, 1471, 1472, 1471, 1472,
+		1471, 1472, 1471, 1472, 1471, 1472, 1471, 1471, 1472, 1471,
+		1472, 1471, 1472, 1471, 1472, 1471, 1472, 1471, 1472, 1471,
+		1472, 1471, 1472, 1471, 1471, 1472, 1471, 1472, 1471, 1472,
+		1471, 1472, 1471, 1472, 1471, 1472, 1471, 1472, 1471, 1472,
+		1471, 1471, 1472, 1471, 1472, 1471, 1472, 1471, 1472, 1471,
+		1472, 1471, 1472, 1471, 1472, 1471, 1471, 1472, 1471, 1472,
+		1471, 1472, 1471, 1472, 1471, 1472, 1471, 1472, 1471, 1472,
+		1471, 1472, 1471, 1471, 1472, 1471, 1472, 1471, 1472, 1471,
+		1472, 1471, 1472, 1471, 1472, 1471, 1472, 1471, 1472, 1471
+	    }
+	},
+	[dv_sample_rate_32k] = {
+	    .min = 1053, .max = 1080,
+	    .std_cycle_len = 15,
+	    .std_cycle = {
+		1068, 1067, 1068, 1068, 1068, 1067, 1068, 1068, 1068, 1067, 1068, 1068, 1068, 1067, 1068
+	    }
+	},
     }
 };
 

@@ -283,7 +283,7 @@ namespace
 	    // bits 0-5: number of samples in frame minus minimum value
 	    // bit 6: flag "should be 1"
 	    // bit 7: flag for unlocked audio sampling
-	    (sample_count - system->sample_limits[sample_rate_code].min_count)
+	    (sample_count - system->sample_counts[sample_rate_code].min)
 	    | (1 << 6) | (1 << 7),
 	    // bits 0-3: audio mode
 	    // bit 4: flag for independent channels

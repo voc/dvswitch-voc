@@ -57,9 +57,18 @@ struct dv_system
     } pixel_aspect[dv_frame_aspect_count];
     unsigned seq_count;
     size_t size;
+    // The number of samples per frame may vary, for two reasons.  Firstly,
+    // consumer gear is not required to have synchronised audio and video
+    // clocks.  Secondly, the frame rate 30000/1001 does not divide evenly
+    // into any of the supported audio sample rates.
     struct {
-	unsigned min_count, max_count;
-    } sample_limits[dv_sample_rate_count];
+	// Minimum and maximum sample counts allowed.  The actual sample
+	// count is encoded in the AS pack relative to the minimum.
+	unsigned min, max;
+	// A cycle of sample counts which will result in perfect
+	// synchronisation ("locked audio" for 32k and 48k).
+	unsigned std_cycle_len, std_cycle[100];
+    } sample_counts[dv_sample_rate_count];
 };
 
 extern const struct dv_system dv_system_625_50, dv_system_525_60;
