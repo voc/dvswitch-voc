@@ -261,13 +261,13 @@ namespace
 	}
     }
 
-    void silence_audio(dv_frame & dest_frame)
+    void silence_audio(dv_frame & dest_frame, dv_sample_rate sample_rate_code)
     {
 	const dv_system * system = dv_frame_system(&dest_frame);
-	static const unsigned sample_rate = 48000;
-	static const dv_sample_rate sample_rate_code = dv_sample_rate_48k;
-	unsigned sample_count = (sample_rate * system->frame_rate_denom
-				 / system->frame_rate_numer);
+	unsigned sample_count =
+	    system->sample_counts[sample_rate_code].std_cycle[
+		dest_frame.serial_num %
+		system->sample_counts[sample_rate_code].std_cycle_len];
 
 	// Each audio block has a 3-byte block id, a 5-byte AAUX
 	// pack, and 72 bytes of samples.  Audio block 3 in each
@@ -777,13 +777,10 @@ void mixer::run_mixer()
 	    mixed_dv = video_pri_source_dv;
 	}
 
-	if (mixed_dv != audio_source_dv)
-	    if (audio_source_dv
-		&& dv_frame_system(audio_source_dv.get())
-		== dv_frame_system(mixed_dv.get()))
-		dub_audio(*mixed_dv, *audio_source_dv);
-	    else
-		silence_audio(*mixed_dv);
+	if (dv_frame_get_sample_rate(audio_source_dv.get()) != format_.sample_rate)
+	    silence_audio(*mixed_dv, format_.sample_rate);
+	else if (mixed_dv != audio_source_dv)
+	    dub_audio(*mixed_dv, *audio_source_dv);
 
 	set_times(*mixed_dv);
 
