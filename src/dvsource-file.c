@@ -68,7 +68,7 @@ static ssize_t read_retry(int fd, void * buf, size_t count)
     do
     {
 	chunk = read(fd, buf, count);
-	if (chunk < 0)
+	if (chunk <= 0)
 	{
 	    if (total == 0)
 		return chunk;
