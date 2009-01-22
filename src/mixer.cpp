@@ -778,7 +778,8 @@ void mixer::run_mixer()
 	    mixed_dv = video_pri_source_dv;
 	}
 
-	if (dv_frame_get_sample_rate(audio_source_dv.get()) != m->format.sample_rate)
+	if (!audio_source_dv ||
+	    dv_frame_get_sample_rate(audio_source_dv.get()) != m->format.sample_rate)
 	    silence_audio(*mixed_dv, m->format.sample_rate);
 	else if (mixed_dv != audio_source_dv)
 	    dub_audio(*mixed_dv, *audio_source_dv);
