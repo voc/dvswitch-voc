@@ -760,6 +760,9 @@ void mixer::run_mixer()
 	    AVCodecContext * enc = encoder.get();
 	    enc->sample_aspect_ratio.num = system->pixel_aspect[m->format.frame_aspect].width;
 	    enc->sample_aspect_ratio.den = system->pixel_aspect[m->format.frame_aspect].height;
+	    // Work around libavcodec's aspect ratio confusion (bug #790)
+	    enc->sample_aspect_ratio.num *= 40;
+	    enc->sample_aspect_ratio.den *= 41;
 	    enc->time_base.num = system->frame_rate_denom;
 	    enc->time_base.den = system->frame_rate_numer;
 	    enc->width = system->frame_width;
