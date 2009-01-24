@@ -27,7 +27,7 @@ install-stamp : build
 	cp -R debian/tmp/usr/share/doc/dvswitch \
 		debian/dvsource/usr/share/doc/dvsource
 	mkdir -p debian/dvswitch/usr/bin debian/dvswitch/usr/share/doc
-	mv debian/tmp/usr/bin/dvswitch debian/dvswitch/usr/bin
+	mv debian/tmp/usr/bin/dvswitch* debian/dvswitch/usr/bin
 	mv debian/tmp/usr/share/doc/dvswitch \
 		debian/dvswitch/usr/share/doc/dvswitch
 	mv debian/tmp/usr/share/dvswitch debian/dvswitch/usr/share/dvswitch
