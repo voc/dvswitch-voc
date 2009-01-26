@@ -80,6 +80,12 @@ const struct dv_system * dv_buffer_system(const uint8_t * buffer)
     return (buffer[3] & 0x80) ? &dv_system_625_50 : &dv_system_525_60;
 }
 
+// Get audio data from buffer.  Copy the first 2 channels to the buffer
+// as interleaved signed 16-bit PCM samples.  Return the number of
+// samples from each channel.  Caller must ensure the buffer is large
+// enough!
+unsigned dv_buffer_get_audio(const uint8_t * buffer, int16_t * samples);
+
 int dv_buffer_get_audio_level(const uint8_t * frame);
 
 #ifdef __cplusplus
