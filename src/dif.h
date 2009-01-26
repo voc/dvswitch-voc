@@ -86,7 +86,7 @@ const struct dv_system * dv_buffer_system(const uint8_t * buffer)
 // enough!
 unsigned dv_buffer_get_audio(const uint8_t * buffer, int16_t * samples);
 
-int dv_buffer_get_audio_level(const uint8_t * frame);
+void dv_buffer_get_audio_levels(const uint8_t * frame, int * levels);
 
 #ifdef __cplusplus
 }

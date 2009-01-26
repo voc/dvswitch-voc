@@ -108,29 +108,33 @@ unsigned dv_buffer_get_audio(const uint8_t * buffer, int16_t * samples)
     return sample_count / 2;
 }
 
-int dv_buffer_get_audio_level(const uint8_t * buffer)
+void dv_buffer_get_audio_levels(const uint8_t * buffer, int * levels)
 {
     int16_t samples[2 * 2000];
-    unsigned sample_count = 2 * dv_buffer_get_audio(buffer, samples);
+    unsigned sample_count = dv_buffer_get_audio(buffer, samples);
 
-    assert(sample_count * sizeof(int16_t) <= sizeof(samples));
+    assert(2 * sample_count * sizeof(int16_t) <= sizeof(samples));
 
     // Total of squares of samples, so we can calculate average power.  We shift
     // right to avoid overflow.
     static const unsigned total_shift = 9;
-    unsigned total = 0;
+    unsigned total_l = 0, total_r = 0;
 
     for (unsigned i = 0; i != sample_count; ++i)
     {
-	int16_t sample = samples[i];
-	total += ((unsigned)(sample * sample)) >> total_shift;
+	int16_t sample = samples[2 * i];
+	total_l += ((unsigned)(sample * sample)) >> total_shift;
+	sample = samples[2 * i + 1];
+	total_r += ((unsigned)(sample * sample)) >> total_shift;
     }
 
-    if (total == 0)
-	return INT_MIN;
-
     // Calculate average power and convert to dB
-    return (int)(log10((double)total * (1 << total_shift) /
-		       ((double)sample_count * (0x7fff * 0x7fff)))
-		 * 10.0);
+    levels[0] = (total_l == 0 ? INT_MIN
+		 : (int)(log10((double)total_l * (1 << total_shift) /
+			       ((double)sample_count * (0x7fff * 0x7fff)))
+			 * 10.0));
+    levels[1] = (total_r == 0 ? INT_MIN
+		 : (int)(log10((double)total_r * (1 << total_shift) /
+			       ((double)sample_count * (0x7fff * 0x7fff)))
+			 * 10.0));
 }

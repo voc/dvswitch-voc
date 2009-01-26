@@ -8,10 +8,12 @@ class vu_meter : public Gtk::DrawingArea
 public:
     vu_meter(int minimum, int maximum);
 
-    void set_level(int level);
+    static const int channel_count = 2;
+
+    void set_levels(const int * levels);
 
 private:
     virtual bool on_expose_event(GdkEventExpose *) throw();
 
-    int minimum_, maximum_, level_;
+    int minimum_, maximum_, levels_[channel_count];
 };

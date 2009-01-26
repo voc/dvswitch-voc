@@ -303,7 +303,11 @@ bool mixer_window::update(Glib::IOCondition) throw()
 	else if (mixed_dv)
 	    display_.put_frame(mixed_dv);
 	if (mixed_dv)
-	    vu_meter_.set_level(dv_buffer_get_audio_level(mixed_dv->buffer));
+	{
+	    int levels[2];
+	    dv_buffer_get_audio_levels(mixed_dv->buffer, levels);
+	    vu_meter_.set_levels(levels);
+	}
 
 	selector_.set_source_count(source_dv.size());
 
