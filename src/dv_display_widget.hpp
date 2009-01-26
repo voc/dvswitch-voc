@@ -1,4 +1,4 @@
-// Copyright 2007-2008 Ben Hutchings.
+// Copyright 2007-2009 Ben Hutchings.
 // See the file "COPYING" for licence details.
 
 #ifndef DVSWITCH_DV_DISPLAY_WIDGET_HPP
@@ -17,9 +17,6 @@
 class dv_display_widget : public Gtk::DrawingArea
 {
 public:
-    explicit dv_display_widget(int lowres = 0);
-    ~dv_display_widget();
-
     void put_frame(const dv_frame_ptr &);
     void put_frame(const raw_frame_ptr &);
 
@@ -28,6 +25,9 @@ protected:
     {
 	unsigned pixel_width, pixel_height;
     };
+
+    explicit dv_display_widget(int lowres = 0);
+    ~dv_display_widget();
 
     auto_codec decoder_;
 
