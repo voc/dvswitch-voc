@@ -37,7 +37,7 @@ bool vu_meter::on_expose_event(GdkEventExpose *) throw()
 	// The segments fade from green (min) to red (max).
 
 	int num_segs = (height - 2) / 6;
-	if (num_segs > 0)
+	if (num_segs > 0 && level_ >= minimum_)
 	{
 	    Gdk::Color colour;
 	    int lit_segs = 1 + (((num_segs - 1) * (level_ - minimum_)
