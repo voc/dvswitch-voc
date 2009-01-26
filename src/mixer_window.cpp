@@ -63,7 +63,7 @@ mixer_window::mixer_window(mixer & mixer)
       none_button_(effect_group_, "No effect"),
       pip_button_(effect_group_, "_Pic-in-pic", true),
       apply_button_("gtk-apply"),
-      vu_meter_(-90, 0),
+      vu_meter_(-56, 0),
       sec_video_source_id_(0),
       pip_active_(false),
       pip_pending_(false),
