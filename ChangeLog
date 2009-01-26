@@ -11,6 +11,7 @@ dvswitch (0.8~alpha) UNRELEASED; urgency=low
   * Added support for USB DV sources through dvgrab and the uvcvideo driver
   * Moved source selector buttons to keep window within 1024x768 (depending
     on font selection and window decoration)
+  * Added VU-meter for basic audio monitoring
   * Documentation changes:
     - Documented all key commands
     - Changed contact address to dvswitch-devel@lists.alioth.debian.org

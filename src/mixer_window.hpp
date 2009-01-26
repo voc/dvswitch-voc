@@ -1,4 +1,4 @@
-// Copyright 2007-2008 Ben Hutchings.
+// Copyright 2007-2009 Ben Hutchings.
 // See the file "COPYING" for licence details.
 
 #ifndef DVSWITCH_MIXER_WINDOW_HPP
@@ -21,6 +21,7 @@
 #include "dv_display_widget.hpp"
 #include "dv_selector_widget.hpp"
 #include "mixer.hpp"
+#include "vu_meter.hpp"
 
 namespace Glib
 {
@@ -69,6 +70,8 @@ private:
     Gtk::RadioButton none_button_;
     Gtk::RadioButton pip_button_;
     Gtk::Button apply_button_;
+    Gtk::HSeparator meter_sep_;
+    vu_meter vu_meter_;
     dv_full_display_widget display_;
     dv_selector_widget selector_;
 

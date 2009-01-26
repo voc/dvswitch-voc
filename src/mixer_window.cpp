@@ -1,4 +1,4 @@
-// Copyright 2007-2008 Ben Hutchings.
+// Copyright 2007-2009 Ben Hutchings.
 // See the file "COPYING" for licence details.
 
 #include <cerrno>
@@ -63,6 +63,7 @@ mixer_window::mixer_window(mixer & mixer)
       none_button_(effect_group_, "No effect"),
       pip_button_(effect_group_, "_Pic-in-pic", true),
       apply_button_("gtk-apply"),
+      vu_meter_(-90, 0),
       sec_video_source_id_(0),
       pip_active_(false),
       pip_pending_(false),
@@ -139,6 +140,10 @@ mixer_window::mixer_window(mixer & mixer)
 				  Gtk::AccelFlags(0));
     apply_button_.show();
 
+    meter_sep_.show();
+
+    vu_meter_.show();
+
     display_.show();
 
     selector_.set_border_width(gui_standard_spacing);
@@ -158,6 +163,8 @@ mixer_window::mixer_window(mixer & mixer)
     command_box_.pack_start(none_button_, Gtk::PACK_SHRINK);
     command_box_.pack_start(pip_button_, Gtk::PACK_SHRINK);
     command_box_.pack_start(apply_button_, Gtk::PACK_SHRINK);
+    command_box_.pack_start(meter_sep_, Gtk::PACK_EXPAND_PADDING);
+    command_box_.pack_start(vu_meter_, Gtk::PACK_EXPAND_WIDGET);
     command_box_.show();
 
     upper_box_.set_border_width(gui_standard_spacing);
@@ -295,6 +302,8 @@ bool mixer_window::update(Glib::IOCondition) throw()
 	    display_.put_frame(mixed_raw);
 	else if (mixed_dv)
 	    display_.put_frame(mixed_dv);
+	if (mixed_dv)
+	    vu_meter_.set_level(dv_buffer_get_audio_level(mixed_dv->buffer));
 
 	selector_.set_source_count(source_dv.size());
 
