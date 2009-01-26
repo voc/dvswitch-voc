@@ -1,7 +1,23 @@
-// Copyright 2008 Ben Hutchings.
+// Copyright 2008-2009 Ben Hutchings.
 // See the file "COPYING" for licence details.
 
 #include "dif.h"
+
+static const uint8_t dv_audio_shuffle_625_50[12][9] = {
+    {   0,  36,  72,  26,  62,  98,  16,  52,  88}, /* 1st channel */
+    {   6,  42,  78,  32,  68, 104,  22,  58,  94},
+    {  12,  48,  84,   2,  38,  74,  28,  64, 100},
+    {  18,  54,  90,   8,  44,  80,  34,  70, 106},
+    {  24,  60,  96,  14,  50,  86,   4,  40,  76},
+    {  30,  66, 102,  20,  56,  92,  10,  46,  82},
+
+    {   1,  37,  73,  27,  63,  99,  17,  53,  89}, /* 2nd channel */
+    {   7,  43,  79,  33,  69, 105,  23,  59,  95},
+    {  13,  49,  85,   3,  39,  75,  29,  65, 101},
+    {  19,  55,  91,   9,  45,  81,  35,  71, 107},
+    {  25,  61,  97,  15,  51,  87,   5,  41,  77},
+    {  31,  67, 103,  21,  57,  93,  11,  47,  83},
+};
 
 const struct dv_system dv_system_625_50 =
 {
@@ -21,7 +37,22 @@ const struct dv_system dv_system_625_50 =
 	[dv_sample_rate_48k] =  { .min = 1896, .max = 1944, .std_cycle_len = 1, .std_cycle = { 1920 } },
 	[dv_sample_rate_44k1] = { .min = 1742, .max = 1786, .std_cycle_len = 1, .std_cycle = { 1764 } },
 	[dv_sample_rate_32k] =  { .min = 1264, .max = 1296, .std_cycle_len = 1, .std_cycle = { 1280 } }
-    }
+    },
+    .audio_shuffle = dv_audio_shuffle_625_50,
+};
+
+static const uint8_t dv_audio_shuffle_525_60[10][9] = {
+    {  0, 30, 60, 20, 50, 80, 10, 40, 70 }, /* 1st channel */
+    {  6, 36, 66, 26, 56, 86, 16, 46, 76 },
+    { 12, 42, 72,  2, 32, 62, 22, 52, 82 },
+    { 18, 48, 78,  8, 38, 68, 28, 58, 88 },
+    { 24, 54, 84, 14, 44, 74,  4, 34, 64 },
+
+    {  1, 31, 61, 21, 51, 81, 11, 41, 71 }, /* 2nd channel */
+    {  7, 37, 67, 27, 57, 87, 17, 47, 77 },
+    { 13, 43, 73,  3, 33, 63, 23, 53, 83 },
+    { 19, 49, 79,  9, 39, 69, 29, 59, 89 },
+    { 25, 55, 85, 15, 45, 75,  5, 35, 65 },
 };
 
 const struct dv_system dv_system_525_60 =
@@ -66,7 +97,8 @@ const struct dv_system dv_system_525_60 =
 		1068, 1067, 1068, 1068, 1068, 1067, 1068, 1068, 1068, 1067, 1068, 1068, 1068, 1067, 1068
 	    }
 	},
-    }
+    },
+    .audio_shuffle = dv_audio_shuffle_525_60,
 };
 
 enum dv_frame_aspect dv_buffer_get_aspect(const uint8_t * buffer)

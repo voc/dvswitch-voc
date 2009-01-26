@@ -69,6 +69,7 @@ struct dv_system
 	// synchronisation ("locked audio" for 32k and 48k).
 	unsigned std_cycle_len, std_cycle[100];
     } sample_counts[dv_sample_rate_count];
+    const uint8_t (*audio_shuffle)[9];
 };
 
 extern const struct dv_system dv_system_625_50, dv_system_525_60;
@@ -78,6 +79,8 @@ const struct dv_system * dv_buffer_system(const uint8_t * buffer)
 {
     return (buffer[3] & 0x80) ? &dv_system_625_50 : &dv_system_525_60;
 }
+
+int dv_buffer_get_audio_level(const uint8_t * frame);
 
 #ifdef __cplusplus
 }
