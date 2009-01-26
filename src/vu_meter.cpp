@@ -36,24 +36,28 @@ bool vu_meter::on_expose_event(GdkEventExpose *) throw()
 	// Draw segments of height 4 with 2 pixel (black) dividers.
 	// The segments fade from green (min) to red (max).
 
-	int num_segs = (height - 2) / 6;
-	if (num_segs > 0 && level_ >= minimum_)
+	static const int border_thick = 2;
+	static const int seg_height = 4, seg_spacing = seg_height + border_thick;
+
+	int seg_count = (height - border_thick) / seg_spacing;
+
+	if (seg_count > 0 && level_ >= minimum_)
 	{
 	    Gdk::Color colour;
-	    int lit_segs = 1 + (((num_segs - 1) * (level_ - minimum_)
-				 + ((maximum_ - minimum_) / 2))
-				/ (maximum_ - minimum_));
-	    for (int i = 0; i < lit_segs; ++i)
+	    int seg_lit_count = 1 + (((seg_count - 1) * (level_ - minimum_)
+				      + ((maximum_ - minimum_) / 2))
+				     / (maximum_ - minimum_));
+	    for (int seg = 0; seg < seg_lit_count; ++seg)
 	    {
-		colour.set_rgb(65535 * i / num_segs,
-			       65535 * (num_segs - i) / num_segs,
+		colour.set_rgb(65535 * seg / seg_count,
+			       65535 * (seg_count - seg) / seg_count,
 			       0);
 		gc->set_rgb_fg_color(colour);
 		drawable->draw_rectangle(gc, true,
-					 base_x + 2,
-					 base_y + (num_segs - i) * 6 - 4,
-					 width - 4,
-					 4);
+					 base_x + border_thick,
+					 base_y + (seg_count - seg) * seg_spacing
+					 - seg_height,
+					 width - 2 * border_thick, seg_height);
 	    }
 	}
     }
