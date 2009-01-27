@@ -31,6 +31,7 @@ struct dv_frame
     unsigned serial_num;          // set by mixer
     bool do_record;               // set by mixer
     bool cut_before;              // set by mixer
+    bool format_error;            // set by mixer
     uint8_t buffer[DIF_MAX_FRAME_SIZE];
 };
 
