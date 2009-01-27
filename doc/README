@@ -26,9 +26,11 @@ that can run on different computers on a TCP/IP network:
 - dvsink-command: sink that runs a command with the mixed stream as
   its standard input
 
-It is important to make sure all DV sources use the same image format
-and frame rate, ie PAL or NTSC, not both.  Mixing input format will
-produce bogus output.
+It is important to make sure all DV sources use the same video system
+(PAL or NTSC), aspect ratio (16:9 or 4:3) and audio sample rate
+(32, 48 or 44.1 kHz).  Mixing input format will produce bogus output.
+DVswitch automatically detects the format used by its first source and
+will show warnings for any sources that don't match it.
 
 Home page
 ---------
