@@ -111,10 +111,13 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
 	   && s_rect.right <= FRAME_WIDTH);
     assert(s_rect.top >= 0 && s_rect.top < s_rect.bottom
 	   && s_rect.bottom <= source.height);
-    assert(d_rect.left >= 0 && d_rect.left < d_rect.right
+    assert(d_rect.left >= 0 && d_rect.left <= d_rect.right
 	   && d_rect.right <= FRAME_WIDTH);
-    assert(d_rect.top >= 0 && d_rect.top < d_rect.bottom
+    assert(d_rect.top >= 0 && d_rect.top <= d_rect.bottom
 	   && d_rect.bottom <= dest.height);
+
+    if (d_rect.left == d_rect.right || d_rect.top == d_rect.bottom)
+	return;
 
     unsigned s_left = s_rect.left;
     unsigned s_width = s_rect.right - s_rect.left;
