@@ -1,3 +1,8 @@
+cmake_minimum_required(VERSION 2.4)
+if(COMMAND cmake_policy)
+    cmake_policy(SET CMP0005 OLD)
+endif(COMMAND cmake_policy)
+
 project(DVSWITCH CXX C)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
