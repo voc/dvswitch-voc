@@ -13,6 +13,7 @@
 #include <sys/shm.h>
 
 #include <gdkmm/cursor.h>
+#include <gtkmm/icontheme.h>
 
 #include "dv_display_widget.hpp"
 #include "frame.h"
@@ -140,6 +141,7 @@ void dv_display_widget::put_frame(const dv_frame_ptr & dv_frame)
 
 	put_frame_buffer(
 	    get_display_region(system, dv_frame_get_aspect(dv_frame.get())));
+	set_error(dv_frame->format_error);
 	queue_draw();
     }
 }
@@ -175,6 +177,10 @@ void dv_display_widget::put_frame(const raw_frame_ptr & raw_frame)
 	put_frame_buffer(get_display_region(system, raw_frame->aspect));
 	queue_draw();
     }
+}
+
+void dv_display_widget::set_error(bool)
+{
 }
 
 int dv_display_widget::get_buffer(AVCodecContext * context, AVFrame * header)
@@ -695,7 +701,10 @@ dv_thumb_display_widget::dv_thumb_display_widget()
       x_image_(0),
       x_shm_info_(0),
       dest_width_(0),
-      dest_height_(0)
+      dest_height_(0),
+      error_pixbuf_(Gtk::IconTheme::get_default()->
+		    load_icon("gtk-dialog-warning", 64, Gtk::IconLookupFlags(0))),
+      error_(false)
 {
     // We don't know what the frame format will be, but assume "PAL"
     // 4:3 frames and therefore an active image size of 702x576 and
@@ -885,6 +894,11 @@ void dv_thumb_display_widget::put_frame_buffer(
     set_size_request(dest_width_, dest_height_);
 }
 
+void dv_thumb_display_widget::set_error(bool error)
+{
+    error_ = error;
+}
+
 bool dv_thumb_display_widget::on_expose_event(GdkEventExpose *) throw()
 {
     if (!x_image_ || !dest_width_ || !dest_height_)
@@ -907,6 +921,15 @@ bool dv_thumb_display_widget::on_expose_event(GdkEventExpose *) throw()
 		     dest_width_, dest_height_,
 		     False);
 	XFlush(x_display);
+
+	if (error_)
+	{
+	    drawable->draw_pixbuf(
+		gc, error_pixbuf_, 0, 0,
+		dest_x + (dest_width_ - error_pixbuf_->get_width()) / 2,
+		dest_y + (dest_height_ - error_pixbuf_->get_height()) / 2,
+		-1, -1, Gdk::RGB_DITHER_NORMAL, 0, 0);
+	}
     }
 
     return true;

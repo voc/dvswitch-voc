@@ -8,6 +8,7 @@
 #include <utility>
 
 #include <gtkmm/drawingarea.h>
+#include <gtkmm/image.h>
 
 #include "auto_codec.hpp"
 #include "frame.h"
@@ -38,6 +39,7 @@ private:
     virtual AVFrame * get_frame_buffer(AVFrame * header,
 				       PixelFormat pix_fmt, unsigned height) = 0;
     virtual void put_frame_buffer(const display_region &) = 0;
+    virtual void set_error(bool);
 
     static int get_buffer(AVCodecContext *, AVFrame *);
     static void release_buffer(AVCodecContext *, AVFrame *);
@@ -103,6 +105,7 @@ private:
     virtual AVFrame * get_frame_buffer(AVFrame * header,
 				       PixelFormat pix_fmt, unsigned height);
     virtual void put_frame_buffer(const display_region &);
+    virtual void set_error(bool);
 
     virtual bool on_expose_event(GdkEventExpose *) throw();
     virtual void on_unrealize() throw();
@@ -111,6 +114,9 @@ private:
     void * x_image_;
     void * x_shm_info_;
     unsigned dest_width_, dest_height_;
+
+    Glib::RefPtr<Gdk::Pixbuf> error_pixbuf_;
+    bool error_;
 };
 
 #endif // !defined(DVSWITCH_DV_DISPLAY_WIDGET_HPP)
