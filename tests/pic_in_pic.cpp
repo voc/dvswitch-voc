@@ -98,8 +98,6 @@ void assert_rect_colour(raw_frame_ref frame, rectangle rect, uint32_t colour)
 	    rect.bottom >>= chroma_shift_vert;
 	}
 
-	uint32_t area = (rect.right - rect.left) * (rect.bottom - rect.top);
-
 	const uint8_t value = colour >> (16 - 8 * i);
 	for (int y = rect.top; y != rect.bottom; ++y)
 	    for (int x = rect.left; x != rect.right; ++x)
