@@ -599,7 +599,7 @@ bool dv_full_display_widget::on_button_press_event(GdkEventButton * event)
 	add_modal_grab();
 
 	int x, y;
-	window_to_frame_coords(x, y, event->x, event->y);
+	window_to_frame_coords(x, y, int(event->x), int(event->y));
 	if (event->button == 1)
 	{
 	    sel_start_x_ = x;
@@ -629,7 +629,7 @@ bool dv_full_display_widget::on_motion_notify_event(GdkEventMotion * event)
     throw()
 {
     int x, y;
-    window_to_frame_coords(x, y, event->x, event->y);
+    window_to_frame_coords(x, y, int(event->x), int(event->y));
     update_selection(x, y);
     return true;
 }
