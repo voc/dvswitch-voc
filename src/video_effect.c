@@ -77,7 +77,7 @@ void video_effect_brighten(struct raw_frame_ref dest,
 	    bias = chroma_bias;
 	}
 
-	for (unsigned y = d_rect.top; y != d_rect.bottom; ++y)
+	for (unsigned y = d_rect.top; y != (unsigned)d_rect.bottom; ++y)
 	{
 	    uint8_t * p = (dest.planes.data[plane]
 			   + dest.planes.linesize[plane] * y + d_rect.left);
@@ -110,11 +110,11 @@ void video_effect_pic_in_pic(struct raw_frame_ref dest,
     assert(s_rect.left >= 0 && s_rect.left < s_rect.right
 	   && s_rect.right <= FRAME_WIDTH);
     assert(s_rect.top >= 0 && s_rect.top < s_rect.bottom
-	   && s_rect.bottom <= source.height);
+	   && (unsigned)s_rect.bottom <= source.height);
     assert(d_rect.left >= 0 && d_rect.left <= d_rect.right
 	   && d_rect.right <= FRAME_WIDTH);
     assert(d_rect.top >= 0 && d_rect.top <= d_rect.bottom
-	   && d_rect.bottom <= dest.height);
+	   && (unsigned)d_rect.bottom <= dest.height);
 
     if (d_rect.left == d_rect.right || d_rect.top == d_rect.bottom)
 	return;
