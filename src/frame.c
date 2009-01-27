@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <string.h>
 
-#include <avcodec.h>
+#include "avcodec_wrap.h"
 
 #include "frame.h"
 

@@ -13,9 +13,7 @@
 #include <gtkmm/main.h>
 #include <sigc++/functors/slot.h>
 
-extern "C" {
-#include <avcodec.h>
-}
+#include "avcodec_wrap.h"
 
 #include "config.h"
 #include "mixer.hpp"
