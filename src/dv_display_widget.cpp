@@ -26,7 +26,8 @@
 
 namespace
 {
-    unsigned div_round_nearest(unsigned numer, unsigned denom)
+    template<typename T>
+    T div_round_nearest(T numer, T denom)
     {
 	return (numer + denom / 2) / denom;
     }
@@ -528,13 +529,13 @@ void dv_full_display_widget::window_to_frame_coords(
     int window_x, int window_y) throw()
 {
     frame_x = (source_region_.left +
-	       div_round_nearest(window_x
-				 * (source_region_.right - source_region_.left),
-				 dest_width_));
+	       div_round_nearest<int>(window_x
+				      * (source_region_.right - source_region_.left),
+				      dest_width_));
     frame_y = (source_region_.top +
-	       div_round_nearest(window_y
-				 * (source_region_.bottom - source_region_.top),
-				 dest_height_));
+	       div_round_nearest<int>(window_y
+				      * (source_region_.bottom - source_region_.top),
+				      dest_height_));
 }
 
 void dv_full_display_widget::update_selection(int x2, int y2)
@@ -749,10 +750,10 @@ bool dv_thumb_display_widget::try_init_xshm(PixelFormat pix_fmt,
 		    0, x_shm_info,
 		    // Calculate maximum dimensions assuming widest pixel
 		    // ratio and full frame (slightly over-conservative).
-		    div_round_nearest(FRAME_WIDTH * 118,
-				      81 * thumb_scale_denom),
-		    div_round_nearest(FRAME_HEIGHT_MAX,
-				      thumb_scale_denom)))
+		    div_round_nearest<unsigned>(FRAME_WIDTH * 118,
+						81 * thumb_scale_denom),
+		    div_round_nearest<unsigned>(FRAME_HEIGHT_MAX,
+						thumb_scale_denom)))
 	    {
 		if ((x_image->data = allocate_x_shm(
 			 x_display, x_shm_info,
@@ -833,12 +834,12 @@ void dv_thumb_display_widget::put_frame_buffer(
 {
     XImage * x_image = static_cast<XImage *>(x_image_);
 
-    dest_width_ = div_round_nearest((source_region.right - source_region.left)
-				    * source_region.pixel_width,
-				    source_region.pixel_height
-				    * thumb_scale_denom);
-    dest_height_ = div_round_nearest(source_region.bottom - source_region.top,
-				     thumb_scale_denom);
+    dest_width_ = div_round_nearest<unsigned>((source_region.right - source_region.left)
+					      * source_region.pixel_width,
+					      source_region.pixel_height
+					      * thumb_scale_denom);
+    dest_height_ = div_round_nearest<unsigned>(source_region.bottom - source_region.top,
+					       thumb_scale_denom);
 
     // Scale the image up using Bresenham's algorithm
 
