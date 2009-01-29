@@ -11,11 +11,6 @@ vu_meter::vu_meter(int minimum, int maximum)
 {
     for (int channel = 0; channel != channel_count; ++channel)
 	levels_[channel] = std::numeric_limits<int>::min();
-
-    Gdk::Color black;
-    black.set_grey(0);
-    modify_bg(Gtk::STATE_NORMAL, black);
-
     set_size_request(16, 32);
 }
 
@@ -38,19 +33,84 @@ bool vu_meter::on_expose_event(GdkEventExpose *) throw()
     {
 	// Draw segments of height 4 with 2 pixel (black) dividers.
 	// The segments fade from green (min) to red (max).
+	// Draw ticks at the minimum, maximum and 6 dB intervals,
+	// lablled so far as possible without overlap.
 
-	static const int border_thick = 2;
+	static const int border_thick = 2, tick_width = 6;
 	static const int seg_height = 4, seg_vspacing = seg_height + border_thick;
+	static const int tick_interval = 6;
 
-	int seg_count = (height - border_thick) / seg_vspacing;
-	int seg_hspacing = (width - border_thick) / channel_count;
+	Glib::RefPtr<Pango::Context> pango = get_pango_context();
+	Glib::RefPtr<Pango::Layout> layout = Pango::Layout::create(pango);
+
+	int label_width, label_height;
+	layout->set_text(Glib::ustring::compose("%1", minimum_));
+	layout->get_pixel_size(label_width, label_height);
+	layout->set_alignment(Pango::ALIGN_RIGHT);
+	layout->set_width(label_width * Pango::SCALE);
+
+	int scale_width = width - label_width - border_thick - tick_width;
+	int scale_height = height - label_height;
+
+	int seg_count = (scale_height - border_thick) / seg_vspacing;
+	int seg_hspacing = (scale_width - border_thick) / channel_count;
 	int seg_width = seg_hspacing - border_thick;
+
+	if (seg_width <= 0 || height < label_height * 2)
+	    return true; // cannot fit the scale in
+
+	int label_interval =
+	    tick_interval * std::max(1, (maximum_ - minimum_) / tick_interval
+				     / (height / label_height - 1));
+
+	drawable->draw_line(gc,
+			    base_x + label_width + border_thick,
+			    base_y + label_height / 2,
+			    base_x + label_width + border_thick + tick_width,
+			    base_y + label_height / 2);
+	layout->set_text(Glib::ustring::compose("%1", maximum_));
+	drawable->draw_layout(gc, base_x, base_y, layout);
+	drawable->draw_line(gc,
+			    base_x + label_width + border_thick,
+			    base_y + label_height / 2 + scale_height - 1,
+			    base_x + label_width + border_thick + tick_width,
+			    base_y + label_height / 2 + scale_height - 1);
+	layout->set_text(Glib::ustring::compose("%1", minimum_));
+	drawable->draw_layout(gc, base_x, base_y + height - label_height, layout);
+
+	for (int value = minimum_ / tick_interval * tick_interval;
+	     value < maximum_;
+	     value += tick_interval)
+	{
+	    int y = label_height / 2
+		+ (scale_height - 1) * (maximum_ - value) / (maximum_ - minimum_);
+	    drawable->draw_line(gc,
+				base_x + label_width + border_thick,
+				base_y + y,
+				base_x + label_width + border_thick + tick_width,
+				base_y + y);
+	    if (value % label_interval == 0
+		&& y > label_height && y < height - label_height * 2)
+	    {
+		layout->set_text(Glib::ustring::compose("%1", value));
+		drawable->draw_layout(gc, base_x, base_y + y - label_height / 2,
+				      layout);
+	    }
+	}
+
+	Gdk::Color colour;
+	colour.set_grey(0);
+	gc->set_rgb_fg_color(colour);
+	drawable->draw_rectangle(gc, true,
+				 base_x + label_width + tick_width,
+				 base_y + label_height / 2,
+				 width - label_width - tick_width,
+				 height - label_height);
 
 	for (int channel = 0; channel != channel_count; ++channel)
 	{
-	    if (seg_width > 0 && seg_count > 0 && levels_[channel] >= minimum_)
+	    if (levels_[channel] >= minimum_)
 	    {
-		Gdk::Color colour;
 		int seg_lit_count = 1 + (((seg_count - 1)
 					  * (levels_[channel] - minimum_)
 					  + ((maximum_ - minimum_) / 2))
