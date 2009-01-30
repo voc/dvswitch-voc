@@ -21,6 +21,13 @@ void vu_meter::set_levels(const int * levels)
     queue_draw();
 }
 
+Glib::ustring int_to_string(int n)
+{
+    char buf[sizeof(n) * 8]; // should always be large enough
+    std::snprintf(buf, sizeof(buf), "%d", n);
+    return Glib::ustring(buf);
+}
+
 bool vu_meter::on_expose_event(GdkEventExpose *) throw()
 {
     int width = get_width(), height = get_height();
@@ -44,7 +51,7 @@ bool vu_meter::on_expose_event(GdkEventExpose *) throw()
 	Glib::RefPtr<Pango::Layout> layout = Pango::Layout::create(pango);
 
 	int label_width, label_height;
-	layout->set_text(Glib::ustring::compose("%1", minimum_));
+	layout->set_text(int_to_string(minimum_));
 	layout->get_pixel_size(label_width, label_height);
 	layout->set_alignment(Pango::ALIGN_RIGHT);
 	layout->set_width(label_width * Pango::SCALE);
@@ -68,14 +75,14 @@ bool vu_meter::on_expose_event(GdkEventExpose *) throw()
 			    base_y + label_height / 2,
 			    base_x + label_width + border_thick + tick_width,
 			    base_y + label_height / 2);
-	layout->set_text(Glib::ustring::compose("%1", maximum_));
+	layout->set_text(int_to_string(minimum_));
 	drawable->draw_layout(gc, base_x, base_y, layout);
 	drawable->draw_line(gc,
 			    base_x + label_width + border_thick,
 			    base_y + label_height / 2 + scale_height - 1,
 			    base_x + label_width + border_thick + tick_width,
 			    base_y + label_height / 2 + scale_height - 1);
-	layout->set_text(Glib::ustring::compose("%1", minimum_));
+	layout->set_text(int_to_string(minimum_));
 	drawable->draw_layout(gc, base_x, base_y + height - label_height, layout);
 
 	for (int value = minimum_ / tick_interval * tick_interval;
@@ -92,7 +99,7 @@ bool vu_meter::on_expose_event(GdkEventExpose *) throw()
 	    if (value % label_interval == 0
 		&& y > label_height && y < height - label_height * 2)
 	    {
-		layout->set_text(Glib::ustring::compose("%1", value));
+		layout->set_text(int_to_string(value));
 		drawable->draw_layout(gc, base_x, base_y + y - label_height / 2,
 				      layout);
 	    }
