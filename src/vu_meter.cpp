@@ -75,7 +75,7 @@ bool vu_meter::on_expose_event(GdkEventExpose *) throw()
 			    base_y + label_height / 2,
 			    base_x + label_width + border_thick + tick_width,
 			    base_y + label_height / 2);
-	layout->set_text(int_to_string(minimum_));
+	layout->set_text(int_to_string(maximum_));
 	drawable->draw_layout(gc, base_x, base_y, layout);
 	drawable->draw_line(gc,
 			    base_x + label_width + border_thick,
