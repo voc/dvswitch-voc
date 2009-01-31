@@ -132,9 +132,10 @@ bool vu_meter::on_expose_event(GdkEventExpose *) throw()
 				   0);
 		    gc->set_rgb_fg_color(colour);
 		    drawable->draw_rectangle(gc, true,
-					     base_x + border_thick
+					     base_x + width - scale_width
 					     + channel * seg_hspacing,
-					     base_y + (seg_count - seg) * seg_vspacing
+					     base_y + label_height / 2
+					     + (seg_count - seg) * seg_vspacing
 					     - seg_height,
 					     seg_width, seg_height);
 		}
