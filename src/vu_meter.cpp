@@ -5,6 +5,16 @@
 
 #include "vu_meter.hpp"
 
+namespace
+{
+    Glib::ustring int_to_string(int n)
+    {
+	char buf[sizeof(n) * 8]; // should always be large enough
+	std::snprintf(buf, sizeof(buf), "%d", n);
+	return Glib::ustring(buf);
+    }
+}
+
 vu_meter::vu_meter(int minimum, int maximum)
     : minimum_(minimum),
       maximum_(maximum)
@@ -19,13 +29,6 @@ void vu_meter::set_levels(const int * levels)
     for (int channel = 0; channel != channel_count; ++channel)
 	levels_[channel] = levels[channel];
     queue_draw();
-}
-
-Glib::ustring int_to_string(int n)
-{
-    char buf[sizeof(n) * 8]; // should always be large enough
-    std::snprintf(buf, sizeof(buf), "%d", n);
-    return Glib::ustring(buf);
 }
 
 bool vu_meter::on_expose_event(GdkEventExpose *) throw()
