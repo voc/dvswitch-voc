@@ -79,6 +79,12 @@ namespace
     {
 	shmdt(info->shmaddr);
     }
+
+    Glib::RefPtr<Gdk::Pixbuf> load_icon(const Glib::ustring & name, int size)
+    {
+	return Gtk::IconTheme::get_default()->
+	    load_icon(name, size, Gtk::IconLookupFlags(0));
+    }
 }
 
 // dv_display_widget
@@ -751,8 +757,7 @@ dv_thumb_display_widget::dv_thumb_display_widget()
       x_shm_info_(0),
       dest_width_(0),
       dest_height_(0),
-      error_pixbuf_(Gtk::IconTheme::get_default()->
-		    load_icon("gtk-dialog-warning", 64, Gtk::IconLookupFlags(0))),
+      error_pixbuf_(load_icon("gtk-dialog-warning", 64)),
       error_(false)
 {
     // We don't know what the frame format will be, but assume "PAL"
