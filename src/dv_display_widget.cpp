@@ -136,7 +136,6 @@ GdkFilterReturn dv_display_widget::filter_x_shm_event(void * void_event,
 
     if (x_event->type == widget->x_shm_first_event_ + ShmCompletion)
     {
-	std::cout << "got ShmCompletion\n";
 	widget->shm_busy_ = false;
 	return GDK_FILTER_REMOVE;
     }
