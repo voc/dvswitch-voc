@@ -637,9 +637,6 @@ bool dv_full_display_widget::on_motion_notify_event(GdkEventMotion * event)
 
 bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
 {
-    if (!xv_image_)
-	return true;
-
     Glib::RefPtr<Gdk::Drawable> drawable;
     int dest_x, dest_y;
     get_window()->get_internal_paint_info(drawable, dest_x, dest_y);
@@ -647,18 +644,27 @@ bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
 
     if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(drawable))
     {
-	Display * x_display = get_x_display(drawable);
-	XvShmPutImage(x_display, xv_port_,
-		      get_x_window(drawable),
-		      gdk_x11_gc_get_xgc(gc->gobj()),
-		      static_cast<XvImage *>(xv_image_),
-		      source_region_.left, source_region_.top,
-		      source_region_.right - source_region_.left,
-		      source_region_.bottom - source_region_.top,
-		      dest_x, dest_y,
-		      dest_width_, dest_height_,
-		      False);
-	XFlush(x_display);
+	if (xv_image_)
+	{
+	    Display * x_display = get_x_display(drawable);
+	    XvShmPutImage(x_display, xv_port_,
+			  get_x_window(drawable),
+			  gdk_x11_gc_get_xgc(gc->gobj()),
+			  static_cast<XvImage *>(xv_image_),
+			  source_region_.left, source_region_.top,
+			  source_region_.right - source_region_.left,
+			  source_region_.bottom - source_region_.top,
+			  dest_x, dest_y,
+			  dest_width_, dest_height_,
+			  False);
+	    XFlush(x_display);
+	}
+	else
+	{
+	    gc->set_rgb_fg_color(get_style()->get_background(Gtk::STATE_NORMAL));
+	    drawable->draw_rectangle(gc, true,
+				     dest_x, dest_y, dest_width_, dest_height_);
+	}
     }
 
     return true;
