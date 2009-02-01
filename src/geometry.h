@@ -18,7 +18,7 @@ static inline bool rectangle_is_empty(const struct rectangle * rect);
 struct rectangle
 {
     int left, top;     // inclusive
-    int right, bottom; // exclusive
+    int right, bottom; // exclusive; must be >= opposite edges
 
 #ifdef __cplusplus
     rectangle & operator|=(const rectangle & other)
@@ -76,6 +76,12 @@ static inline void rectangle_clip(struct rectangle * rect,
 	rect->top = other->top;
     if (other->bottom < rect->bottom)
 	rect->bottom = other->bottom;
+
+    // Maintain invariant
+    if (rect->left > rect->right)
+	rect->left = rect->right;
+    if (rect->top > rect->bottom)
+	rect->top = rect->bottom;
 }
 
 static inline bool rectangle_is_empty(const struct rectangle * rect)
