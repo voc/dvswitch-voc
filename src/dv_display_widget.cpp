@@ -85,7 +85,8 @@ namespace
 
 dv_display_widget::dv_display_widget(int lowres)
     : decoder_(avcodec_alloc_context()),
-      decoded_serial_num_(-1)
+      decoded_serial_num_(-1),
+      shm_busy_(false)
 {
     AVCodecContext * decoder = decoder_.get();
     if (!decoder)
@@ -105,6 +106,44 @@ dv_display_widget::~dv_display_widget()
 {
 }
 
+bool dv_display_widget::init_x_shm_events()
+{
+    Glib::RefPtr<Gdk::Display> display(get_window()->get_display());
+    int major_opcode, first_error;
+
+    if (!XQueryExtension(gdk_x11_display_get_xdisplay(display->gobj()),
+			 "MIT-SHM",
+			 &major_opcode, &x_shm_first_event_, &first_error))
+	return false;
+
+    gdk_x11_register_standard_event_type(display->gobj(),
+					 x_shm_first_event_,
+					 ShmNumberEvents);
+    get_window()->add_filter(filter_x_shm_event, this);
+    return true;
+}
+
+void dv_display_widget::fini_x_shm_events()
+{
+    get_window()->remove_filter(filter_x_shm_event, this);
+}
+
+GdkFilterReturn dv_display_widget::filter_x_shm_event(void * void_event,
+						      GdkEvent *, void * data)
+{
+    dv_display_widget * widget = static_cast<dv_display_widget *>(data);
+    XEvent * x_event = static_cast<XEvent *>(void_event);
+
+    if (x_event->type == widget->x_shm_first_event_ + ShmCompletion)
+    {
+	std::cout << "got ShmCompletion\n";
+	widget->shm_busy_ = false;
+	return GDK_FILTER_REMOVE;
+    }
+
+    return GDK_FILTER_CONTINUE;
+}
+
 dv_display_widget::display_region
 dv_display_widget::get_display_region(const dv_system * system,
 				      dv_frame_aspect frame_aspect)
@@ -121,7 +160,7 @@ void dv_display_widget::put_frame(const dv_frame_ptr & dv_frame)
     if (!is_realized())
 	return;
 
-    if (dv_frame->serial_num != decoded_serial_num_)
+    if (dv_frame->serial_num != decoded_serial_num_ && !shm_busy_)
     {
 	const struct dv_system * system = dv_frame_system(dv_frame.get());
 	AVCodecContext * decoder = decoder_.get();
@@ -152,7 +191,7 @@ void dv_display_widget::put_frame(const raw_frame_ptr & raw_frame)
     if (!is_realized())
 	return;
 
-    if (raw_frame->header.pts != decoded_serial_num_)
+    if (raw_frame->header.pts != decoded_serial_num_ && !shm_busy_)
     {
 	const struct dv_system * system = raw_frame_system(raw_frame.get());
 
@@ -264,6 +303,9 @@ bool dv_full_display_widget::try_init_xvideo(PixelFormat pix_fmt,
 	return xv_image_;
 
     fini_xvideo();
+
+    if (!init_x_shm_events())
+	return false;
 
     int xv_pix_fmt;
     switch (pix_fmt)
@@ -395,6 +437,8 @@ void dv_full_display_widget::fini_xvideo() throw()
 
 	XvUngrabPort(x_display, xv_port_, CurrentTime);
 	xv_port_ = invalid_xv_port;
+
+	fini_x_shm_events();
     }
 
     pix_fmt_ = PIX_FMT_NONE;
@@ -646,8 +690,7 @@ bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
     {
 	if (xv_image_)
 	{
-	    Display * x_display = get_x_display(drawable);
-	    XvShmPutImage(x_display, xv_port_,
+	    XvShmPutImage(get_x_display(drawable), xv_port_,
 			  get_x_window(drawable),
 			  gdk_x11_gc_get_xgc(gc->gobj()),
 			  static_cast<XvImage *>(xv_image_),
@@ -656,8 +699,8 @@ bool dv_full_display_widget::on_expose_event(GdkEventExpose *) throw()
 			  source_region_.bottom - source_region_.top,
 			  dest_x, dest_y,
 			  dest_width_, dest_height_,
-			  False);
-	    XFlush(x_display);
+			  /*send_event=*/ True);
+	    set_shm_busy();
 	}
 	else
 	{
@@ -736,6 +779,9 @@ bool dv_thumb_display_widget::try_init_xshm(PixelFormat pix_fmt,
 	return true;
     }
 
+    if (!init_x_shm_events())
+	return false;
+
     Display * x_display = get_x_display(*this);
 
     Glib::RefPtr<Gdk::Drawable> drawable;
@@ -800,6 +846,8 @@ void dv_thumb_display_widget::fini_xshm() throw()
 	x_shm_info_ = 0;
 	free(x_image);
 	x_image_ = 0;
+
+	fini_x_shm_events();
     }
 }
 
@@ -918,16 +966,15 @@ bool dv_thumb_display_widget::on_expose_event(GdkEventExpose *) throw()
 
     if (Glib::RefPtr<Gdk::GC> gc = Gdk::GC::create(drawable))
     {
-	Display * x_display = get_x_display(drawable);
-	XShmPutImage(x_display,
+	XShmPutImage(get_x_display(drawable),
 		     get_x_window(drawable),
 		     gdk_x11_gc_get_xgc(gc->gobj()),
 		     static_cast<XImage *>(x_image_),
 		     0, 0,
 		     dest_x, dest_y,
 		     dest_width_, dest_height_,
-		     False);
-	XFlush(x_display);
+		     /*send_event=*/ True);
+	set_shm_busy();
 
 	if (error_)
 	{

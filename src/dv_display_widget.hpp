@@ -30,6 +30,10 @@ protected:
     explicit dv_display_widget(int lowres = 0);
     ~dv_display_widget();
 
+    bool init_x_shm_events();
+    void fini_x_shm_events();
+    void set_shm_busy() { shm_busy_ = true; }
+
     auto_codec decoder_;
 
 private:
@@ -45,7 +49,13 @@ private:
     static void release_buffer(AVCodecContext *, AVFrame *);
     static int reget_buffer(AVCodecContext *, AVFrame *);
 
+    static GdkFilterReturn filter_x_shm_event(void * void_event,
+					      GdkEvent * event,
+					      void * data);
+
     unsigned decoded_serial_num_;
+    int x_shm_first_event_;
+    bool shm_busy_;
 };
 
 class dv_full_display_widget : public dv_display_widget
