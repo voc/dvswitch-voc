@@ -168,6 +168,8 @@ static void transfer_frames(struct transfer_params * params)
 	// Open/close files as necessary
 	if (buf[SINK_FRAME_CUT_FLAG_POS] || file < 0)
 	{
+	    bool starting = file < 0;
+
 	    if (file >= 0)
 	    {
 		close(file);
@@ -183,6 +185,8 @@ static void transfer_frames(struct transfer_params * params)
 	    }
 
 	    file = create_file(output_name_format, &name);
+	    if (starting)
+		printf("INFO: Started recording\n");
 	    printf("INFO: Created file %s\n", name);
 	    fflush(stdout);
 	}
