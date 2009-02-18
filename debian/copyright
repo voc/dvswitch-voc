@@ -1,8 +1,12 @@
-This is the Debian package of dvswitch, put together by Ben Hutchings
+This is the Debian package of DVswitch, put together by Ben Hutchings
 <ben@decadent.org.uk>.
 
 It is based on source from http://alioth.debian.org/projects/dvswitch/
 
-dvswitch is licensed under the GNU General Public License (GPL),
+DVswitch is:
+Copyright 2005-2009 Ben Hutchings
+Copyright 2008 Petter Reinholdtsen
+
+DVswitch is licensed under the GNU General Public License (GPL),
 version 2 or later.  On Debian systems the text of the GPL can be
 found in /usr/share/common-licenses/GPL
