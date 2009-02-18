@@ -3,7 +3,10 @@ Maintainer: Ben Hutchings <ben@decadent.org.uk>
 Section: graphics
 Priority: extra
 Build-Depends: debhelper (>= 5), libavcodec-dev, pkg-config, libgtkmm-2.4-dev, libboost-dev, libboost-thread-dev, libxv-dev, cmake
-Standards-Version: 3.7.2
+Standards-Version: 3.8.0
+Vcs-Browser: http://svn.debian.org/wsvn/dvswitch/trunk/
+Vcs-Svn: svn://svn.debian.org/svn/dvswitch/trunk
+Homepage: http://dvswitch.alioth.debian.org/
 
 Package: dvswitch
 Architecture: any
