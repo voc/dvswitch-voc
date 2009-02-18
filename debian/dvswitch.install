@@ -1,2 +1,3 @@
 usr/bin/dvswitch*
 usr/share/dvswitch
+usr/share/man/man1/dvswitch*.1
