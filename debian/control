@@ -18,7 +18,7 @@ Description: basic video mixer for live DV streams
  a graphical interface in which all source streams can be viewed and
  selected from.
  .
- It is intended to be used for live editing at DebConf.
+ It is intended to be used for live editing at conferences.
 
 Package: dvsource
 Architecture: any
@@ -31,6 +31,9 @@ Description: programs to provide source streams for dvswitch
  .
  dvsource-firewire reads DV frames from a camera or other device
  connected by Firewire (1394).
+ .
+ dvsource-v4l2-dv reads DV frames from a Video4Linux2 device such
+ as a USB-connected DV camera.
 
 Package: dvsink
 Architecture: any
