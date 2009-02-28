@@ -247,111 +247,6 @@ namespace
     {
 	frame_timer_init();
     }
-
-    void dub_audio(dv_frame & dest_frame, const dv_frame & source_frame)
-    {
-	// Copy AAUX blocks.  These are every 16th block in each DIF
-	// sequence, starting from block 6.
-
-	const dv_system * system = dv_frame_system(&dest_frame);
-	assert(dv_frame_system(&source_frame) == system);
-
-	for (unsigned seq_num = 0; seq_num != system->seq_count; ++seq_num)
-	{
-	    for (unsigned block_num = 0; block_num != 9; ++block_num)
-	    {
-		std::ptrdiff_t block_pos =
-		    DIF_SEQUENCE_SIZE * seq_num
-		    + DIF_BLOCK_SIZE * (6 + block_num * 16);
-		std::memcpy(dest_frame.buffer + block_pos,
-			    source_frame.buffer + block_pos,
-			    DIF_BLOCK_SIZE);
-	    }
-	}
-    }
-
-    void silence_audio(dv_frame & dest_frame, dv_sample_rate sample_rate_code)
-    {
-	const dv_system * system = dv_frame_system(&dest_frame);
-	unsigned sample_count =
-	    system->sample_counts[sample_rate_code].std_cycle[
-		dest_frame.serial_num %
-		system->sample_counts[sample_rate_code].std_cycle_len];
-
-	// Each audio block has a 3-byte block id, a 5-byte AAUX
-	// pack, and 72 bytes of samples.  Audio block 3 in each
-	// sequence has an AS (audio source) pack, audio block 4
-	// has an ASC (audio source control) pack, and the other
-	// packs seem to be optional.
-	static const uint8_t aaux_blank_pack[DIF_PACK_SIZE] = {
-	    0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-	};
-	uint8_t aaux_as_pack[DIF_PACK_SIZE] = {
-	    // pack id; 0x50 for AAUX source
-	    0x50,
-	    // bits 0-5: number of samples in frame minus minimum value
-	    // bit 6: flag "should be 1"
-	    // bit 7: flag for unlocked audio sampling
-	    (sample_count - system->sample_counts[sample_rate_code].min)
-	    | (1 << 6) | (1 << 7),
-	    // bits 0-3: audio mode
-	    // bit 4: flag for independent channels
-	    // bit 5: flag for "lumped" stereo (?)
-	    // bits 6-7: number of audio channels per block minus 1
-	    0,
-	    // bits 0-4: system type; 0x0 for DV
-	    // bit 5: frame rate; 0 for 29.97 fps, 1 for 25 fps
-	    // bit 6: flag for multi-language audio
-	    // bit 7: ?
-	    dv_frame_system_code(&dest_frame) << 5,
-	    // bits 0-2: quantisation; 0 for 16-bit LPCM
-	    // bits 3-5: sample rate code
-	    // bit 6: time constant of emphasis; must be 1
-	    // bit 7: flag for no emphasis
-	    (sample_rate_code << 3) | (1 << 6) | (1 << 7)
-	};
-	static const uint8_t aaux_asc_pack[DIF_PACK_SIZE] = {
-	    // pack id; 0x51 for AAUX source control
-	    0x51,
-	    // bits 0-1: emphasis flag and ?
-	    // bits 2-3: compression level; 0 for once
-	    // bits 4-5: input type; 1 for digital
-	    // bits 6-7: copy generation management system; 0 for unrestricted
-	    (1 << 4),
-	    // bits 0-2: ?
-	    // bits 3-5: recording mode; 1 for original (XXX should indicate dub)
-	    // bit 6: recording end flag, inverted
-	    // bit 7: recording start flag, inverted
-	    (1 << 3) | (1 << 6) | (1 << 7),
-	    // bits 0-6: speed; 0x20 seems to be normal
-	    // bit 7: direction: 1 for forward
-	    0x20 | (1 << 7),
-	    // bits 0-6: genre; 0x7F seems to be unknown
-	    // bit 7: reserved
-	    0x7F
-	};
-
-	for (unsigned seq_num = 0; seq_num != system->seq_count; ++seq_num)
-	{
-	    for (unsigned block_num = 0; block_num != 9; ++block_num)
-	    {
-		std::ptrdiff_t block_pos =
-		    DIF_SEQUENCE_SIZE * seq_num
-		    + DIF_BLOCK_SIZE * (6 + block_num * 16);
-		std::memcpy(dest_frame.buffer + block_pos
-			    + DIF_BLOCK_ID_SIZE,
-			    block_num == 3 ? aaux_as_pack
-			    : block_num == 4 ? aaux_asc_pack
-			    : aaux_blank_pack,
-			    DIF_PACK_SIZE);
-		std::memset(dest_frame.buffer + block_pos
-			    + DIF_BLOCK_ID_SIZE + DIF_PACK_SIZE,
-			    0,
-			    DIF_BLOCK_SIZE - DIF_BLOCK_ID_SIZE
-			    - DIF_PACK_SIZE);
-	    }
-	}
-    }
 }
 
 void mixer::run_clock()
@@ -796,9 +691,10 @@ void mixer::run_mixer()
 
 	if (!audio_source_dv ||
 	    dv_frame_get_sample_rate(audio_source_dv.get()) != m->format.sample_rate)
-	    silence_audio(*mixed_dv, m->format.sample_rate);
+	    dv_buffer_silence_audio(mixed_dv->buffer, m->format.sample_rate,
+				    serial_num);
 	else if (mixed_dv != audio_source_dv)
-	    dub_audio(*mixed_dv, *audio_source_dv);
+	    dv_buffer_dub_audio(mixed_dv->buffer, audio_source_dv->buffer);
 
 	set_times(*mixed_dv);
 

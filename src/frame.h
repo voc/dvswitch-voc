@@ -35,12 +35,6 @@ const struct dv_system * dv_frame_system(const struct dv_frame * frame)
     return dv_buffer_system(frame->buffer);
 }
 
-static inline
-unsigned dv_frame_system_code(const struct dv_frame * frame)
-{
-    return frame->buffer[3] >> 7;
-}
-
 static inline enum dv_frame_aspect
 dv_frame_get_aspect(const struct dv_frame * frame)
 {

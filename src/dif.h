@@ -75,9 +75,15 @@ struct dv_system
 extern const struct dv_system dv_system_625_50, dv_system_525_60;
 
 static inline
+unsigned dv_buffer_system_code(const uint8_t * buffer)
+{
+    return buffer[3] >> 7;
+}
+
+static inline
 const struct dv_system * dv_buffer_system(const uint8_t * buffer)
 {
-    return (buffer[3] & 0x80) ? &dv_system_625_50 : &dv_system_525_60;
+    return dv_buffer_system_code(buffer) ? &dv_system_625_50 : &dv_system_525_60;
 }
 
 // Get audio data from buffer.  Copy the first 2 channels to the buffer
@@ -87,6 +93,10 @@ const struct dv_system * dv_buffer_system(const uint8_t * buffer)
 unsigned dv_buffer_get_audio(const uint8_t * buffer, int16_t * samples);
 
 void dv_buffer_get_audio_levels(const uint8_t * frame, int * levels);
+void dv_buffer_dub_audio(uint8_t * dest, const uint8_t * source);
+void dv_buffer_silence_audio(uint8_t * buffer,
+			     enum dv_sample_rate sample_rate_code,
+			     unsigned serial_num);
 
 #ifdef __cplusplus
 }
