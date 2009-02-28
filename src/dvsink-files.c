@@ -142,6 +142,24 @@ static int create_file(const char * format, char ** name)
     return file;
 }
 
+static ssize_t write_retry(int fd, const void * buf, size_t count)
+{
+    ssize_t chunk, total = 0;
+
+    do
+    {
+	chunk = write(fd, buf, count);
+	if (chunk < 0)
+	    return chunk;
+	total += chunk;
+	buf = (const char *)buf + chunk;
+	count -= chunk;
+    }
+    while (count);
+
+    return total;
+}
+
 static void transfer_frames(struct transfer_params * params)
 {
     static uint8_t buf[SINK_FRAME_HEADER_SIZE + DIF_MAX_FRAME_SIZE];
@@ -214,7 +232,7 @@ static void transfer_frames(struct transfer_params * params)
 	}
 	while (buf_pos != wanted_size);
 
-	if (write(file, buf + SINK_FRAME_HEADER_SIZE, system->size)
+	if (write_retry(file, buf + SINK_FRAME_HEADER_SIZE, system->size)
 	    != (ssize_t)system->size)
 	{
 	    perror("ERROR: write");
