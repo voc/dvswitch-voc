@@ -731,10 +731,14 @@ void mixer::run_mixer()
 	raw_frame_ptr video_sec_source_raw;
 	raw_frame_ptr mixed_raw;
 
-	if (!video_pri_source_dv)
+	if (!video_pri_source_dv ||
+	    dv_frame_system(video_pri_source_dv.get()) != format_.system)
 	{
-	    std::cerr << "WARN: Repeating frame due to empty queue"
-		" for source " << 1 + m->settings.video_source_id << "\n";
+	    std::cerr << "WARN: Repeating frame due to "
+		      << (video_pri_source_dv ?
+			  "wrong video system" : "empty queue")
+		      << " for source " << 1 + m->settings.video_source_id
+		      << "\n";
 
 	    // Make a copy of the last mixed frame so we can
 	    // replace the audio.  (We can't modify the last frame
