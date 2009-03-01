@@ -282,10 +282,11 @@ void dv_buffer_set_audio(uint8_t * buffer,
 	0x7F
     };
 
-    for (unsigned seq = 0;
-	 seq != (use_12bit ? system->seq_count / 2 : system->seq_count);
-	 ++seq)
+    for (unsigned seq = 0; seq != system->seq_count; ++seq)
     {
+	if (use_12bit && seq == system->seq_count / 2)
+	    samples = NULL; // silence extra 2 channels
+
 	for (unsigned block_n = 0; block_n != 9; ++block_n)
 	{
 	    uint8_t * out = (buffer + seq * DIF_SEQUENCE_SIZE +
