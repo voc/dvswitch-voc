@@ -30,6 +30,25 @@
 //
 // (The ranges overlap because both scale values work at the boundaries.)
 
+static unsigned get_12bit_scale(uint16_t sample)
+{
+    unsigned result = 0;
+
+    if (sample & 0x7000)
+    {
+	sample >>= 4;
+	result += 4;
+    }
+    if (sample & 0x0c00)
+    {
+	sample >>= 2;
+	result += 2;
+    }
+    if (sample & 0x0200)
+	result += 1;
+    return result;
+}
+
 static int16_t decode_12bit(unsigned code)
 {
     if (code < 0x200)
@@ -48,7 +67,7 @@ static int16_t decode_12bit(unsigned code)
     else if (code < 0xe00)
     {
 	unsigned scale = 14 - (code >> 8);
-	return (((int)(code & 0xff) - 0xff) << scale) - 1;
+	return ((int)(code & 0xff) - 0x200) << scale;
     }
     else
     {
@@ -170,12 +189,12 @@ static unsigned encode_12bit(int16_t sample)
     }
     else if (sample > 0)
     {
-	unsigned scale = ffs(sample) - 9;
+	unsigned scale = get_12bit_scale(sample);
 	return ((scale + 1) << 8) | ((sample >> scale) & 0xff);
     }
     else
     {
-	unsigned scale = ffs(-sample) - 9;
+	unsigned scale = get_12bit_scale(~sample);
 	return ((14 - scale) << 8) | ((((sample - 1) >> scale) + 1) & 0xff);
     }
 }
@@ -233,7 +252,7 @@ void dv_buffer_set_audio(uint8_t * buffer,
 	// bit 4: flag for independent channels
 	// bit 5: flag for "lumped" stereo (?)
 	// bits 6-7: number of audio channels per block minus 1
-	0,
+	use_12bit << 6,
 	// bits 0-4: system type; 0x0 for DV
 	// bit 5: frame rate; 0 for 29.97 fps, 1 for 25 fps
 	// bit 6: flag for multi-language audio
