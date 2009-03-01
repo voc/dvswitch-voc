@@ -8,6 +8,28 @@
 
 #include "dif.h"
 
+// Samples may be encoded as either 16-bit LPCM or 12-bit companded PCM.
+// The companding mapping is:
+//
+// 16-bit sample    12-bit code   Scale
+// ------------------------------------
+// 0x4000..0x7fff   0x700..0x7ff  6
+// 0x2000..0x4000   0x600..0x700  5
+// 0x1000..0x2000   0x500..0x600  4
+// 0x0800..0x1000   0x400..0x500  3
+// 0x0400..0x0800   0x300..0x400  2
+// 0x0200..0x0400   0x200..0x300  1
+// 0x0000..0x0200   0x000..0x200  0
+// 0xfe00..0xffff   0xe00..0xfff  0
+// 0xfc00..0xfe00   0xd00..0xe00  1
+// 0xf800..0xfc00   0xc00..0xd00  2
+// 0xf000..0xf800   0xb00..0xc00  3
+// 0xe000..0xf000   0xa00..0xb00  4
+// 0xc000..0xe000   0x900..0xa00  5
+// 0x8001..0xc000   0x801..0x900  6
+//
+// (The ranges overlap because both scale values work at the boundaries.)
+
 static int16_t decode_12bit(unsigned code)
 {
     if (code < 0x200)
@@ -26,7 +48,7 @@ static int16_t decode_12bit(unsigned code)
     else if (code < 0xe00)
     {
 	unsigned scale = 14 - (code >> 8);
-	return (((int)(code & 0xff) - 0x100) << scale) - 1;
+	return (((int)(code & 0xff) - 0xff) << scale) - 1;
     }
     else
     {
@@ -95,7 +117,7 @@ unsigned dv_buffer_get_audio(const uint8_t * buffer, int16_t * samples)
 				    i * system->seq_count * 9);
 		    if (pos < sample_count)
 		    {
-			int16_t sample = (block[8 + 2 * i] +
+			int16_t sample = (block[8 + 2 * i + 1] +
 					  (block[8 + 2 * i] << 8));
 			if (sample == -0x8000)
 			    sample = 0;
