@@ -201,9 +201,6 @@ static unsigned encode_12bit(int16_t sample)
 
 void dv_buffer_dub_audio(uint8_t * dest, const uint8_t * source)
 {
-    // Copy AAUX blocks.  These are every 16th block in each DIF
-    // sequence, starting from block 6.
-
     const struct dv_system * system = dv_buffer_system(dest);
     assert(dv_buffer_system(source) == system);
 
