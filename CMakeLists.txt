@@ -7,6 +7,7 @@ project(DVSWITCH CXX C)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 include(FindPkgConfig)
+pkg_check_modules(ALSA REQUIRED alsa)
 pkg_check_modules(GTKMM REQUIRED gtkmm-2.4)
 pkg_check_modules(LIBAVCODEC REQUIRED libavcodec)
 
