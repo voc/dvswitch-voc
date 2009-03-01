@@ -92,6 +92,14 @@ const struct dv_system * dv_buffer_system(const uint8_t * buffer)
 // enough!
 unsigned dv_buffer_get_audio(const uint8_t * buffer, int16_t * samples);
 
+// Set sample rate and audio data in buffer.  Copy interleaved signed
+// 16-bit PCM samples to the first 2 channels to the buffer
+// (companding to 12-bit if necessary).  Caller must ensure the number
+// of samples is valid for the selected video system and sample rate.
+void dv_buffer_set_audio(uint8_t * buffer,
+			 enum dv_sample_rate sample_rate_code,
+			 unsigned sample_count, const int16_t * samples);
+
 void dv_buffer_get_audio_levels(const uint8_t * frame, int * levels);
 void dv_buffer_dub_audio(uint8_t * dest, const uint8_t * source);
 void dv_buffer_silence_audio(uint8_t * buffer,

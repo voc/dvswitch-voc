@@ -162,6 +162,24 @@ void dv_buffer_get_audio_levels(const uint8_t * buffer, int * levels)
 			 * 10.0));
 }
 
+static unsigned encode_12bit(int16_t sample)
+{
+    if (sample >= -0x200 && sample <= 0x200)
+    {
+	return (unsigned)sample & 0xfff;
+    }
+    else if (sample > 0)
+    {
+	unsigned scale = ffs(sample) - 9;
+	return ((scale + 1) << 8) | ((sample >> scale) & 0xff);
+    }
+    else
+    {
+	unsigned scale = ffs(-sample) - 9;
+	return ((14 - scale) << 8) | ((((sample - 1) >> scale) + 1) & 0xff);
+    }
+}
+
 void dv_buffer_dub_audio(uint8_t * dest, const uint8_t * source)
 {
     // Copy AAUX blocks.  These are every 16th block in each DIF
@@ -181,14 +199,19 @@ void dv_buffer_dub_audio(uint8_t * dest, const uint8_t * source)
     }
 }
 
-void dv_buffer_silence_audio(uint8_t * buffer,
-			     enum dv_sample_rate sample_rate_code,
-			     unsigned serial_num)
+void dv_buffer_set_audio(uint8_t * buffer,
+			 enum dv_sample_rate sample_rate_code,
+			 unsigned sample_count, const int16_t * samples)
 {
     const struct dv_system * system = dv_buffer_system(buffer);
-    unsigned sample_count =
-	system->sample_counts[sample_rate_code].std_cycle[
-	    serial_num % system->sample_counts[sample_rate_code].std_cycle_len];
+
+    assert(sample_rate_code >= 0 && sample_rate_code < dv_sample_rate_count);
+    assert(sample_count >= system->sample_counts[sample_rate_code].min &&
+	   sample_count <= system->sample_counts[sample_rate_code].max);
+
+    sample_count *= 2; // stereo
+
+    bool use_12bit = sample_rate_code == dv_sample_rate_32k;
 
     // Each audio block has a 3-byte block id, a 5-byte AAUX
     // pack, and 72 bytes of samples.  Audio block 3 in each
@@ -216,11 +239,11 @@ void dv_buffer_silence_audio(uint8_t * buffer,
 	// bit 6: flag for multi-language audio
 	// bit 7: ?
 	dv_buffer_system_code(buffer) << 5,
-	// bits 0-2: quantisation; 0 for 16-bit LPCM
+	// bits 0-2: quantisation; 0 for 16-bit LPCM, 1 for 12-bit
 	// bits 3-5: sample rate code
 	// bit 6: time constant of emphasis; must be 1
 	// bit 7: flag for no emphasis
-	(sample_rate_code << 3) | (1 << 6) | (1 << 7)
+	use_12bit | (sample_rate_code << 3) | (1 << 6) | (1 << 7)
     };
     static const uint8_t aaux_asc_pack[DIF_PACK_SIZE] = {
 	// pack id; 0x51 for AAUX source control
@@ -243,20 +266,70 @@ void dv_buffer_silence_audio(uint8_t * buffer,
 	0x7F
     };
 
-    for (unsigned seq_num = 0; seq_num != system->seq_count; ++seq_num)
+    for (unsigned seq = 0;
+	 seq != (use_12bit ? system->seq_count / 2 : system->seq_count);
+	 ++seq)
     {
-	for (unsigned block_num = 0; block_num != 9; ++block_num)
+	for (unsigned block_n = 0; block_n != 9; ++block_n)
 	{
-	    ptrdiff_t block_pos = (DIF_SEQUENCE_SIZE * seq_num
-				   + DIF_BLOCK_SIZE * (6 + block_num * 16));
-	    memcpy(buffer + block_pos + DIF_BLOCK_ID_SIZE,
-		   block_num == 3 ? aaux_as_pack
-		   : block_num == 4 ? aaux_asc_pack
+	    uint8_t * out = (buffer + seq * DIF_SEQUENCE_SIZE +
+			     (6 + 16 * block_n) * DIF_BLOCK_SIZE +
+			     DIF_BLOCK_ID_SIZE);
+
+	    memcpy(out,
+		   block_n == 3 ? aaux_as_pack
+		   : block_n == 4 ? aaux_asc_pack
 		   : aaux_blank_pack,
 		   DIF_PACK_SIZE);
-	    memset(buffer + block_pos + DIF_BLOCK_ID_SIZE + DIF_PACK_SIZE,
-		   0,
-		   DIF_BLOCK_SIZE - DIF_BLOCK_ID_SIZE - DIF_PACK_SIZE);
+	    out += DIF_PACK_SIZE;
+
+	    if (samples == NULL)
+	    {
+		memset(out, 0, DIF_BLOCK_SIZE - DIF_BLOCK_ID_SIZE - DIF_PACK_SIZE);
+	    }
+	    else if (use_12bit)
+	    {
+		for (unsigned i = 0; i != 24; ++i)
+		{
+		    unsigned pos = (system->audio_shuffle[seq][block_n] +
+				    i * system->seq_count * 9);
+		    unsigned code1 =
+			(pos < sample_count) ? encode_12bit(samples[pos]) : 0;
+		    pos = (system->audio_shuffle[
+			       seq + system->seq_count / 2][block_n] +
+			   i * system->seq_count * 9);
+		    unsigned code2 =
+			(pos < sample_count) ? encode_12bit(samples[pos]) : 0;
+
+		    *out++ = code1 >> 4;
+		    *out++ = code2 >> 4;
+		    *out++ = (code1 << 4) | (code2 & 0xf);
+		}
+	    }
+	    else // 16-bit
+	    {
+		for (unsigned i = 0; i != 36; ++i)
+		{
+		    unsigned pos = (system->audio_shuffle[seq][block_n] +
+				    i * system->seq_count * 9);
+		    int16_t sample = (pos < sample_count) ? samples[pos] : 0;
+		    
+		    *out++ = sample >> 8;
+		    *out++ = sample & 0xff;
+		}
+	    }
 	}
     }
+}
+
+void dv_buffer_silence_audio(uint8_t * buffer,
+			     enum dv_sample_rate sample_rate_code,
+			     unsigned serial_num)
+{
+    const struct dv_system * system = dv_buffer_system(buffer);
+    unsigned sample_count =
+	system->sample_counts[sample_rate_code].std_cycle[
+	    serial_num % system->sample_counts[sample_rate_code].std_cycle_len];
+
+    dv_buffer_set_audio(buffer, sample_rate_code, sample_count, NULL);
 }
