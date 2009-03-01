@@ -201,7 +201,7 @@ int main(int argc, char ** argv)
 	return 2;
     }
 
-    if (!system_name || !strcasecmp(argv[optind], "pal"))
+    if (!system_name || !strcasecmp(system_name, "pal"))
     {
 	params.system = &dv_system_625_50;
     }
