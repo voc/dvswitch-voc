@@ -109,6 +109,8 @@ void mixer::put_frame(source_id id, const dv_frame_ptr & frame)
 		format.frame_aspect = dv_frame_get_aspect(frame.get());
 		format.sample_rate = dv_frame_get_sample_rate(frame.get());
 
+		frame->format_error = false;
+
 		if (format_.system == NULL)
 		    format_.system = format.system;
 		else if (format_.system != format.system)
