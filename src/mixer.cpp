@@ -29,6 +29,8 @@ mixer::mixer()
     format_.system = NULL;
     format_.frame_aspect = dv_frame_aspect_auto;
     format_.sample_rate = dv_sample_rate_auto;
+    settings_.do_record = false;
+    settings_.cut_before = false;
     sources_.reserve(5);
     sinks_.reserve(5);
 }
@@ -95,8 +97,6 @@ void mixer::put_frame(source_id id, const dv_frame_ptr & frame)
 	    {
 		settings_.video_source_id = id;
 		settings_.audio_source_id = id;
-		settings_.do_record = false;
-		settings_.cut_before = false;
 		clock_state_ = run_state_run;
 		should_notify_clock = true; // after we unlock the mutex
 	    }
