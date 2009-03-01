@@ -107,7 +107,7 @@ static void dv_buffer_fill_dummy(uint8_t * buf, const struct dv_system * system)
 
 	    // Clear rest of the block
 	    memset(block + DIF_BLOCK_ID_SIZE,
-		   0,
+		   0xff,
 		   DIF_BLOCK_SIZE - DIF_BLOCK_ID_SIZE);
 
 	    // Set system code
