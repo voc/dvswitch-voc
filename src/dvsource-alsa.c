@@ -59,6 +59,7 @@ Usage: %s [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT] \\\
 
 struct transfer_params {
     snd_pcm_t *              pcm;
+    snd_pcm_uframes_t        hw_sample_count;
     const struct dv_system * system;
     enum dv_sample_rate      sample_rate_code;
     int                      sock;
@@ -122,7 +123,10 @@ static void dv_buffer_fill_dummy(uint8_t * buf, const struct dv_system * system)
 static void transfer_frames(struct transfer_params * params)
 {
     static uint8_t buf[DIF_MAX_FRAME_SIZE];
-    int16_t samples[2 * 2000];
+    int16_t * samples = malloc(2 * 2 *
+			       (params->hw_sample_count >= 2000 ?
+				params->hw_sample_count : 2000));
+    unsigned avail_count = 0;
     unsigned serial_num = 0;
 
     dv_buffer_fill_dummy(buf, params->system);
@@ -133,12 +137,18 @@ static void transfer_frames(struct transfer_params * params)
 	    params->system->sample_counts[params->sample_rate_code].std_cycle[
 		serial_num % params->system->sample_counts[params->sample_rate_code].std_cycle_len];
 
-	snd_pcm_sframes_t rc = snd_pcm_readi(params->pcm, samples, sample_count);
-	if (rc != (snd_pcm_sframes_t)sample_count)
+	while (avail_count < sample_count)
 	{
-	    fprintf(stderr, "ERROR: snd_pcm_readi: %s\n",
-		    (rc < 0) ? snd_strerror(rc) : "underrun");
-	    exit(1);
+	    snd_pcm_sframes_t rc = snd_pcm_readi(params->pcm,
+						 samples + avail_count,
+						 params->hw_sample_count);
+	    if (rc != (snd_pcm_sframes_t)params->hw_sample_count)
+	    {
+		fprintf(stderr, "ERROR: snd_pcm_readi: %s\n",
+			(rc < 0) ? snd_strerror(rc) : "underrun");
+		exit(1);
+	    }
+	    avail_count += rc;
 	}
 
 	dv_buffer_set_audio(buf, params->sample_rate_code, sample_count, samples);
@@ -150,6 +160,8 @@ static void transfer_frames(struct transfer_params * params)
 	    exit(1);
 	}
 
+	memmove(samples, samples + sample_count, avail_count - sample_count);
+	avail_count -= sample_count;
 	++serial_num;
     }
 }
@@ -273,16 +285,23 @@ int main(int argc, char ** argv)
     if (rc >= 0)
 	snd_pcm_hw_params_set_rate(params.pcm, hw_params, sample_rate, 0);
     if (rc >= 0)
+    {
+	params.hw_sample_count =
+	    params.system->sample_counts[params.sample_rate_code].std_cycle[0];
+	rc = snd_pcm_hw_params_set_period_size_near(params.pcm, hw_params,
+						    &params.hw_sample_count, 0);
+    }
+    if (rc >= 0)
+    {
+	unsigned buffer_time = 250000;
+	rc = snd_pcm_hw_params_set_buffer_time_near(params.pcm, hw_params,
+						    &buffer_time, 0);
+    }
+    if (rc >= 0)
 	rc = snd_pcm_hw_params(params.pcm, hw_params);
     if (rc < 0)
     {
 	fprintf(stderr, "ERROR: snd_pcm_hw_params: %s\n", snd_strerror(rc));
-	return 1;
-    }
-    rc = snd_pcm_start(params.pcm);
-    if (rc < 0)
-    {
-	fprintf(stderr, "ERROR: snd_pcm_start: %s\n", snd_strerror(rc));
 	return 1;
     }
 
