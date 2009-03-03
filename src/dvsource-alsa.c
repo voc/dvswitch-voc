@@ -123,7 +123,8 @@ static void dv_buffer_fill_dummy(uint8_t * buf, const struct dv_system * system)
 static void transfer_frames(struct transfer_params * params)
 {
     static uint8_t buf[DIF_MAX_FRAME_SIZE];
-    int16_t * samples = malloc(2 * 2 *
+    static const unsigned channel_count = 2;
+    int16_t * samples = malloc(sizeof(int16_t) * channel_count *
 			       (params->hw_sample_count >= 2000 ?
 				params->hw_sample_count : 2000));
     unsigned avail_count = 0;
@@ -140,7 +141,7 @@ static void transfer_frames(struct transfer_params * params)
 	while (avail_count < sample_count)
 	{
 	    snd_pcm_sframes_t rc = snd_pcm_readi(params->pcm,
-						 samples + avail_count,
+						 samples + channel_count * avail_count,
 						 params->hw_sample_count);
 	    if (rc != (snd_pcm_sframes_t)params->hw_sample_count)
 	    {
@@ -160,7 +161,8 @@ static void transfer_frames(struct transfer_params * params)
 	    exit(1);
 	}
 
-	memmove(samples, samples + sample_count, avail_count - sample_count);
+	memmove(samples, samples + channel_count * sample_count,
+		sizeof(int16_t) * channel_count * (avail_count - sample_count));
 	avail_count -= sample_count;
 	++serial_num;
     }
