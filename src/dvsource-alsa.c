@@ -27,6 +27,7 @@ static struct option options[] = {
     {"port",   1, NULL, 'p'},
     {"system", 1, NULL, 's'},
     {"rate",   1, NULL, 'r'},
+    {"delay",  1, NULL, 'd'},
     {"help",   0, NULL, 'H'},
     {NULL,     0, NULL, 0}
 };
@@ -52,8 +53,9 @@ static void usage(const char * progname)
 {
     fprintf(stderr,
 	    "\
-Usage: %s [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT] \\\
-           [{-s|--system} ntsc|pal] [{-r|--rate} 48000|32000|44100] [DEVICE]\n",
+Usage: %s [{-h|--host} MIXER-HOST] [{-p|--port} MIXER-PORT] \\\n\
+           [{-s|--system} ntsc|pal] [{-r|--rate} 48000|32000|44100] \\\n\
+           [{-d|--delay} DELAY] [DEVICE]\n",
 	    progname);
 }
 
@@ -62,6 +64,7 @@ struct transfer_params {
     snd_pcm_uframes_t        hw_sample_count;
     const struct dv_system * system;
     enum dv_sample_rate      sample_rate_code;
+    snd_pcm_uframes_t        delay_size;
     int                      sock;
 };
 
@@ -124,11 +127,13 @@ static void transfer_frames(struct transfer_params * params)
 {
     static uint8_t buf[DIF_MAX_FRAME_SIZE];
     static const unsigned channel_count = 2;
-    int16_t * samples = malloc(sizeof(int16_t) * channel_count *
-			       (params->hw_sample_count >= 2000 ?
-				params->hw_sample_count : 2000));
     unsigned avail_count = 0;
     unsigned serial_num = 0;
+
+    const snd_pcm_uframes_t buffer_size =
+	(params->delay_size >= 2000 ? params->delay_size : 2000)
+	+ params->hw_sample_count - 1;
+    int16_t * samples = malloc(sizeof(int16_t) * channel_count * buffer_size);
 
     dv_buffer_fill_dummy(buf, params->system);
 
@@ -138,7 +143,7 @@ static void transfer_frames(struct transfer_params * params)
 	    params->system->sample_counts[params->sample_rate_code].std_cycle[
 		serial_num % params->system->sample_counts[params->sample_rate_code].std_cycle_len];
 
-	while (avail_count < sample_count)
+	while (avail_count < params->delay_size || avail_count < sample_count)
 	{
 	    snd_pcm_sframes_t rc = snd_pcm_readi(params->pcm,
 						 samples + channel_count * avail_count,
@@ -176,11 +181,12 @@ int main(int argc, char ** argv)
     struct transfer_params params;
     char * system_name = NULL;
     long sample_rate = 48000;
+    double delay = 0.2;
 
     /* Parse arguments. */
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "h:p:s:r:", options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "h:p:s:r:d:", options, NULL)) != -1)
     {
 	switch (opt)
 	{
@@ -198,6 +204,9 @@ int main(int argc, char ** argv)
 	    break;
 	case 'r':
 	    sample_rate = strtol(optarg, NULL, 10);
+	    break;
+	case 'd':
+	    delay = strtod(optarg, NULL);
 	    break;
 	case 'H': /* --help */
 	    usage(argv[0]);
@@ -244,6 +253,16 @@ int main(int argc, char ** argv)
     else
     {
 	fprintf(stderr, "%s: invalid sample rate %ld\n", argv[0], sample_rate);
+	return 2;
+    }
+
+    if (delay >= 0.0)
+    {
+	params.delay_size = delay * sample_rate;
+    }
+    else
+    {
+	fprintf(stderr, "%s: delays do not work that way!\n", argv[0]);
 	return 2;
     }
 
