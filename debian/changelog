@@ -1,3 +1,11 @@
+dvswitch (0.8.1-1) unstable; urgency=low
+
+  * New upstream version
+    - Adds missing #include directive - closes: #519211
+  * Update archive section to 'video'
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Tue, 17 Mar 2009 01:06:23 +0000
+
 dvswitch (0.8-2) unstable; urgency=low
 
   * Initial upload to Debian - closes: #467414

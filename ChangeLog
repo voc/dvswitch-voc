@@ -1,4 +1,4 @@
-dvswitch (0.9~alpha) UNRELEASED; urgency=low
+dvswitch (0.8.1) unstable; urgency=low
 
   * Added dvsource-alsa as an audio-only source
 
