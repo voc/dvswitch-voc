@@ -113,9 +113,32 @@ static void dv_buffer_fill_dummy(uint8_t * buf, const struct dv_system * system)
 		   0xff,
 		   DIF_BLOCK_SIZE - DIF_BLOCK_ID_SIZE);
 
-	    // Set system code
-	    if (block_num == 0)
+	    // The following magic is based on dv_write_pack() in libavcodec/dv.c
+
+	    // Header block needs header pack
+	    if (type == 0x1f)
+	    {
 		block[DIF_BLOCK_ID_SIZE] = (system == &dv_system_625_50) ? 0xbf : 0x3f;
+		int apt = (system == &dv_system_625_50) ? 0 : 1;
+		block[DIF_BLOCK_ID_SIZE + 1] = 0xf8 | apt;
+		block[DIF_BLOCK_ID_SIZE + 2] = 0x78 | apt;
+	    }
+
+	    // VAUX blocks need VS and VSC packs
+	    if (type == 0x56)
+	    {
+		int dsf = (system == &dv_system_625_50) ? 1 : 0;
+		block[DIF_BLOCK_ID_SIZE] = 0x60;
+		block[DIF_BLOCK_ID_SIZE + 3] = 0xc0 | (dsf << 5);
+		block[DIF_BLOCK_ID_SIZE + DIF_PACK_SIZE] = 0x61;
+		block[DIF_BLOCK_ID_SIZE + DIF_PACK_SIZE + 1] = 0x3f;
+		block[DIF_BLOCK_ID_SIZE + DIF_PACK_SIZE + 2] = 0xc8;
+		block[DIF_BLOCK_ID_SIZE + DIF_PACK_SIZE + 3] = 0xfc;
+		// ...and again
+		memcpy(block + DIF_BLOCK_ID_SIZE + 9 * DIF_PACK_SIZE,
+		       block + DIF_BLOCK_ID_SIZE,
+		       2 * DIF_PACK_SIZE);
+	    }
 
 	    block += DIF_BLOCK_SIZE;
 	}
