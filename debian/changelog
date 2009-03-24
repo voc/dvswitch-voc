@@ -1,3 +1,9 @@
+dvswitch (0.8.2~alpha-1) UNRELEASED; urgency=low
+
+  * New upstream version
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Tue, 24 Mar 2009 13:09:27 -0500
+
 dvswitch (0.8.1-1) unstable; urgency=low
 
   * New upstream version
