@@ -1,8 +1,12 @@
-dvswitch (0.8.2~alpha) UNRELEASED; urgency=low
+dvswitch (0.8.2) unstable; urgency=low
 
   * Create one encoding thread per processor, up to a maximum of 8
+  * Increase mixer queue length to allow for scheduler silliness
+  * Improve robustness of dvsource-alsa
+  * Fix audio encoding bug that resulted in crackling audio when using
+    dvsource-alsa with NTSC
 
- -- Ben Hutchings <ben@decadent.org.uk>  Tue, 24 Mar 2009 13:09:27 -0500
+ -- Ben Hutchings <ben@decadent.org.uk>  Thu, 26 Mar 2009 22:45:15 -0500
 
 dvswitch (0.8.1) unstable; urgency=low
 
