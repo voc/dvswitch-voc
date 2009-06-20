@@ -21,6 +21,7 @@
 #include "dv_display_widget.hpp"
 #include "dv_selector_widget.hpp"
 #include "mixer.hpp"
+#include "status_overlay.hpp"
 #include "vu_meter.hpp"
 
 namespace Glib
@@ -32,6 +33,7 @@ class mixer_window : public Gtk::Window, public mixer::monitor
 {
 public:
     explicit mixer_window(mixer & mixer);
+    ~mixer_window();
 
 private:
     void cancel_effect();
@@ -72,6 +74,7 @@ private:
     Gtk::Button apply_button_;
     Gtk::HSeparator meter_sep_;
     vu_meter vu_meter_;
+    status_overlay osd_;
     dv_full_display_widget display_;
     dv_selector_widget selector_;
 
