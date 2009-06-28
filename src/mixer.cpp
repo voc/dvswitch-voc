@@ -1,5 +1,6 @@
 // Copyright 2007-2009 Ben Hutchings.
 // Copyright 2008 Petter Reinholdtsen.
+// Copyright 2009 Wouter Verhelst.
 // See the file "COPYING" for licence details.
 
 #include <cstddef>
@@ -55,7 +56,7 @@ mixer::~mixer()
     mixer_thread_.join();
 }
 
-mixer::source_id mixer::add_source()
+mixer::source_id mixer::add_source(source * src)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
     source_id id;
@@ -64,10 +65,12 @@ mixer::source_id mixer::add_source()
 	if (!sources_[id].is_live)
 	{
 	    sources_[id].is_live = true;
+	    sources_[id].src = src;
 	    return id;
 	}
     }
     sources_.resize(id + 1);
+    sources_[id].src = src;
     return id;
 }
 
@@ -99,6 +102,8 @@ void mixer::put_frame(source_id id, const dv_frame_ptr & frame)
 		&& source.frames.size() == target_queue_len)
 	    {
 		settings_.video_source_id = id;
+		sources_[settings_.video_source_id].src->
+		    set_active(source_active_video);
 		settings_.audio_source_id = id;
 		clock_state_ = run_state_run;
 		should_notify_clock = true; // after we unlock the mutex
@@ -205,7 +210,13 @@ void mixer::set_video_source(source_id id)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
     if (id < sources_.size())
+    {
+	sources_[settings_.video_source_id].src->
+	    set_active(source_active_none);
 	settings_.video_source_id = id;
+	sources_[settings_.video_source_id].src->
+	    set_active(source_active_video);
+    }
     else
 	throw std::range_error("video source id out of range");
 }
@@ -214,7 +225,13 @@ void mixer::set_video_effect(
     std::tr1::shared_ptr<video_effect_settings> effect)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
+    if (settings_.video_effect)
+	sources_[settings_.video_effect->sec_source_id].src->
+	    set_active(source_active_none);
     settings_.video_effect = effect;
+    if (settings_.video_effect)
+	sources_[settings_.video_effect->sec_source_id].src->
+	    set_active(source_active_video);
 }
 
 void mixer::set_audio_source(source_id id)
