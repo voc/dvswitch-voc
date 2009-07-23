@@ -1,3 +1,9 @@
+dvswitch (0.8.3.2) unstable; urgency=low
+
+  * Fix crash when selecting/deselecting a source that has disconnected
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Thu, 23 Jul 2009 15:12:33 +0200
+
 dvswitch (0.8.3.1) unstable; urgency=low
 
   * Disable buffering of activation (tally light) notifications

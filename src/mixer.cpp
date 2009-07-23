@@ -62,9 +62,8 @@ mixer::source_id mixer::add_source(source * src)
     source_id id;
     for (id = 0; id != sources_.size(); ++id)
     {
-	if (!sources_[id].is_live)
+	if (!sources_[id].src)
 	{
-	    sources_[id].is_live = true;
 	    sources_[id].src = src;
 	    return id;
 	}
@@ -77,7 +76,7 @@ mixer::source_id mixer::add_source(source * src)
 void mixer::remove_source(source_id id)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
-    sources_.at(id).is_live = false;
+    sources_.at(id).src = NULL;
 }
 
 void mixer::put_frame(source_id id, const dv_frame_ptr & frame)
@@ -102,8 +101,9 @@ void mixer::put_frame(source_id id, const dv_frame_ptr & frame)
 		&& source.frames.size() == target_queue_len)
 	    {
 		settings_.video_source_id = id;
-		sources_[settings_.video_source_id].src->
-		    set_active(source_active_video);
+		if (sources_[settings_.video_source_id].src)
+		    sources_[settings_.video_source_id].src->
+			set_active(source_active_video);
 		settings_.audio_source_id = id;
 		clock_state_ = run_state_run;
 		should_notify_clock = true; // after we unlock the mutex
@@ -211,11 +211,13 @@ void mixer::set_video_source(source_id id)
     boost::mutex::scoped_lock lock(source_mutex_);
     if (id < sources_.size())
     {
-	sources_[settings_.video_source_id].src->
-	    set_active(source_active_none);
+	if (sources_[settings_.video_source_id].src)
+	    sources_[settings_.video_source_id].src->
+		set_active(source_active_none);
 	settings_.video_source_id = id;
-	sources_[settings_.video_source_id].src->
-	    set_active(source_active_video);
+	if (sources_[settings_.video_source_id].src)
+	    sources_[settings_.video_source_id].src->
+		set_active(source_active_video);
     }
     else
 	throw std::range_error("video source id out of range");
@@ -225,11 +227,13 @@ void mixer::set_video_effect(
     std::tr1::shared_ptr<video_effect_settings> effect)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
-    if (settings_.video_effect)
+    if (settings_.video_effect &&
+	sources_[settings_.video_effect->sec_source_id].src)
 	sources_[settings_.video_effect->sec_source_id].src->
 	    set_active(source_active_none);
     settings_.video_effect = effect;
-    if (settings_.video_effect)
+    if (settings_.video_effect &&
+	sources_[settings_.video_effect->sec_source_id].src)
 	sources_[settings_.video_effect->sec_source_id].src->
 	    set_active(source_active_video);
 }
