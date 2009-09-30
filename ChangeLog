@@ -2,6 +2,7 @@ dvswitch (0.8.3.3) UNRELEASED; urgency=low
 
   * Override source frame aspect ratio in case of a mismatch, rather then
     warning about it
+  * Fix APTs and validity flags in header block - Alioth bug #311836
 
  -- Ben Hutchings <ben@decadent.org.uk>  Sat, 19 Sep 2009 19:07:07 +0100
 
