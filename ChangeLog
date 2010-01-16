@@ -1,6 +1,7 @@
 dvswitch (0.8.3.4) UNRELEASED; urgency=low
 
   * Fix build failure with ffmpeg 0.6
+  * Fix crash at startup with ffmpeg 0.6 due to a new parameter check
 
  -- Ben Hutchings <ben@decadent.org.uk>  Fri, 25 Jun 2010 00:46:06 +0100
 
