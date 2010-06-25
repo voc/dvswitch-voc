@@ -1,7 +1,7 @@
 dvswitch (0.8.3.4-1) UNRELEASED; urgency=low
 
   * New upstream version
-    - Fix build failure with ffmpeg 0.6 - LP: #598118
+    - Fix build failure with ffmpeg 0.6 - closes: #587074; LP: #598118
 
  -- Ben Hutchings <ben@decadent.org.uk>  Fri, 25 Jun 2010 00:54:06 +0100
 
