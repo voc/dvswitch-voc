@@ -1,9 +1,9 @@
-dvswitch (0.8.3.4-1) UNRELEASED; urgency=low
+dvswitch (0.8.3.4-1) unstable; urgency=low
 
   * New upstream version
     - Fix build failure with ffmpeg 0.6 - closes: #587074; LP: #598118
 
- -- Ben Hutchings <ben@decadent.org.uk>  Fri, 25 Jun 2010 00:54:06 +0100
+ -- Ben Hutchings <ben@decadent.org.uk>  Fri, 25 Jun 2010 12:09:18 +0100
 
 dvswitch (0.8.3.3-1) unstable; urgency=low
 
