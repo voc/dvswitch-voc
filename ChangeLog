@@ -1,3 +1,11 @@
+dvswitch (0.8.3.5) unstable; urgency=low
+
+  * List all needed libraries to the linker.  We were accidentally
+    depending on the behaviour of GNU ld, which treats 'needed' as
+    transitive by default - Debian bug #554310
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Thu, 24 Feb 2011 04:07:10 +0000
+
 dvswitch (0.8.3.4) unstable; urgency=low
 
   * Fix build failure with ffmpeg 0.6
