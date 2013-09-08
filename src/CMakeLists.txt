@@ -26,8 +26,8 @@ add_executable(dvswitch dvswitch.cpp mixer.cpp frame_timer.c
   frame.c auto_codec.cpp format_dialog.cpp dif_audio.c vu_meter.cpp
   status_overlay.cpp ${common_sources})
 target_link_libraries(dvswitch m pthread rt X11 Xext Xv
-  ${BOOST_THREAD_LIBRARIES} ${GTKMM_LIBRARIES} ${LIBAVCODEC_LIBRARIES}
-  ${LIBAVUTIL_LIBRARIES})
+  ${BOOST_THREAD_LIBRARIES} ${BOOST_SYSTEM_LIBRARIES}
+  ${GTKMM_LIBRARIES} ${LIBAVCODEC_LIBRARIES} ${LIBAVUTIL_LIBRARIES})
 
 install(TARGETS dvsink-command dvsink-files dvsource-file dvsource-dvgrab
                 dvsource-alsa dvswitch
