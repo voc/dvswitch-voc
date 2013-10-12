@@ -54,8 +54,6 @@
 
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
-      settings_menu_item_("_Settings", true),
-      format_menu_item_("_Format", true),
       record_button_("gtk-media-record"),
       cut_button_("gtk-cut"),
       none_button_(effect_group_, "No effect"),
@@ -80,13 +78,6 @@ mixer_window::mixer_window(mixer & mixer)
 
     set_mnemonic_modifier(Gdk::ModifierType(0));
 
-    format_menu_item_.signal_activate().connect(
-	sigc::mem_fun(this, &mixer_window::open_format_dialog));
-    format_menu_item_.show();
-    settings_menu_.add(format_menu_item_);
-    settings_menu_item_.set_submenu(settings_menu_);
-    settings_menu_item_.show();
-    menu_bar_.add(settings_menu_item_);
     menu_bar_.show();
 
     record_button_.set_mode(/*draw_indicator=*/false);
@@ -214,16 +205,6 @@ void mixer_window::apply_effect()
 	display_.set_selection_enabled(false);	
     }
     apply_button_.set_sensitive(false);
-}
-
-void mixer_window::open_format_dialog()
-{
-    format_dialog dialog(*this, mixer_.get_format());
-    if (dialog.run())
-    {
-	mixer::format_settings format = dialog.get_settings();
-	mixer_.set_format(format);
-    }
 }
 
 void mixer_window::toggle_record() throw()
