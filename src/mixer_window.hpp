@@ -35,14 +35,11 @@ public:
 
 private:
     void cancel_effect();
-    void begin_pic_in_pic();
-    void apply_effect();
 
     void toggle_record() throw();
     bool update(Glib::IOCondition) throw();
 
     void set_pri_video_source(mixer::source_id);
-    void set_sec_video_source(mixer::source_id);
 
     virtual void put_frames(unsigned source_count,
 			    const dv_frame_ptr * source_dv,
@@ -57,20 +54,11 @@ private:
     Gtk::VBox command_box_;
     Gtk::ToggleButton record_button_;
     Gtk::Button cut_button_;
-    Gtk::HSeparator command_sep_;
-    Gtk::RadioButtonGroup effect_group_;
-    Gtk::RadioButton none_button_;
-    Gtk::RadioButton pip_button_;
-    Gtk::Button apply_button_;
     Gtk::HSeparator meter_sep_;
     vu_meter vu_meter_;
     status_overlay osd_;
     dv_full_display_widget display_;
     dv_selector_widget selector_;
-
-    mixer::source_id sec_video_source_id_;
-    bool pip_active_;
-    bool pip_pending_;
 
     auto_pipe wakeup_pipe_;
 

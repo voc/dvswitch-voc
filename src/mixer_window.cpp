@@ -53,20 +53,13 @@ mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
       record_button_("gtk-media-record"),
       cut_button_("gtk-cut"),
-      none_button_(effect_group_, "No effect"),
-      pip_button_(effect_group_, "_Pic-in-pic", true),
-      apply_button_("gtk-apply"),
       vu_meter_(-56, 0),
-      sec_video_source_id_(0),
-      pip_active_(false),
-      pip_pending_(false),
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)      
 {
     record_button_.set_use_stock();
     cut_button_.set_use_stock();
-    apply_button_.set_use_stock();
-	
+
     Glib::RefPtr<Glib::IOSource> pipe_io_source(
 	Glib::IOSource::create(wakeup_pipe_.reader.get(), Glib::IO_IN));
     pipe_io_source->set_priority(Glib::PRIORITY_DEFAULT_IDLE);
@@ -84,40 +77,6 @@ mixer_window::mixer_window(mixer & mixer)
     cut_button_.signal_clicked().connect(sigc::mem_fun(mixer_, &mixer::cut));
     cut_button_.show();
 
-    command_sep_.show();
-
-    none_button_.set_mode(/*draw_indicator=*/false);
-    none_button_.set_sensitive(true);
-    none_button_.signal_clicked().connect(
-	sigc::mem_fun(this, &mixer_window::cancel_effect));
-    none_button_.add_accelerator("activate",
-				 get_accel_group(),
-				 GDK_Escape,
-				 Gdk::ModifierType(0),
-				 Gtk::AccelFlags(0));
-    none_button_.show();
-
-    pip_button_.set_mode(/*draw_indicator=*/false);
-    pip_button_.set_sensitive(true);
-    pip_button_.signal_clicked().connect(
-	sigc::mem_fun(this, &mixer_window::begin_pic_in_pic));
-    pip_button_.show();
-
-    apply_button_.set_sensitive(false);
-    apply_button_.signal_clicked().connect(
-	sigc::mem_fun(this, &mixer_window::apply_effect));
-    apply_button_.add_accelerator("activate",
-				  get_accel_group(),
-				  GDK_Return,
-				  Gdk::ModifierType(0),
-				  Gtk::AccelFlags(0));
-    apply_button_.add_accelerator("activate",
-				  get_accel_group(),
-				  GDK_KP_Enter,
-				  Gdk::ModifierType(0),
-				  Gtk::AccelFlags(0));
-    apply_button_.show();
-
     meter_sep_.show();
 
     vu_meter_.show();
@@ -132,8 +91,6 @@ mixer_window::mixer_window(mixer & mixer)
     selector_.set_accel_group(get_accel_group());
     selector_.signal_pri_video_selected().connect(
 	sigc::mem_fun(*this, &mixer_window::set_pri_video_source));
-    selector_.signal_sec_video_selected().connect(
-	sigc::mem_fun(*this, &mixer_window::set_sec_video_source));
     selector_.signal_audio_selected().connect(
 	sigc::mem_fun(mixer_, &mixer::set_audio_source));
     selector_.show();
@@ -141,10 +98,6 @@ mixer_window::mixer_window(mixer & mixer)
     command_box_.set_spacing(gui_standard_spacing);
     command_box_.pack_start(record_button_, Gtk::PACK_SHRINK);
     command_box_.pack_start(cut_button_, Gtk::PACK_SHRINK);
-    command_box_.pack_start(command_sep_, Gtk::PACK_SHRINK);
-    command_box_.pack_start(none_button_, Gtk::PACK_SHRINK);
-    command_box_.pack_start(pip_button_, Gtk::PACK_SHRINK);
-    command_box_.pack_start(apply_button_, Gtk::PACK_SHRINK);
     command_box_.pack_start(meter_sep_, Gtk::PACK_EXPAND_PADDING);
     command_box_.pack_start(vu_meter_, Gtk::PACK_EXPAND_WIDGET);
     command_box_.show();
@@ -167,40 +120,6 @@ mixer_window::~mixer_window()
     osd_.remove(display_);
 }
 
-void mixer_window::cancel_effect()
-{
-    pip_pending_ = false;
-    pip_active_ = false;
-    mixer_.set_video_effect(mixer::null_video_effect());
-    display_.set_selection_enabled(false);
-    apply_button_.set_sensitive(false);
-}
-
-void mixer_window::begin_pic_in_pic()
-{
-    pip_pending_ = true;
-    display_.set_selection_enabled(true);
-    apply_button_.set_sensitive(true);
-}
-
-void mixer_window::apply_effect()
-{
-    if (pip_pending_)
-    {
-	rectangle region = display_.get_selection();
-	if (region.empty())
-	    return;
-
-	pip_pending_ = false;
-	pip_active_ = true;
-	mixer_.set_video_effect(
-	    mixer_.create_video_effect_pic_in_pic(
-		sec_video_source_id_, region));
-	display_.set_selection_enabled(false);	
-    }
-    apply_button_.set_sensitive(false);
-}
-
 void mixer_window::toggle_record() throw()
 {
     bool flag = record_button_.get_active();
@@ -214,27 +133,7 @@ void mixer_window::toggle_record() throw()
 
 void mixer_window::set_pri_video_source(mixer::source_id id)
 {
-    // If the secondary source is becoming the primary source, cancel
-    // the effect rather than mixing it with itself.
-    if (pip_active_ && id == sec_video_source_id_)
-    {
-	pip_active_ = false;
-	if (!pip_pending_)
-	    none_button_.set_active();
-	mixer_.set_video_effect(mixer_.null_video_effect());
-    }
-
     mixer_.set_video_source(id);
-}
-
-void mixer_window::set_sec_video_source(mixer::source_id id)
-{
-    sec_video_source_id_ = id;
-
-    if (pip_active_)
-	mixer_.set_video_effect(
-	    mixer_.create_video_effect_pic_in_pic(
-		sec_video_source_id_, display_.get_selection()));
 }
 
 void mixer_window::put_frames(unsigned source_count,
