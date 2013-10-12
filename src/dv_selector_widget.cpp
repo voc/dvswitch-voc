@@ -13,17 +13,16 @@
 
 namespace
 {
-    const unsigned thumbs_per_row = 4;
     enum {
 	column_labels,
 	column_display,
-	column_separator,
 	column_multiplier
     };
     enum {
 	row_text_label,
 	row_pri_video_button,
 	row_audio_button,
+	row_separator,
 	row_multiplier
     };
 }
@@ -64,9 +63,7 @@ void dv_selector_widget::set_source_count(unsigned count)
 {
     if (count > thumbnails_.size())
     {
-	resize(((count + thumbs_per_row - 1) / thumbs_per_row)
-	       * row_multiplier,
-	       thumbs_per_row * column_multiplier - 1);
+	resize(count, 1);
 	mixer::source_id first_new_source_id = thumbnails_.size();
 
 	try
@@ -75,12 +72,12 @@ void dv_selector_widget::set_source_count(unsigned count)
 
 	    for (mixer::source_id i = first_new_source_id; i != count; ++i)
 	    {
-		unsigned column = (i % thumbs_per_row) * column_multiplier;
-		unsigned row = (i / thumbs_per_row) * row_multiplier;
+		unsigned column = 1;
+		unsigned row = i * row_multiplier;
 
-		if (i % thumbs_per_row != 0)
+		if (0)//(i != 0 && i != count - 1)
 		{
-		    Gtk::VSeparator * sep = manage(new Gtk::VSeparator);
+		    Gtk::HSeparator * sep = manage(new Gtk::HSeparator);
 		    sep->show();
 		    attach(*sep,
 			   column - 1, column,

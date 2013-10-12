@@ -19,7 +19,6 @@
 #include "dv_display_widget.hpp"
 #include "dv_selector_widget.hpp"
 #include "mixer.hpp"
-#include "status_overlay.hpp"
 #include "vu_meter.hpp"
 
 namespace Glib
@@ -48,13 +47,12 @@ private:
 
     mixer & mixer_;
 
-    Gtk::VBox main_box_;
-    Gtk::HBox upper_box_;
+    Gtk::HBox main_box_;
     Gtk::VBox command_box_;
+    Gtk::VBox vu_box_;
     Gtk::Button cut_button_;
-    Gtk::HSeparator meter_sep_;
+    Gtk::HSeparator cut_sep_;
     vu_meter vu_meter_;
-    status_overlay osd_;
     dv_full_display_widget display_;
     dv_selector_widget selector_;
 

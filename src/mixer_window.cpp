@@ -19,36 +19,6 @@
 #include "mixer.hpp"
 #include "mixer_window.hpp"
 
-// Window layout:
-//
-// +-------------------------------------------------------------------+
-// | ╔═══════════════════════════════════════════════════════════════╗ |
-// | ║+-----╥-------------------------------------------------------+║main_box_
-// | ║|     ║                                                       |upper_box_
-// | ║|     ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║|comm-║                                                       |║ |
-// | ║|and_-║                     osd_/display_                     |║ |
-// | ║|box_ ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║|     ║                                                       |║ |
-// | ║+-----╨-------------------------------------------------------+║ |
-// | ╠═══════════════════════════════════════════════════════════════╣ |
-// | ║                                                               ║ |
-// | ║                                                               ║ |
-// | ║                          selector_                            ║ |
-// | ║                                                               ║ |
-// | ║                                                               ║ |
-// | ╚═══════════════════════════════════════════════════════════════╝ |
-// +-------------------------------------------------------------------+
-
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
       cut_button_("gtk-cut"),
@@ -66,19 +36,18 @@ mixer_window::mixer_window(mixer & mixer)
 
     set_mnemonic_modifier(Gdk::ModifierType(0));
 
+    cut_button_.set_can_focus(false);
     cut_button_.set_sensitive(true);
+    cut_button_.set_size_request(180, 80);
     cut_button_.signal_clicked().connect(sigc::mem_fun(mixer_, &mixer::cut));
     cut_button_.show();
 
-    meter_sep_.show();
+    cut_sep_.show();
 
+    vu_meter_.set_size_request(80, 300);
     vu_meter_.show();
 
     display_.show();
-
-    osd_.add(display_);
-    osd_.set_status("fnord", "gtk-media-stop");
-    osd_.show();
 
     selector_.set_border_width(gui_standard_spacing);
     selector_.set_accel_group(get_accel_group());
@@ -88,20 +57,21 @@ mixer_window::mixer_window(mixer & mixer)
 	sigc::mem_fun(mixer_, &mixer::set_audio_source));
     selector_.show();
 
+    vu_box_.set_spacing(gui_standard_spacing);
+    vu_box_.pack_end(vu_meter_, Gtk::PACK_SHRINK);
+    vu_box_.show();
+
     command_box_.set_spacing(gui_standard_spacing);
     command_box_.pack_start(cut_button_, Gtk::PACK_SHRINK);
-    command_box_.pack_start(meter_sep_, Gtk::PACK_EXPAND_PADDING);
-    command_box_.pack_start(vu_meter_, Gtk::PACK_EXPAND_WIDGET);
+    command_box_.pack_start(cut_sep_, Gtk::PACK_SHRINK);
+    command_box_.pack_start(selector_, Gtk::PACK_SHRINK);
     command_box_.show();
 
-    upper_box_.set_border_width(gui_standard_spacing);
-    upper_box_.set_spacing(gui_standard_spacing);
-    upper_box_.pack_start(command_box_, Gtk::PACK_SHRINK);
-    upper_box_.pack_start(osd_, Gtk::PACK_EXPAND_PADDING);
-    upper_box_.show();
-
-    main_box_.pack_start(upper_box_, Gtk::PACK_EXPAND_WIDGET);
-    main_box_.pack_start(selector_, Gtk::PACK_EXPAND_PADDING);
+    main_box_.set_spacing(gui_standard_spacing);
+    main_box_.set_border_width(5);
+    main_box_.pack_start(command_box_, Gtk::PACK_EXPAND_WIDGET);
+    main_box_.pack_start(display_, Gtk::PACK_EXPAND_PADDING);
+    main_box_.pack_start(vu_box_, Gtk::PACK_SHRINK);
     main_box_.show();
     add(main_box_);
 }

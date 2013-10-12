@@ -32,7 +32,7 @@ namespace
 	return (numer + denom / 2) / denom;
     }
 
-    const unsigned thumb_scale_denom = 4;
+    const unsigned thumb_scale_denom = 8;
 
     const uint32_t invalid_xv_port = uint32_t(-1);
 
