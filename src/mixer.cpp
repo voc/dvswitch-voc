@@ -33,7 +33,7 @@ mixer::mixer()
     format_.system = NULL;
     format_.frame_aspect = dv_frame_aspect_auto;
     format_.sample_rate = dv_sample_rate_auto;
-    settings_.do_record = false;
+    settings_.do_record = true;
     settings_.cut_before = false;
     sources_.reserve(5);
     sinks_.reserve(5);
@@ -248,12 +248,6 @@ void mixer::set_monitor(monitor * monitor)
 {
     assert(monitor && !monitor_);
     monitor_ = monitor;
-}
-
-void mixer::enable_record(bool flag)
-{
-    boost::mutex::scoped_lock lock(source_mutex_);
-    settings_.do_record = flag;
 }
 
 void mixer::cut()

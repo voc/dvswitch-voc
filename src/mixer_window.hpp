@@ -36,7 +36,6 @@ public:
 private:
     void cancel_effect();
 
-    void toggle_record() throw();
     bool update(Glib::IOCondition) throw();
 
     void set_pri_video_source(mixer::source_id);
@@ -52,7 +51,6 @@ private:
     Gtk::VBox main_box_;
     Gtk::HBox upper_box_;
     Gtk::VBox command_box_;
-    Gtk::ToggleButton record_button_;
     Gtk::Button cut_button_;
     Gtk::HSeparator meter_sep_;
     vu_meter vu_meter_;

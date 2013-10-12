@@ -51,13 +51,11 @@
 
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
-      record_button_("gtk-media-record"),
       cut_button_("gtk-cut"),
       vu_meter_(-56, 0),
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)      
 {
-    record_button_.set_use_stock();
     cut_button_.set_use_stock();
 
     Glib::RefPtr<Glib::IOSource> pipe_io_source(
@@ -68,12 +66,7 @@ mixer_window::mixer_window(mixer & mixer)
 
     set_mnemonic_modifier(Gdk::ModifierType(0));
 
-    record_button_.set_mode(/*draw_indicator=*/false);
-    record_button_.signal_toggled().connect(
-	sigc::mem_fun(*this, &mixer_window::toggle_record));
-    record_button_.show();
-
-    cut_button_.set_sensitive(false);
+    cut_button_.set_sensitive(true);
     cut_button_.signal_clicked().connect(sigc::mem_fun(mixer_, &mixer::cut));
     cut_button_.show();
 
@@ -84,7 +77,7 @@ mixer_window::mixer_window(mixer & mixer)
     display_.show();
 
     osd_.add(display_);
-    osd_.set_status("STOP", "gtk-media-stop");
+    osd_.set_status("fnord", "gtk-media-stop");
     osd_.show();
 
     selector_.set_border_width(gui_standard_spacing);
@@ -96,7 +89,6 @@ mixer_window::mixer_window(mixer & mixer)
     selector_.show();
 
     command_box_.set_spacing(gui_standard_spacing);
-    command_box_.pack_start(record_button_, Gtk::PACK_SHRINK);
     command_box_.pack_start(cut_button_, Gtk::PACK_SHRINK);
     command_box_.pack_start(meter_sep_, Gtk::PACK_EXPAND_PADDING);
     command_box_.pack_start(vu_meter_, Gtk::PACK_EXPAND_WIDGET);
@@ -116,19 +108,6 @@ mixer_window::mixer_window(mixer & mixer)
 
 mixer_window::~mixer_window()
 {
-    // display_ will be destroyed before osd_ so we must remove it first
-    osd_.remove(display_);
-}
-
-void mixer_window::toggle_record() throw()
-{
-    bool flag = record_button_.get_active();
-    mixer_.enable_record(flag);
-    cut_button_.set_sensitive(flag);
-    if (flag)
-	osd_.set_status("RECORD", "gtk-media-record", 2);
-    else
-	osd_.set_status("STOP", "gtk-media-stop");
 }
 
 void mixer_window::set_pri_video_source(mixer::source_id id)
