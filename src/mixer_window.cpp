@@ -14,7 +14,6 @@
 #include <gtkmm/stock.h>
 #include <gtkmm/stockid.h>
 
-#include "format_dialog.hpp"
 #include "frame.h"
 #include "gui.hpp"
 #include "mixer.hpp"
@@ -24,8 +23,6 @@
 //
 // +-------------------------------------------------------------------+
 // | ╔═══════════════════════════════════════════════════════════════╗ |
-// | ║                          menu_bar_                            ║ |
-// | ╠═══════════════════════════════════════════════════════════════╣ |
 // | ║+-----╥-------------------------------------------------------+║main_box_
 // | ║|     ║                                                       |upper_box_
 // | ║|     ║                                                       |║ |
@@ -77,8 +74,6 @@ mixer_window::mixer_window(mixer & mixer)
     pipe_io_source->attach();
 
     set_mnemonic_modifier(Gdk::ModifierType(0));
-
-    menu_bar_.show();
 
     record_button_.set_mode(/*draw_indicator=*/false);
     record_button_.signal_toggled().connect(
@@ -160,7 +155,6 @@ mixer_window::mixer_window(mixer & mixer)
     upper_box_.pack_start(osd_, Gtk::PACK_EXPAND_PADDING);
     upper_box_.show();
 
-    main_box_.pack_start(menu_bar_, Gtk::PACK_SHRINK);
     main_box_.pack_start(upper_box_, Gtk::PACK_EXPAND_WIDGET);
     main_box_.pack_start(selector_, Gtk::PACK_EXPAND_PADDING);
     main_box_.show();
