@@ -26,7 +26,6 @@ public:
 		   const dv_frame_ptr & source_frame);
 
     sigc::signal1<void, mixer::source_id> & signal_pri_video_selected();
-    sigc::signal1<void, mixer::source_id> & signal_sec_video_selected();
     sigc::signal1<void, mixer::source_id> & signal_audio_selected();
 
 private:
@@ -34,16 +33,12 @@ private:
 	Gtk::RadioButtonGroup & group,
 	const Glib::RefPtr<Gdk::Pixbuf> & pixbuf);
     void on_pri_video_selected(mixer::source_id);
-    void on_sec_video_selected(mixer::source_id);
     void on_audio_selected(mixer::source_id);
 
     Glib::RefPtr<Gtk::AccelGroup> accel_group_;
     Glib::RefPtr<Gdk::Pixbuf> pri_video_source_pixbuf_;
-    Glib::RefPtr<Gdk::Pixbuf> sec_video_source_pixbuf_;
     Gtk::RadioButtonGroup pri_video_button_group_;
-    Gtk::RadioButtonGroup sec_video_button_group_;
     sigc::signal1<void, mixer::source_id> pri_video_selected_signal_;
-    sigc::signal1<void, mixer::source_id> sec_video_selected_signal_;
     Glib::RefPtr<Gdk::Pixbuf> audio_source_pixbuf_;
     Gtk::RadioButtonGroup audio_button_group_;
     sigc::signal1<void, mixer::source_id> audio_selected_signal_;

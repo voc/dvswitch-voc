@@ -32,9 +32,6 @@ dv_selector_widget::dv_selector_widget()
     : pri_video_source_pixbuf_(
 	  Gdk::Pixbuf::create_from_file(SHAREDIR
 					"/dvswitch/pri-video-source.png")),
-      sec_video_source_pixbuf_(
-	  Gdk::Pixbuf::create_from_file(SHAREDIR
-					"/dvswitch/sec-video-source.png")),
       audio_source_pixbuf_(
 	  Gdk::Pixbuf::create_from_file(SHAREDIR "/dvswitch/audio-source.png"))
 {
