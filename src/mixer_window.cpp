@@ -54,8 +54,6 @@
 
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
-      file_menu_item_("_File", true),
-      quit_menu_item_(Gtk::StockID("gtk-quit")),
       settings_menu_item_("_Settings", true),
       format_menu_item_("_Format", true),
       record_button_("gtk-media-record"),
@@ -82,12 +80,6 @@ mixer_window::mixer_window(mixer & mixer)
 
     set_mnemonic_modifier(Gdk::ModifierType(0));
 
-    quit_menu_item_.signal_activate().connect(sigc::ptr_fun(&Gtk::Main::quit));
-    quit_menu_item_.show();
-    file_menu_.add(quit_menu_item_);
-    file_menu_item_.set_submenu(file_menu_);
-    file_menu_item_.show();
-    menu_bar_.add(file_menu_item_);
     format_menu_item_.signal_activate().connect(
 	sigc::mem_fun(this, &mixer_window::open_format_dialog));
     format_menu_item_.show();

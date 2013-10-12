@@ -57,9 +57,6 @@ private:
 
     Gtk::VBox main_box_;
     Gtk::MenuBar menu_bar_;
-    Gtk::MenuItem file_menu_item_;
-    Gtk::Menu file_menu_;
-    Gtk::ImageMenuItem quit_menu_item_;
     Gtk::MenuItem settings_menu_item_;
     Gtk::Menu settings_menu_;
     Gtk::MenuItem format_menu_item_;
