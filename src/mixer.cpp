@@ -617,7 +617,7 @@ void mixer::run_mixer()
     dec->release_buffer = raw_frame_release_buffer;
     dec->reget_buffer = raw_frame_reget_buffer;
 
-    auto_codec encoder(avcodec_alloc_context3(NULL));
+    auto_codec encoder(avcodec_alloc_context());
     AVCodecContext * enc = encoder.get();
     if (!enc)
 	throw std::bad_alloc();
@@ -627,18 +627,20 @@ void mixer::run_mixer()
     enc->width = 720;
     enc->height = 576;
     enc->pix_fmt = PIX_FMT_YUV420P;
+    auto_codec_open_encoder(encoder, CODEC_ID_DVVIDEO);
 
     {
 	// Try to use one thread per CPU, up to a limit of 8
 	int enc_thread_count =
 	    std::min<int>(8, std::max<long>(sysconf(_SC_NPROCESSORS_ONLN), 1));
-
-	enc->thread_count = enc_thread_count;
-
+	if (enc_thread_count >= 2 && avcodec_thread_init(enc, enc_thread_count))
+	{
+	    std::cerr << "WARN: avcodec_thread_init("
+		      << enc_thread_count << ") failed\n";
+	    enc_thread_count = 1;
+	}
 	std::cout << "INFO: DV encoder threads: " << enc_thread_count << "\n";
     }
-
-    auto_codec_open_encoder(encoder, CODEC_ID_DVVIDEO);
 
     for (;;)
     {
