@@ -1,48 +1,22 @@
-Source: dvswitch
-Maintainer: Ben Hutchings <ben@decadent.org.uk>
+Source: dvswitch-voc
+Maintainer: Florian Larysch <fl@n621.de>
 Section: video
 Priority: extra
 Build-Depends: debhelper (>= 5), libasound2-dev, libavcodec-dev, pkg-config, libgtkmm-2.4-dev, libboost-dev, libboost-system-dev, libboost-thread-dev, libxv-dev, cmake
 Standards-Version: 3.8.0
-Vcs-Browser: http://svn.debian.org/wsvn/dvswitch/trunk/
-Vcs-Svn: svn://svn.debian.org/svn/dvswitch/trunk
+Vcs-Git: ssh://git@mng.video.ccc.de/dvswitch-voc.git
 Homepage: http://dvswitch.alioth.debian.org/
 
-Package: dvswitch
+Package: dvswitch-voc
 Architecture: any
-Depends: ${shlibs:Depends}
-Suggests: dvsink, dvsource
-Description: basic video mixer for live DV streams
+Depends: dvswitch, ${shlibs:Depends}
+Description: basic video mixer for live DV streams - VOC version
  dvswitch is a very basic video mixer that receives DV streams from
  sources and sends a DV stream to sinks over a TCP/IP network.  It has
  a graphical interface in which all source streams can be viewed and
  selected from.
  .
  It is intended to be used for live editing at conferences.
-
-Package: dvsource
-Architecture: any
-Depends: ${shlibs:Depends}, dvgrab
-Description: programs to provide source streams for dvswitch
- This package provides sources for dvswitch:
  .
- dvsource-alsa captures audio from an ALSA device.
- .
- dvsource-file reads DV frames from a file and sends them at the
- normal frame rate.
- .
- dvsource-firewire reads DV frames from a camera or other device
- connected by Firewire (1394).
- .
- dvsource-v4l2-dv reads DV frames from a Video4Linux2 device such
- as a USB-connected DV camera.
-
-Package: dvsink
-Architecture: any
-Depends: ${shlibs:Depends}
-Description: programs to sink streams from dvswitch
- This packages provides two sinks for dvswitch:
- .
- dvsink-command runs a command with the DV stream on its standard input.
- .
- dvsink-files stores DV frames in files named according to a pattern.
+ This package contains a minimal version of dvswitch that tries to
+ prevent maloperation.
