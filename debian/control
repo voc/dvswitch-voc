@@ -10,7 +10,7 @@ Homepage: http://dvswitch.alioth.debian.org/
 Package: dvswitch-voc
 Architecture: any
 Conflicts: dvswitch
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: basic video mixer for live DV streams - VOC version
  dvswitch is a very basic video mixer that receives DV streams from
  sources and sends a DV stream to sinks over a TCP/IP network.  It has

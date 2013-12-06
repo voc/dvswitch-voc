@@ -17,13 +17,13 @@ build/Makefile :
 
 install-stamp : build
 	dh_testroot
-	make -C build DESTDIR=$$(pwd)/debian/tmp install
+	make -C build DESTDIR=$$(pwd)/debian/dvswitch-voc install
 	touch install-stamp
 
 binary : binary-arch binary-indep
 
 binary-arch : install-stamp
-	dh_install -a --sourcedir=debian/tmp
+	dh_install -a --sourcedir=debian/dvswitch-voc
 	dh_strip
 	dh_shlibdeps
 	dh_installchangelogs -a ChangeLog
