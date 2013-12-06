@@ -19,9 +19,9 @@ struct auto_codec_factory
 typedef auto_handle<AVCodecContext *, auto_codec_closer, auto_codec_factory>
 auto_codec;
 
-auto_codec auto_codec_open_decoder(CodecID);
-void auto_codec_open_decoder(const auto_codec &, CodecID);
-auto_codec auto_codec_open_encoder(CodecID);
-void auto_codec_open_encoder(const auto_codec &, CodecID);
+auto_codec auto_codec_open_decoder(AVCodecID);
+void auto_codec_open_decoder(const auto_codec &, AVCodecID);
+auto_codec auto_codec_open_encoder(AVCodecID);
+void auto_codec_open_encoder(const auto_codec &, AVCodecID);
 
 #endif // !INC_AUTO_CODEC_HPP

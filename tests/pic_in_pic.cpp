@@ -268,7 +268,6 @@ void test_format(PixelFormat pix_fmt)
 
 int main()
 {
-    avcodec_init();
     avcodec_register_all();
     test_format(PIX_FMT_YUV420P);
     test_format(PIX_FMT_YUV411P);
