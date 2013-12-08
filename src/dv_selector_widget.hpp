@@ -24,6 +24,7 @@ public:
     void set_source_count(unsigned);
     void put_frame(mixer::source_id source_id,
 		   const dv_frame_ptr & source_frame);
+    void toggle_audio_buttons();
 
     sigc::signal1<void, mixer::source_id> & signal_pri_video_selected();
     sigc::signal1<void, mixer::source_id> & signal_audio_selected();
@@ -41,6 +42,7 @@ private:
     sigc::signal1<void, mixer::source_id> pri_video_selected_signal_;
     Glib::RefPtr<Gdk::Pixbuf> audio_source_pixbuf_;
     Gtk::RadioButtonGroup audio_button_group_;
+    std::vector<Gtk::RadioButton*> audio_button_list_;
     sigc::signal1<void, mixer::source_id> audio_selected_signal_;
     std::vector<dv_thumb_display_widget *> thumbnails_;
 };

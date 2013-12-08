@@ -45,6 +45,8 @@ private:
 			    const dv_frame_ptr & mixed_dv,
 			    const raw_frame_ptr & mixed_raw);
 
+    bool on_key_press_event(GdkEventKey* event);
+
     mixer & mixer_;
 
     Gtk::HBox main_box_;

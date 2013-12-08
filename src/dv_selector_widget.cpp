@@ -68,6 +68,7 @@ void dv_selector_widget::set_source_count(unsigned count)
 
 	try
 	{
+	    audio_button_list_.clear();
 	    thumbnails_.resize(count);
 
 	    for (mixer::source_id i = first_new_source_id; i != count; ++i)
@@ -127,6 +128,9 @@ void dv_selector_widget::set_source_count(unsigned count)
 		Gtk::RadioButton * audio_button =
 		    create_radio_button(audio_button_group_,
 					audio_source_pixbuf_);
+		audio_button_list_.push_back(audio_button);
+		// disable by default
+		audio_button->set_sensitive(false);
 		audio_button->signal_pressed().connect(
 		    sigc::bind(
 			sigc::mem_fun(*this,
@@ -189,6 +193,14 @@ void dv_selector_widget::put_frame(mixer::source_id source_id,
 {
     if (source_id < thumbnails_.size())
 	thumbnails_[source_id]->put_frame(source_frame);
+}
+
+void dv_selector_widget::toggle_audio_buttons()
+{
+    std::vector<Gtk::RadioButton*>::iterator it = audio_button_list_.begin();
+    for (; it != audio_button_list_.end(); it++) {
+	(*it)->set_sensitive(!(*it)->is_sensitive());
+    }
 }
 
 sigc::signal1<void, mixer::source_id> &

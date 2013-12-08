@@ -10,6 +10,8 @@
 #include <unistd.h>
 
 #include <gdk/gdkkeysyms.h>
+#include <gdk/gdkevents.h>
+#include <gdkmm/window.h>
 #include <gtkmm/main.h>
 #include <gtkmm/stock.h>
 #include <gtkmm/stockid.h>
@@ -26,6 +28,8 @@ mixer_window::mixer_window(mixer & mixer)
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)      
 {
+    add_events(Gdk::KEY_PRESS_MASK);
+
     cut_button_.set_use_stock();
 
     Glib::RefPtr<Glib::IOSource> pipe_io_source(
@@ -102,6 +106,14 @@ void mixer_window::put_frames(unsigned source_count,
     // Poke the event loop.
     static const char dummy[1] = {0};
     write(wakeup_pipe_.writer.get(), dummy, sizeof(dummy));
+}
+
+bool mixer_window::on_key_press_event(GdkEventKey *event)
+{
+    if (event->keyval == GDK_i && event->state & GDK_CONTROL_MASK) {
+        selector_.toggle_audio_buttons();
+    }
+    return Window::on_key_press_event(event);
 }
 
 bool mixer_window::update(Glib::IOCondition) throw()
