@@ -89,7 +89,7 @@ private:
     virtual connection * handle_complete_receive();
     virtual std::ostream & print_identity(std::ostream &);
 
-    uint8_t greeting_[4];
+    uint8_t greeting_[GREETING_SIZE];
 };
 
 // source_connection: connection from source
@@ -97,7 +97,8 @@ private:
 class server::source_connection : public connection, private mixer::source
 {
 public:
-    source_connection(server & server, auto_fd socket, bool wants_act = false);
+    source_connection(server & server, auto_fd socket, uint8_t sid,
+		      bool wants_act = false);
     virtual ~source_connection();
 
 private:
@@ -381,18 +382,18 @@ server::connection * server::unknown_connection::handle_complete_receive()
 	                        // and is recording
     } client_type;
 
-    if (std::memcmp(greeting_, GREETING_SOURCE, GREETING_SIZE) == 0)
+    if (std::memcmp(greeting_, GREETING_SOURCE, GREETING_SIZE-1) == 0)
 	client_type = client_type_source;
-    else if (std::memcmp(greeting_, GREETING_SINK, GREETING_SIZE)
+    else if (std::memcmp(greeting_, GREETING_SINK, GREETING_SIZE-1)
 	     == 0)
 	client_type = client_type_sink;
-    else if (std::memcmp(greeting_, GREETING_RAW_SINK, GREETING_SIZE)
+    else if (std::memcmp(greeting_, GREETING_RAW_SINK, GREETING_SIZE-1)
 	     == 0)
 	client_type = client_type_raw_sink;
-    else if (std::memcmp(greeting_, GREETING_REC_SINK, GREETING_SIZE)
+    else if (std::memcmp(greeting_, GREETING_REC_SINK, GREETING_SIZE-1)
 	     == 0)
 	client_type = client_type_rec_sink;
-    else if (std::memcmp(greeting_, GREETING_ACT_SOURCE, GREETING_SIZE)
+    else if (std::memcmp(greeting_, GREETING_ACT_SOURCE, GREETING_SIZE-1)
     	     == 0)
     	client_type = client_type_act_source;
     else
@@ -402,8 +403,11 @@ server::connection * server::unknown_connection::handle_complete_receive()
     {
     case client_type_source:
     case client_type_act_source:
-	return new source_connection(server_, socket_,
-				     client_type == client_type_act_source);
+	{
+	    return new source_connection(server_, socket_,
+					 greeting_[GREETING_SIZE-1],
+					 client_type == client_type_act_source);
+	}
     case client_type_sink:
     case client_type_raw_sink:
     case client_type_rec_sink:
@@ -423,13 +427,13 @@ std::ostream & server::unknown_connection::print_identity(std::ostream & os)
 // source_connection implementation
 
 server::source_connection::source_connection(server & server, auto_fd socket,
-					     bool wants_act)
+					     uint8_t sid, bool wants_act)
     : connection(server, socket),
       frame_(allocate_dv_frame()),
       first_sequence_(true),
       wants_act_(wants_act)
 {
-    source_id_ = server_.mixer_.add_source(this);
+    source_id_ = server_.mixer_.add_source(this, sid);
 }
 
 server::source_connection::~source_connection()
