@@ -62,12 +62,12 @@ mixer::source_id mixer::add_source(source * src, uint8_t sid)
     source_id id;
 
     if (sid < 255) {
-	if (sources_.size() < sid)
+	if (sources_.size() <= sid)
 	    sources_.resize(sid + 1);
-	if (sources_[sid].src)
-	    remove_source(sid);
-	sources_[sid].src = src;
-	return sid;
+	if (!sources_[sid].src) {
+	    sources_[sid].src = src;
+	    return sid;
+	}
     }
 
     for (id = 0; id != sources_.size(); ++id)
