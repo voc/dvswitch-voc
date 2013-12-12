@@ -12,6 +12,7 @@
 
 #include <getopt.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "config.h"
 #include "protocol.h"
@@ -269,7 +270,7 @@ int main(int argc, char ** argv)
 	perror("ERROR: write");
 	exit(1);
     }
-    if (write(params.sock, &mixer_id, sizeof(mixer_id)) != sizeof(mixer_id))
+    if (write(sock, &mixer_id, sizeof(mixer_id)) != sizeof(mixer_id))
     {
 	perror("ERROR: write");
 	exit(1);
