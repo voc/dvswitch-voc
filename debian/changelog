@@ -1,3 +1,10 @@
+dvswitch-voc (0.8.3.6-3) unstable; urgency=low
+
+  * Make audio buttons immutable
+  * Allow for deterministic source ordering
+
+ -- Florian Larysch <fl@n621.de>  Sun, 22 Dec 2013 00:52:39 +0200
+
 dvswitch-voc (0.8.3.6-2) unstable; urgency=low
 
   * Depend on gnome-icon-theme
