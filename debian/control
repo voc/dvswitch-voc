@@ -4,7 +4,7 @@ Section: video
 Priority: extra
 Build-Depends: debhelper (>= 5), libasound2-dev, libavcodec-dev, pkg-config, libgtkmm-2.4-dev, libboost-dev, libboost-system-dev, libboost-thread-dev, libxv-dev, cmake
 Standards-Version: 3.8.0
-Vcs-Git: ssh://git@mng.video.ccc.de/dvswitch-voc.git
+Vcs-Git: https://github.com/voc/dvswitch-voc
 Homepage: http://dvswitch.alioth.debian.org/
 
 Package: dvswitch-voc
