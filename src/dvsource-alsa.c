@@ -28,12 +28,14 @@ static struct option options[] = {
     {"system", 1, NULL, 's'},
     {"rate",   1, NULL, 'r'},
     {"delay",  1, NULL, 'd'},
+    {"id",     1, NULL, 'i'},
     {"help",   0, NULL, 'H'},
     {NULL,     0, NULL, 0}
 };
 
 static char * mixer_host = NULL;
 static char * mixer_port = NULL;
+static uint8_t mixer_id = 255;
 
 static void handle_config(const char * name, const char * value)
 {
@@ -54,7 +56,7 @@ static void usage(const char * progname)
     fprintf(stderr,
 	    "\
 Usage: %s [-h HOST] [-p PORT] [-s ntsc|pal] \\\n\
-           [-r 48000|32000|44100] [-d DELAY] [DEVICE]\n",
+           [-r 48000|32000|44100] [-d DELAY] [-i ID] [DEVICE]\n",
 	    progname);
 }
 
@@ -238,7 +240,7 @@ int main(int argc, char ** argv)
     /* Parse arguments. */
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "h:p:s:r:d:", options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "h:p:s:r:d:i:", options, NULL)) != -1)
     {
 	switch (opt)
 	{
@@ -259,6 +261,12 @@ int main(int argc, char ** argv)
 	    break;
 	case 'd':
 	    delay = strtod(optarg, NULL);
+	    break;
+	case 'i':
+	    {
+		long id = strtoul(optarg, NULL, 10);
+		mixer_id = (id < 255) ? id-1 : 255;
+	    }
 	    break;
 	case 'H': /* --help */
 	    usage(argv[0]);
@@ -381,7 +389,12 @@ int main(int argc, char ** argv)
     printf("INFO: Connecting to %s:%s\n", mixer_host, mixer_port);
     params.sock = create_connected_socket(mixer_host, mixer_port);
     assert(params.sock >= 0); /* create_connected_socket() should handle errors */
-    if (write(params.sock, GREETING_SOURCE, GREETING_SIZE) != GREETING_SIZE)
+    if (write(params.sock, GREETING_SOURCE, GREETING_SIZE-1) != GREETING_SIZE-1)
+    {
+	perror("ERROR: write");
+	exit(1);
+    }
+    if (write(params.sock, &mixer_id, sizeof(mixer_id)) != sizeof(mixer_id))
     {
 	perror("ERROR: write");
 	exit(1);

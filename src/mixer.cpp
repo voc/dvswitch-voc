@@ -56,10 +56,20 @@ mixer::~mixer()
     mixer_thread_.join();
 }
 
-mixer::source_id mixer::add_source(source * src)
+mixer::source_id mixer::add_source(source * src, uint8_t sid)
 {
     boost::mutex::scoped_lock lock(source_mutex_);
     source_id id;
+
+    if (sid < 255) {
+	if (sources_.size() <= sid)
+	    sources_.resize(sid + 1);
+	if (!sources_[sid].src) {
+	    sources_[sid].src = src;
+	    return sid;
+	}
+    }
+
     for (id = 0; id != sources_.size(); ++id)
     {
 	if (!sources_[id].src)

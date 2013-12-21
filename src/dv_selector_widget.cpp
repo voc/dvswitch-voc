@@ -68,7 +68,6 @@ void dv_selector_widget::set_source_count(unsigned count)
 
 	try
 	{
-	    audio_button_list_.clear();
 	    thumbnails_.resize(count);
 
 	    for (mixer::source_id i = first_new_source_id; i != count; ++i)

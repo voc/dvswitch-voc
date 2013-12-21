@@ -12,6 +12,7 @@
 
 #include <getopt.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "config.h"
 #include "protocol.h"
@@ -24,6 +25,7 @@ static struct option options[] = {
     {"host",     1, NULL, 'h'},
     {"port",     1, NULL, 'p'},
     {"tally",    0, NULL, 't'},
+    {"id",       1, NULL, 'i'},
     {"help",     0, NULL, 'H'},
     {NULL,       0, NULL, 0}
 };
@@ -40,6 +42,7 @@ static char * firewire_card = NULL;
 static char * mixer_host = NULL;
 static char * mixer_port = NULL;
 static int do_tally = 0;
+static uint8_t mixer_id = 255;
 
 static enum mode program_mode(const char * progname)
 {
@@ -90,7 +93,7 @@ static void usage(const char * progname)
 	"[-c CARD-NUMBER | DEVICE]";
     static const char v4l2_args[] = "[DEVICE]";
     static const char other_args[] =
-	"[-t] [-h HOST] [-p PORT]";
+	"[-t] [-h HOST] [-p PORT] [-i ID]";
 
     switch (program_mode(progname))
     {
@@ -174,7 +177,7 @@ int main(int argc, char ** argv)
     /* Parse arguments. */
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "c:h:p:t", options, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "c:h:p:i:t", options, NULL)) != -1)
     {
 	switch (opt)
 	{
@@ -198,6 +201,12 @@ int main(int argc, char ** argv)
 	    break;
 	case 't':
 	    do_tally = 1;
+	    break;
+	case 'i':
+	    {
+		long id = strtoul(optarg, NULL, 10);
+		mixer_id = (id < 255) ? id-1 : 255;
+	    }
 	    break;
 	case 'H': /* --help */
 	    usage(argv[0]);
@@ -256,7 +265,12 @@ int main(int argc, char ** argv)
     int sock = create_connected_socket(mixer_host, mixer_port);
     assert(sock >= 0); /* create_connected_socket() should handle errors */
     if (write(sock, do_tally ? GREETING_ACT_SOURCE : GREETING_SOURCE,
-              GREETING_SIZE) != GREETING_SIZE)
+              GREETING_SIZE-1) != GREETING_SIZE-1)
+    {
+	perror("ERROR: write");
+	exit(1);
+    }
+    if (write(sock, &mixer_id, sizeof(mixer_id)) != sizeof(mixer_id))
     {
 	perror("ERROR: write");
 	exit(1);
