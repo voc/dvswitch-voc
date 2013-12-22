@@ -7,9 +7,20 @@ else
 CFLAGS += -O2
 endif
 export CXXFLAGS := $(CFLAGS)
+export LDFLAGS := -Wl,--as-needed
 
-build : build/Makefile
-	make -C build
+ifneq (,$(findstring parallel,$(DEB_BUILD_OPTIONS)))
+MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+# cmake coloured output can get messy quickly...
+export COLOR := off
+endif
+
+build: build-arch build-indep
+build-arch: build-stamp
+build-indep: build-stamp
+
+build-stamp: build/Makefile
+	$(MAKE) -C build
 
 build/Makefile :
 	mkdir -p build
@@ -17,13 +28,13 @@ build/Makefile :
 
 install-stamp : build
 	dh_testroot
-	make -C build DESTDIR=$$(pwd)/debian/dvswitch-voc install
+	$(MAKE) -C build DESTDIR=$$(pwd)/debian/tmp install
 	touch install-stamp
 
 binary : binary-arch binary-indep
 
 binary-arch : install-stamp
-	dh_install -a --sourcedir=debian/dvswitch-voc
+	dh_install -a --sourcedir=debian/tmp
 	dh_strip
 	dh_shlibdeps
 	dh_installchangelogs -a ChangeLog
