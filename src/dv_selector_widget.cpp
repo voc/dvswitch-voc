@@ -128,13 +128,13 @@ void dv_selector_widget::set_source_count(unsigned count)
 		    create_radio_button(audio_button_group_,
 					audio_source_pixbuf_);
 		audio_button_list_.push_back(audio_button);
-		// disable by default
-		audio_button->set_sensitive(false);
+		// disable by default, if not in expert mode
+		audio_button->set_sensitive(expert_mode ? true : false);
 		audio_button->signal_pressed().connect(
-		    sigc::bind(
-			sigc::mem_fun(*this,
-				      &dv_selector_widget::on_audio_selected),
-			i));
+				sigc::bind(
+					sigc::mem_fun(*this,
+						&dv_selector_widget::on_audio_selected),
+					i));
 		audio_button->show();
 		attach(*audio_button,
 		       column + column_labels, column + column_labels + 1,
@@ -196,6 +196,9 @@ void dv_selector_widget::put_frame(mixer::source_id source_id,
 
 void dv_selector_widget::toggle_audio_buttons()
 {
+    if(export_mode)
+        return;
+
     std::vector<Gtk::RadioButton*>::iterator it = audio_button_list_.begin();
     for (; it != audio_button_list_.end(); it++) {
 	(*it)->set_sensitive(!(*it)->is_sensitive());

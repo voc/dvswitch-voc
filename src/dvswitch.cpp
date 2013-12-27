@@ -26,11 +26,13 @@ namespace
 	{"host",             1, NULL, 'h'},
 	{"port",             1, NULL, 'p'},
 	{"help",             0, NULL, 'H'},
+	{"expert",           0, NULL, 'e'},
 	{NULL,               0, NULL, 0}
     };
 
     std::string mixer_host;
     std::string mixer_port;
+    bool expert = false;
 
     extern "C"
     {
@@ -47,7 +49,7 @@ namespace
     {
 	std::cerr << "\
 Usage: " << progname << " [gtk-options] \\\n\
-           [{-h|--host} LISTEN-HOST] [{-p|--port} LISTEN-PORT]\n";
+           [{-h|--host} LISTEN-HOST] [{-p|--port} LISTEN-PORT] [{-e|--expert}]\n";
     }
 }
 
@@ -76,6 +78,9 @@ int main(int argc, char **argv)
 	    case 'H': /* --help */
 		usage(argv[0]);
 		return 0;
+	    case 'e':
+		expert = true;
+		break;
 	    default:
 		usage(argv[0]);
 		return 2;
