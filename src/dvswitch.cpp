@@ -20,6 +20,8 @@
 #include "mixer_window.hpp"
 #include "server.hpp"
 
+bool expert_mode = false;
+
 namespace
 {
     struct option options[] = {
@@ -32,7 +34,6 @@ namespace
 
     std::string mixer_host;
     std::string mixer_port;
-    bool expert = false;
 
     extern "C"
     {
@@ -79,7 +80,7 @@ int main(int argc, char **argv)
 		usage(argv[0]);
 		return 0;
 	    case 'e':
-		expert = true;
+		expert_mode = true;
 		break;
 	    default:
 		usage(argv[0]);

@@ -11,6 +11,8 @@
 #include "dv_selector_widget.hpp"
 #include "gui.hpp"
 
+extern bool expert_mode;
+
 namespace
 {
     enum {
@@ -196,7 +198,7 @@ void dv_selector_widget::put_frame(mixer::source_id source_id,
 
 void dv_selector_widget::toggle_audio_buttons()
 {
-    if(export_mode)
+    if(expert_mode)
         return;
 
     std::vector<Gtk::RadioButton*>::iterator it = audio_button_list_.begin();
