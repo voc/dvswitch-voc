@@ -107,9 +107,9 @@ void dv_selector_widget::set_source_count(unsigned count)
 
 		char label_text[4];
 		snprintf(label_text, sizeof(label_text),
-			 (i < 9) ? "_%u" : "%u", unsigned(1 + i));
+			 "%u", unsigned(1 + i));
 		Gtk::Label * label =
-		    manage(new Gtk::Label(label_text, true));
+		    manage(new Gtk::Label(label_text));
 		label->show();
 		attach(*label,
 		       column + column_labels, column + column_labels + 1,
@@ -171,10 +171,14 @@ void dv_selector_widget::set_source_count(unsigned count)
 		{
 		    // Make the mnemonic on the label work.  Also make
 		    // the numeric keypad and Alt-keys work.
-		    label->set_mnemonic_widget(*pri_video_button);
 		    pri_video_button->add_accelerator("activate",
 						  accel_group_,
 						  GDK_KP_1 + i,
+						  Gdk::ModifierType(0),
+						  Gtk::AccelFlags(0));
+		    pri_video_button->add_accelerator("activate",
+						  accel_group_,
+						  '1' + i,
 						  Gdk::ModifierType(0),
 						  Gtk::AccelFlags(0));
 		    pri_video_button->signal_activate().connect(
@@ -183,16 +187,15 @@ void dv_selector_widget::set_source_count(unsigned count)
 				*this,
 				&dv_selector_widget::on_pri_video_selected),
 			    i));
-
 			sec_video_button->add_accelerator("activate",
 						      accel_group_,
 						      '1' + i,
-						      Gdk::SHIFT_MASK,
+						      Gdk::CONTROL_MASK,
 						      Gtk::AccelFlags(0));
 		    sec_video_button->add_accelerator("activate",
 						      accel_group_,
 						      GDK_KP_1 + i,
-						      Gdk::SHIFT_MASK,
+						      Gdk::CONTROL_MASK,
 						      Gtk::AccelFlags(0));
 		    sec_video_button->signal_activate().connect(
 			sigc::bind(
@@ -200,7 +203,6 @@ void dv_selector_widget::set_source_count(unsigned count)
 				*this,
 				&dv_selector_widget::on_sec_video_selected),
 			    i));
-
 		    audio_button->add_accelerator("activate",
 						  accel_group_,
 						  '1' + i,
