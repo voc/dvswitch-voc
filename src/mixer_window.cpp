@@ -55,6 +55,7 @@ mixer_window::mixer_window(mixer & mixer)
     cut_button_.show();
 
     pip_button_.set_mode(/*draw_indicator=*/false);
+    pip_button_.set_can_focus(false);
     pip_button_.set_sensitive(true);
     pip_button_.signal_clicked().connect(sigc::mem_fun(this, &mixer_window::apply_pic_in_pic));
     pip_button_.show();
