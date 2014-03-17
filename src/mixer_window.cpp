@@ -21,20 +21,15 @@
 #include "mixer.hpp"
 #include "mixer_window.hpp"
 
-mixer_window::mixer_window(mixer & mixer)
+mixer_window::mixer_window(mixer & mixer, rectangle pip_area)
     : mixer_(mixer),
       cut_button_("gtk-cut"),
       pip_button_("_Pic-in-pic", true),
       vu_meter_(-56, 0),
-      pip_area_(),
+      pip_area_(pip_area),
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)      
 {
-    pip_area_.left = 10;
-    pip_area_.top = 10;
-    pip_area_.right = 110;
-    pip_area_.bottom = 110;
-
     add_events(Gdk::KEY_PRESS_MASK);
 
     cut_button_.set_use_stock();

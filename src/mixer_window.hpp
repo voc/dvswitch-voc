@@ -29,7 +29,7 @@ namespace Glib
 class mixer_window : public Gtk::Window, public mixer::monitor
 {
 public:
-    explicit mixer_window(mixer & mixer);
+    explicit mixer_window(mixer & mixer, rectangle pip_area);
     ~mixer_window();
 
 private:
