@@ -24,10 +24,18 @@
 mixer_window::mixer_window(mixer & mixer)
     : mixer_(mixer),
       cut_button_("gtk-cut"),
+      pip_button_("_Pic-in-pic", true),
       vu_meter_(-56, 0),
+      pip_active_(false),
+      pip_area_(),
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)      
 {
+    pip_area_.left = 10;
+    pip_area_.top = 10;
+    pip_area_.right = 110;
+    pip_area_.bottom = 110;
+
     add_events(Gdk::KEY_PRESS_MASK);
 
     cut_button_.set_use_stock();
@@ -46,6 +54,11 @@ mixer_window::mixer_window(mixer & mixer)
     cut_button_.signal_clicked().connect(sigc::mem_fun(mixer_, &mixer::cut));
     cut_button_.show();
 
+    pip_button_.set_mode(/*draw_indicator=*/false);
+    pip_button_.set_sensitive(true);
+    pip_button_.signal_clicked().connect(sigc::mem_fun(this, &mixer_window::apply_pic_in_pic));
+    pip_button_.show();
+
     cut_sep_.show();
 
     vu_meter_.set_size_request(80, 300);
@@ -56,9 +69,11 @@ mixer_window::mixer_window(mixer & mixer)
     selector_.set_border_width(gui_standard_spacing);
     selector_.set_accel_group(get_accel_group());
     selector_.signal_pri_video_selected().connect(
-	sigc::mem_fun(*this, &mixer_window::set_pri_video_source));
+	   sigc::mem_fun(*this, &mixer_window::set_pri_video_source));
+    selector_.signal_sec_video_selected().connect(
+        sigc::mem_fun(*this, &mixer_window::set_sec_video_source));
     selector_.signal_audio_selected().connect(
-	sigc::mem_fun(mixer_, &mixer::set_audio_source));
+	   sigc::mem_fun(mixer_, &mixer::set_audio_source));
     selector_.show();
 
     vu_box_.set_spacing(gui_standard_spacing);
@@ -67,6 +82,7 @@ mixer_window::mixer_window(mixer & mixer)
 
     command_box_.set_spacing(gui_standard_spacing);
     command_box_.pack_start(cut_button_, Gtk::PACK_SHRINK);
+    command_box_.pack_start(pip_button_, Gtk::PACK_SHRINK);
     command_box_.pack_start(cut_sep_, Gtk::PACK_SHRINK);
     command_box_.pack_start(selector_, Gtk::PACK_SHRINK);
     command_box_.show();
@@ -84,9 +100,34 @@ mixer_window::~mixer_window()
 {
 }
 
+void mixer_window::apply_pic_in_pic()
+{
+    if (pip_active_) // FIXME check togglebutton state directly
+    {
+        mixer_.set_video_effect(mixer::null_video_effect());
+        pip_active_ = false;
+    }
+    else
+    {
+        pip_active_ = true;
+        mixer_.set_video_effect(
+            mixer_.create_video_effect_pic_in_pic(
+            sec_video_source_id_, pip_area_));
+    }
+}
+
 void mixer_window::set_pri_video_source(mixer::source_id id)
 {
     mixer_.set_video_source(id);
+}
+void mixer_window::set_sec_video_source(mixer::source_id id)
+{
+    sec_video_source_id_ = id;
+
+    if (pip_active_)
+        mixer_.set_video_effect(
+            mixer_.create_video_effect_pic_in_pic(
+            sec_video_source_id_, pip_area_));
 }
 
 void mixer_window::put_frames(unsigned source_count,

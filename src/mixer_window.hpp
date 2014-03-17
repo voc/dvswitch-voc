@@ -38,6 +38,8 @@ private:
     bool update(Glib::IOCondition) throw();
 
     void set_pri_video_source(mixer::source_id);
+    void set_sec_video_source(mixer::source_id);
+    void apply_pic_in_pic();
 
     virtual void put_frames(unsigned source_count,
 			    const dv_frame_ptr * source_dv,
@@ -53,10 +55,15 @@ private:
     Gtk::VBox command_box_;
     Gtk::VBox vu_box_;
     Gtk::Button cut_button_;
+    Gtk::ToggleButton pip_button_;
     Gtk::HSeparator cut_sep_;
     vu_meter vu_meter_;
     dv_full_display_widget display_;
     dv_selector_widget selector_;
+
+    mixer::source_id sec_video_source_id_;
+    bool pip_active_;
+    rectangle pip_area_;
 
     auto_pipe wakeup_pipe_;
 
