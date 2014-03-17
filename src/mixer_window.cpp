@@ -103,6 +103,14 @@ void mixer_window::apply_pic_in_pic()
     }
     else
     {
+        if(pri_video_source_id_ == sec_video_source_id_)
+        {
+            // switching pip on with same pri & sec source -> deny
+            // (same source in pip is never desired)
+            pip_button_.set_active(false);
+            return;
+        }
+
         mixer_.set_video_effect(
             mixer_.create_video_effect_pic_in_pic(
             sec_video_source_id_, pip_area_));
@@ -111,10 +119,25 @@ void mixer_window::apply_pic_in_pic()
 
 void mixer_window::set_pri_video_source(mixer::source_id id)
 {
+    if(sec_video_source_id_ == id)
+    {
+        // switching pri to the same number as sec -> disable pip if active
+        // (same source in pip is never desired)
+        pip_button_.set_active(false);
+    }
+
+    pri_video_source_id_ = id;
     mixer_.set_video_source(id);
 }
 void mixer_window::set_sec_video_source(mixer::source_id id)
 {
+    if(pri_video_source_id_ == id)
+    {
+        // switching pri to the same number as sec -> disable pip if active
+        // (same source in pip is never desired)
+        pip_button_.set_active(false);
+    }
+
     sec_video_source_id_ = id;
 
     if (pip_button_.get_active())
