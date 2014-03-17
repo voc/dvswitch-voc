@@ -26,7 +26,6 @@ mixer_window::mixer_window(mixer & mixer)
       cut_button_("gtk-cut"),
       pip_button_("_Pic-in-pic", true),
       vu_meter_(-56, 0),
-      pip_active_(false),
       pip_area_(),
       wakeup_pipe_(O_NONBLOCK, O_NONBLOCK),
       next_source_id_(0)      
@@ -103,14 +102,12 @@ mixer_window::~mixer_window()
 
 void mixer_window::apply_pic_in_pic()
 {
-    if (pip_active_) // FIXME check togglebutton state directly
+    if (!pip_button_.get_active())
     {
         mixer_.set_video_effect(mixer::null_video_effect());
-        pip_active_ = false;
     }
     else
     {
-        pip_active_ = true;
         mixer_.set_video_effect(
             mixer_.create_video_effect_pic_in_pic(
             sec_video_source_id_, pip_area_));
@@ -125,7 +122,7 @@ void mixer_window::set_sec_video_source(mixer::source_id id)
 {
     sec_video_source_id_ = id;
 
-    if (pip_active_)
+    if (pip_button_.get_active())
         mixer_.set_video_effect(
             mixer_.create_video_effect_pic_in_pic(
             sec_video_source_id_, pip_area_));

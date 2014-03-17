@@ -62,7 +62,6 @@ private:
     dv_selector_widget selector_;
 
     mixer::source_id sec_video_source_id_;
-    bool pip_active_;
     rectangle pip_area_;
 
     auto_pipe wakeup_pipe_;
