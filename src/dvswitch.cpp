@@ -67,10 +67,10 @@ int main(int argc, char **argv)
 	// Complete option parsing with Gtk's options out of the way.
 
 	rectangle pip_area_;
-	pip_area_.left = 10;
-	pip_area_.top = 10;
-	pip_area_.right = 10 + 200;
-	pip_area_.bottom = 10 + 150;
+	pip_area_.left = 470;
+	pip_area_.top = 386;
+	pip_area_.right = 470 + 200;
+	pip_area_.bottom = 386 + 150;
 
 	int opt;
 	while ((opt = getopt_long(argc, argv, "h:p:i:", options, NULL)) != -1)
