@@ -23,6 +23,7 @@ namespace
     enum {
 	row_text_label,
 	row_pri_video_button,
+	row_sec_video_button,
 	row_audio_button,
 	row_separator,
 	row_multiplier
@@ -33,8 +34,14 @@ dv_selector_widget::dv_selector_widget()
     : pri_video_source_pixbuf_(
 	  Gdk::Pixbuf::create_from_file(SHAREDIR
 					"/dvswitch-voc/pri-video-source.png")),
+
+      sec_video_source_pixbuf_(
+	  Gdk::Pixbuf::create_from_file(SHAREDIR
+					"/dvswitch-voc/sec-video-source.png")),
+
       audio_source_pixbuf_(
-	  Gdk::Pixbuf::create_from_file(SHAREDIR "/dvswitch-voc/audio-source.png"))
+	  Gdk::Pixbuf::create_from_file(SHAREDIR
+	  				"/dvswitch-voc/audio-source.png"))
 {
     set_col_spacings(gui_standard_spacing);
     set_row_spacings(gui_standard_spacing);
@@ -100,9 +107,9 @@ void dv_selector_widget::set_source_count(unsigned count)
 
 		char label_text[4];
 		snprintf(label_text, sizeof(label_text),
-			 (i < 9) ? "_%u" : "%u", unsigned(1 + i));
+			 "%u", unsigned(1 + i));
 		Gtk::Label * label =
-		    manage(new Gtk::Label(label_text, true));
+		    manage(new Gtk::Label(label_text));
 		label->show();
 		attach(*label,
 		       column + column_labels, column + column_labels + 1,
@@ -123,6 +130,22 @@ void dv_selector_widget::set_source_count(unsigned count)
 		       column + column_labels, column + column_labels + 1,
 		       row + row_pri_video_button,
 		       row + row_pri_video_button + 1,
+		       Gtk::FILL, Gtk::FILL,
+		       0, 0);
+
+		Gtk::RadioButton * sec_video_button =
+		    create_radio_button(sec_video_button_group_,
+					sec_video_source_pixbuf_);
+		sec_video_button->signal_pressed().connect(
+		    sigc::bind(
+			sigc::mem_fun(*this,
+				      &dv_selector_widget::on_sec_video_selected),
+			i));
+		sec_video_button->show();
+		attach(*sec_video_button,
+		       column + column_labels, column + column_labels + 1,
+		       row + row_sec_video_button,
+		       row + row_sec_video_button + 1,
 		       Gtk::FILL, Gtk::FILL,
 		       0, 0);
 
@@ -148,10 +171,14 @@ void dv_selector_widget::set_source_count(unsigned count)
 		{
 		    // Make the mnemonic on the label work.  Also make
 		    // the numeric keypad and Alt-keys work.
-		    label->set_mnemonic_widget(*pri_video_button);
 		    pri_video_button->add_accelerator("activate",
 						  accel_group_,
 						  GDK_KP_1 + i,
+						  Gdk::ModifierType(0),
+						  Gtk::AccelFlags(0));
+		    pri_video_button->add_accelerator("activate",
+						  accel_group_,
+						  '1' + i,
 						  Gdk::ModifierType(0),
 						  Gtk::AccelFlags(0));
 		    pri_video_button->signal_activate().connect(
@@ -159,6 +186,22 @@ void dv_selector_widget::set_source_count(unsigned count)
 			    sigc::mem_fun(
 				*this,
 				&dv_selector_widget::on_pri_video_selected),
+			    i));
+			sec_video_button->add_accelerator("activate",
+						      accel_group_,
+						      '1' + i,
+						      Gdk::CONTROL_MASK,
+						      Gtk::AccelFlags(0));
+		    sec_video_button->add_accelerator("activate",
+						      accel_group_,
+						      GDK_KP_1 + i,
+						      Gdk::CONTROL_MASK,
+						      Gtk::AccelFlags(0));
+		    sec_video_button->signal_activate().connect(
+			sigc::bind(
+			    sigc::mem_fun(
+				*this,
+				&dv_selector_widget::on_sec_video_selected),
 			    i));
 		    audio_button->add_accelerator("activate",
 						  accel_group_,
@@ -214,6 +257,12 @@ dv_selector_widget::signal_pri_video_selected()
 }
 
 sigc::signal1<void, mixer::source_id> &
+dv_selector_widget::signal_sec_video_selected()
+{
+    return sec_video_selected_signal_;
+}
+
+sigc::signal1<void, mixer::source_id> &
 dv_selector_widget::signal_audio_selected()
 {
     return audio_selected_signal_;
@@ -222,6 +271,11 @@ dv_selector_widget::signal_audio_selected()
 void dv_selector_widget::on_pri_video_selected(mixer::source_id source_id)
 {
     pri_video_selected_signal_(source_id);
+}
+
+void dv_selector_widget::on_sec_video_selected(mixer::source_id source_id)
+{
+    sec_video_selected_signal_(source_id);
 }
 
 void dv_selector_widget::on_audio_selected(mixer::source_id source_id)

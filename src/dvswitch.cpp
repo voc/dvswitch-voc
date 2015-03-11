@@ -29,6 +29,7 @@ namespace
 	{"port",             1, NULL, 'p'},
 	{"help",             0, NULL, 'H'},
 	{"expert",           0, NULL, 'e'},
+	{"pip",              0, NULL, 'i'},
 	{NULL,               0, NULL, 0}
     };
 
@@ -50,7 +51,7 @@ namespace
     {
 	std::cerr << "\
 Usage: " << progname << " [gtk-options] \\\n\
-           [{-h|--host} LISTEN-HOST] [{-p|--port} LISTEN-PORT] [{-e|--expert}]\n";
+           [{-h|--host} LISTEN-HOST] [{-p|--port} LISTEN-PORT] [{-e|--expert}] [{-i|--pip} 10,10,210,160]\n";
     }
 }
 
@@ -65,8 +66,14 @@ int main(int argc, char **argv)
 
 	// Complete option parsing with Gtk's options out of the way.
 
+	rectangle pip_area_;
+	pip_area_.left = 470;
+	pip_area_.top = 386;
+	pip_area_.right = 470 + 200;
+	pip_area_.bottom = 386 + 150;
+
 	int opt;
-	while ((opt = getopt_long(argc, argv, "h:p:", options, NULL)) != -1)
+	while ((opt = getopt_long(argc, argv, "h:p:i:", options, NULL)) != -1)
 	{
 	    switch (opt)
 	    {
@@ -81,6 +88,15 @@ int main(int argc, char **argv)
 		return 0;
 	    case 'e':
 		expert_mode = true;
+		break;
+	    case 'i':
+			int left, top, width, height;
+			sscanf(optarg, "%i,%i,%i,%i", &left, &top, &width, &height);
+
+			pip_area_.left = left;
+			pip_area_.top = top;
+			pip_area_.right = left + width;
+			pip_area_.bottom = top + height;
 		break;
 	    default:
 		usage(argv[0]);
@@ -105,7 +121,7 @@ int main(int argc, char **argv)
 	std::auto_ptr<mixer_window> the_window;
 	mixer the_mixer;
 	server the_server(mixer_host, mixer_port, the_mixer);
-	the_window.reset(new mixer_window(the_mixer));
+	the_window.reset(new mixer_window(the_mixer, pip_area_));
 	the_mixer.set_monitor(the_window.get());
 	the_window->show();
 	the_window->signal_hide().connect(sigc::ptr_fun(&Gtk::Main::quit));
