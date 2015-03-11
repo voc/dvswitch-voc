@@ -1,3 +1,9 @@
+dvswitch-voc (0.8.3.6-6) stable; urgency=medium
+
+  * enable pip
+
+ --  <meise@koeln.ccc.de>  Wed, 11 Mar 2015 11:13:08 +0100
+
 dvswitch-voc (0.8.3.6-5) stable; urgency=low
 
   * New version with expert mode
