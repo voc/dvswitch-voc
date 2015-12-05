@@ -1,3 +1,9 @@
+dvswitch-voc (2015.12.06) stable; urgency=medium
+
+  * change version
+
+ -- Florian Larysch <fl@n621.de>  Sun, 06 Dec 2015 00:16:20 +0100
+
 dvswitch-voc (0.8.3.6-6) stable; urgency=medium
 
   * enable pip
